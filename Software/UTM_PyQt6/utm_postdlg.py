@@ -38,8 +38,8 @@ from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QFont
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
                              QFileDialog, QDoubleSpinBox, QSpinBox, QGroupBox, QSplitter,
                              QProgressBar, QMessageBox, QSlider, QCheckBox, QComboBox,
-                             QListWidget, QListWidgetItem, QInputDialog,
-                             QTableWidget, QTableWidgetItem)
+                             QListWidget, QListWidgetItem, QInputDialog, QDialog, QFrame,
+                             QScrollArea, QTableWidget, QTableWidgetItem)
 
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -385,6 +385,160 @@ class Run:
         return "ready to run" if self.ready else "needs two boxes"
 
 
+class GuideDialog(QDialog):
+    """The procedure, one step at a time, beside a list showing where that step sits.
+
+    Modeless: it is meant to be read WHILE working in the tab behind it, so it never takes the
+    input focus away and never blocks. `follow` keeps it pointed at whatever the tab has not done
+    yet, and switches itself off the moment the reader navigates by hand — an auto-advance that
+    fights the reader is worse than none.
+    """
+
+    def __init__(self, steps, state_fn, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("DIC Post-Processing — Guide")
+        self.setModal(False)
+        self.resize(880, 520)
+        self.steps = steps
+        self.state_fn = state_fn
+        self._follow = True
+        self._navigating = False          # True while WE move the selection, so it is not read
+                                          # as the reader taking over
+
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 12, 12, 12)
+        lay.setSpacing(10)
+
+        head = QLabel("Measuring strain from a recorded video, in %d steps" % len(steps))
+        head.setStyleSheet("font-size:15px; font-weight:bold; color:#e6edf3;")
+        lay.addWidget(head)
+
+        body = QHBoxLayout(); body.setSpacing(12)
+
+        self.list = QListWidget()
+        self.list.setFixedWidth(268)
+        self.list.setSpacing(1)
+        self.list.setStyleSheet(
+            "QListWidget { background:#0e1116; border:1px solid #2b3138; border-radius:4px;"
+            "              padding:5px; font-size:12px; }"
+            # No colour here on purpose: a stylesheet colour wins over setForeground(), which is
+            # what marks done / current / pending. Padding and shape only.
+            "QListWidget::item { padding:7px 8px; border-radius:3px; }"
+            "QListWidget::item:selected { background:#1f6fb4; color:#ffffff; }")
+        self.list.currentRowChanged.connect(self._on_pick)
+        body.addWidget(self.list)
+
+        pane = QScrollArea()
+        pane.setWidgetResizable(True)
+        pane.setFrameShape(QFrame.Shape.NoFrame)
+        inner = QWidget()
+        iv = QVBoxLayout(inner); iv.setContentsMargins(16, 14, 16, 14); iv.setSpacing(10)
+        self.stepNo = QLabel()
+        self.stepNo.setStyleSheet("color:#6b7280; font-size:11px; font-weight:bold;"
+                                  "letter-spacing:1px;")
+        self.stepTitle = QLabel(); self.stepTitle.setWordWrap(True)
+        self.stepTitle.setStyleSheet("font-size:19px; font-weight:bold; color:#e6edf3;")
+        rule = QFrame(); rule.setFrameShape(QFrame.Shape.HLine)
+        rule.setStyleSheet("color:#2b3138;")
+        self.stepBody = QLabel(); self.stepBody.setWordWrap(True)
+        self.stepBody.setTextFormat(Qt.TextFormat.RichText)
+        self.stepBody.setStyleSheet("font-size:13px; color:#c9d1d9; line-height:150%;")
+        self.stepBody.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.stepTips = QLabel(); self.stepTips.setWordWrap(True)
+        self.stepTips.setTextFormat(Qt.TextFormat.RichText)
+        self.stepTips.setStyleSheet(
+            "background:#12171d; border-left:3px solid #e8a80c; border-radius:3px;"
+            "padding:9px 12px; font-size:12px; color:#b9c2cc;")
+        iv.addWidget(self.stepNo); iv.addWidget(self.stepTitle); iv.addWidget(rule)
+        iv.addWidget(self.stepBody); iv.addWidget(self.stepTips)
+        iv.addStretch(1)
+        pane.setWidget(inner)
+        pane.setStyleSheet("QScrollArea { background:#0e1116; border:1px solid #2b3138;"
+                           "              border-radius:4px; }")
+        body.addWidget(pane, 1)
+        lay.addLayout(body, 1)
+
+        foot = QHBoxLayout()
+        self.followChk = QCheckBox("Follow my progress")
+        self.followChk.setChecked(True)
+        self.followChk.setToolTip("Jump to whichever step is next as you work. Turning the pages "
+                                  "by hand switches this off so the window stops moving under you.")
+        self.followChk.toggled.connect(self._on_follow)
+        self.progressLbl = QLabel(); self.progressLbl.setStyleSheet("color:#8b949e;")
+        self.backBtn = QPushButton("‹ Back"); self.backBtn.clicked.connect(lambda: self._step(-1))
+        self.nextBtn = QPushButton("Next ›"); self.nextBtn.clicked.connect(lambda: self._step(1))
+        closeBtn = QPushButton("Close"); closeBtn.clicked.connect(self.close)
+        foot.addWidget(self.followChk); foot.addSpacing(10); foot.addWidget(self.progressLbl)
+        foot.addStretch(1)
+        foot.addWidget(self.backBtn); foot.addWidget(self.nextBtn); foot.addWidget(closeBtn)
+        lay.addLayout(foot)
+
+        for i, st in enumerate(self.steps):
+            self.list.addItem(QListWidgetItem("%d.  %s" % (i + 1, st[0])))
+        self.refresh()
+
+    # ---- state -------------------------------------------------------------------------
+    def current_step(self):
+        """The first step whose result does not exist yet — i.e. the one to do next."""
+        done = self.state_fn()
+        return next((i for i, d in enumerate(done) if not d), len(done))
+
+    def refresh(self):
+        """Re-read the tab's state: re-tick the list, and follow along if asked to."""
+        done = self.state_fn()
+        cur = self.current_step()
+        for i in range(self.list.count()):
+            it = self.list.item(i)
+            mark = "✔" if done[i] else ("▶" if i == cur else "  ")
+            it.setText("%s  %d.  %s" % (mark, i + 1, self.steps[i][0]))
+            it.setForeground(QColor("#2f9e44") if done[i]
+                             else QColor("#ffffff") if i == cur else QColor("#6b7280"))
+            f = it.font(); f.setBold(i == cur); it.setFont(f)
+        n = sum(1 for d in done if d)
+        self.progressLbl.setText("%d of %d done" % (n, len(self.steps)))
+        if self._follow:
+            self._navigating = True
+            self.list.setCurrentRow(min(cur, len(self.steps) - 1))
+            self._navigating = False
+        elif self.list.currentRow() < 0:
+            self.list.setCurrentRow(0)
+        self._show(self.list.currentRow())
+
+    # ---- navigation --------------------------------------------------------------------
+    def _on_pick(self, i):
+        if not self._navigating and self._follow:
+            # The reader took over. Stop moving the page under them.
+            self.followChk.setChecked(False)
+        self._show(i)
+
+    def _on_follow(self, on):
+        self._follow = on
+        if on:
+            self.refresh()
+
+    def _step(self, d):
+        i = max(0, min(len(self.steps) - 1, self.list.currentRow() + d))
+        self.followChk.setChecked(False)
+        self.list.setCurrentRow(i)
+
+    def _show(self, i):
+        if not (0 <= i < len(self.steps)):
+            return
+        title, body, tips = self.steps[i]
+        done = self.state_fn()
+        tag = "STEP %d OF %d" % (i + 1, len(self.steps))
+        tag += "   ·   DONE" if done[i] else ("   ·   DO THIS NEXT" if i == self.current_step()
+                                              else "")
+        self.stepNo.setText(tag)
+        self.stepTitle.setText(title)
+        self.stepBody.setText(body)
+        self.stepTips.setText("".join(
+            '<p style="margin:0 0 7px 0;">•&nbsp;&nbsp;%s</p>' % t for t in tips))
+        self.stepTips.setVisible(bool(tips))
+        self.backBtn.setEnabled(i > 0)
+        self.nextBtn.setEnabled(i < len(self.steps) - 1)
+
+
 class PostProcTab(QWidget):
     log = pyqtSignal(str)
     PLOT_HZ = 8.0            # live plot refresh; the data is kept in full regardless
@@ -402,7 +556,7 @@ class PostProcTab(QWidget):
         self._running = None             # index being measured right now, for the legend tag
         self._line_c = self._line_t = None
         self._last_plot = 0.0
-        self._guide_open = True          # tracked here, not via isVisible(): see on_toggle_guide
+        self._guide_dlg = None           # the guide window, built on first use and then kept
         self._warned = False             # the status line is currently showing a marker-lost warning
         self._loading = False            # guard: writing widgets must not write back to the run
         self._build()
@@ -468,7 +622,14 @@ class PostProcTab(QWidget):
         self.loadBtn.clicked.connect(self.on_load)
         self.removeBtn = QPushButton("Remove"); self.removeBtn.clicked.connect(self.on_remove)
         self.clearAllBtn = QPushButton("Clear all"); self.clearAllBtn.clicked.connect(self.on_clear_all)
-        row.addWidget(self.loadBtn, 1); row.addWidget(self.removeBtn); row.addWidget(self.clearAllBtn)
+        # Beside the button that starts the procedure, because that is where somebody who does not
+        # know the procedure is already looking. Also on View ▸ Guided wizard ▸ DIC post-processing.
+        self.guideBtn = QPushButton("Guide")
+        self.guideBtn.setToolTip("Open the step-by-step guide. It ticks each step off as you "
+                                 "complete it, and stays open while you work.")
+        self.guideBtn.clicked.connect(self.on_guide)
+        row.addWidget(self.loadBtn, 1); row.addWidget(self.guideBtn)
+        row.addWidget(self.removeBtn); row.addWidget(self.clearAllBtn)
         lv.addLayout(row)
 
         self.runList = QListWidget()
@@ -627,29 +788,6 @@ class PostProcTab(QWidget):
         # collapsed away entirely, and when comparing six runs it can be pulled up instead.
         right = QSplitter(Qt.Orientation.Vertical)
 
-        # ---- the guide, above the plot rather than in the left column: the left column is
-        # already the tall one, and this is something you read while looking at the result.
-        guideBox = QWidget(); gv = QVBoxLayout(guideBox); gv.setContentsMargins(6, 6, 6, 0)
-        gv.setSpacing(3)
-        ghdr = QHBoxLayout()
-        gt = QLabel("How to use this tab")
-        gt.setStyleSheet("color:#8a8f98; font-weight:bold;")
-        ghdr.addWidget(gt); ghdr.addStretch(1)
-        self.guideBtn = QPushButton("Hide")
-        self.guideBtn.setToolTip("Collapse the guide. The steps tick themselves off as you go, so "
-                                 "it doubles as a reminder of what is left to do.")
-        self.guideBtn.setMaximumWidth(90)
-        self.guideBtn.clicked.connect(self.on_toggle_guide)
-        ghdr.addWidget(self.guideBtn)
-        gv.addLayout(ghdr)
-        self.guide = QLabel()
-        self.guide.setTextFormat(Qt.TextFormat.RichText)
-        self.guide.setWordWrap(True)
-        self.guide.setStyleSheet(
-            "background:#0e1116; border:1px solid #2b3138; border-left:3px solid #2f9e44;"
-            "border-radius:3px; padding:7px 10px; color:#c9d1d9;")
-        gv.addWidget(self.guide)
-
         plotBox = QWidget(); rv = QVBoxLayout(plotBox); rv.setContentsMargins(6, 6, 6, 6)
         self.fig = Figure(figsize=(6, 5))
         self.canvas = FigureCanvas(self.fig)
@@ -665,12 +803,7 @@ class PostProcTab(QWidget):
         self.savePlotBtn.clicked.connect(self.on_save_plot)
         prow.addWidget(self.showTrue, 1); prow.addWidget(self.savePlotBtn)
         rv.addLayout(prow)
-        # The guide sits above the plot but must not take a share of the stretch, or it would grow
-        # into the space the plot needs.
-        upper = QWidget(); uv = QVBoxLayout(upper)
-        uv.setContentsMargins(0, 0, 0, 0); uv.setSpacing(2)
-        uv.addWidget(guideBox, 0); uv.addWidget(plotBox, 1)
-        right.addWidget(upper)
+        right.addWidget(plotBox)
 
         tableBox = QWidget(); tv = QVBoxLayout(tableBox); tv.setContentsMargins(6, 0, 6, 6)
         hdr = QHBoxLayout()
@@ -701,36 +834,83 @@ class PostProcTab(QWidget):
         self._update_px_label()
         self._refresh_guide()
 
-    # Each step: (label, what it says). Which are DONE comes from _guide_state, which reads real
-    # state — a step is ticked because its result exists, not because the operator was told to do
-    # it. That is what makes this a wizard rather than a poster.
+    # Each step: (title, what to do, [things worth knowing]). Which are DONE comes from
+    # _guide_state, which reads real state — a step is ticked because its result exists, not
+    # because the operator was told to do it. That is what makes this a wizard rather than a
+    # poster, and it is why the window can say "do this next" and be right.
     GUIDE_STEPS = (
-        ("Add the video(s)",
-         "<b>Add video(s)…</b> — one, or several to compare on the same axes. Each keeps its own "
-         "boxes, frame rate and settings. Double-click a name to rename it; that name is what "
-         "appears in the plot legend."),
+        ("Add the video or videos",
+         "Press <b>Add video(s)…</b> at the top left and pick one file, or several at once. "
+         "Any format OpenCV can read works — .avi, .mp4, .mkv, .mov and more.",
+         ["Every video keeps its OWN boxes, frame rate and settings, so a rig recording and an "
+          "extensometer recording can sit in the same list without one spoiling the other.",
+          "Double-click a name in the list to rename it. That name is what labels the curve in "
+          "the plot and the column in the results table.",
+          "Select a video in the list to set it up; everything below the list then belongs to "
+          "that video."]),
         ("Check the frame rate",
-         "Containers routinely lie about fps — one of our own claims 35 and actually ran at 19.93, "
-         "which would stretch the whole time axis. Set the true rate under <b>Timebase</b>. A "
-         "warning appears when the file's value looks wrong."),
+         "Look at <b>Timebase ▸ Frame rate</b> and make sure it is the rate the camera actually "
+         "ran at. This is the one setting that silently distorts a result, because it scales the "
+         "whole time axis.",
+         ["A container's fps field is what the writer claimed, not what the camera did. One of "
+          "our own recordings declares 35 fps and actually ran at 19.93 — believing it would "
+          "stretch time by 1.76×.",
+          "For our own captures the true rate is read automatically from the recording's "
+          "frames/index.csv timestamps, and the note under the box says so.",
+          "A warning appears when the file's value looks implausible. If there is no sidecar, "
+          "work the rate out from the recording's duration and frame count and type it in.",
+          "<b>Analyse every N frames</b> below it trades detail for speed and does NOT affect "
+          "the time axis."]),
         ("Choose the reference frame",
-         "Scrub the <b>Reference frame</b> slider, or play it with ▶ ⏸ ⏹, to the frame where "
-         "strain should read zero — usually just after preload. That frame is what sets Px₀."),
+         "Drag the <b>Reference frame</b> slider, or play the video with ▶ ⏸ ⏹, to the frame "
+         "where strain should read zero — normally just after preload, before the pull starts.",
+         ["That frame sets Px₀, the marker separation everything is measured against. Strain is "
+          "(L − Px₀) / Px₀ and nothing else, so this choice IS the zero.",
+          "Play through the whole video once before committing: it is worth knowing that the "
+          "markers survive to the end before spending a run finding out.",
+          "Frame 0 is fine if the recording already starts at the preloaded state."]),
         ("Place the two boxes",
-         "<b>Auto-detect markers</b>, or click near a marker and the box snaps to its centre. "
-         "Drag a box, or select it and nudge with the arrow keys. Make the box <b>wider than the "
-         "marker's radius</b>: a patch sitting inside the dot has only flat black to lock onto and "
-         "is about 13× noisier."),
+         "Press <b>Auto-detect markers</b>, or click near each marker and the box snaps to that "
+         "marker's centre. Drag a box to move it, or select one and nudge it with the arrow keys.",
+         ["Make the box <b>wider than the marker's radius</b>. This is the single biggest lever "
+          "on precision: a patch that sits inside the dot has only flat black to lock onto and is "
+          "about 13× noisier than one that reaches past the edge.",
+          "The box half-size is suggested from the detected marker size — there is usually no "
+          "reason to shrink it.",
+          "Px₀ appears under the boxes as soon as both are placed. On a speckle pattern with no "
+          "discrete dots, place the boxes by hand; snapping has nothing to snap to.",
+          "<b>Search window</b> is how far a box may travel between frames. Raise it if a fast "
+          "pull loses tracking; leave it alone otherwise."]),
         ("Set the gauge",
-         "<b>Gauge (A→B)</b> is the real distance between the markers, in mm. It only sets px/mm — "
-         "strain itself is a ratio of PIXELS, so getting the gauge wrong changes no strain."),
+         "Type the real distance between the two markers, in mm, into <b>Gauge (A→B)</b>.",
+         ["This only sets px per mm. Strain itself is a ratio of PIXELS, so getting the gauge "
+          "wrong changes no strain — it changes only the reported scale.",
+          "Use the distance you actually measured on the specimen, not the nominal gauge length "
+          "of the specimen geometry."]),
         ("Run it",
-         "<b>Run this video</b>, or <b>Run all pending</b> for the whole list back to back. Watch "
-         "Px₀, L and ε above the video as it goes. If the markers are lost the run stops right "
-         "there, says so, and the plot keeps only what actually tracked."),
-        ("Take the results",
-         "<b>Save plot…</b>, <b>Copy table</b> or <b>Save table…</b>, <b>Export CSV</b> for the "
-         "per-frame data, or <b>Generate report</b> for the plot, table and settings on one page."),
+         "Press <b>Run this video</b>, or <b>Run all pending</b> to work through every video that "
+         "has its boxes placed, one after another, plotting each as it finishes.",
+         ["Watch the Px₀ / L / ε readout directly above the video. Seeing L climb while the "
+          "specimen stretches is what makes the tracking believable — a strain curve alone gives "
+          "no way to tell a real 2 % from a marker that has quietly slipped.",
+          "<b>Play the video while analysing</b> shows each frame with the boxes following the "
+          "markers. Turn it off for a slightly faster run on a long video.",
+          "If the markers are lost the run STOPS there, marks the point on the plot with an ×, "
+          "and keeps only what actually tracked. On a fracture test that point is normally the "
+          "fracture itself.",
+          "<b>Stop</b> ends a run early and keeps everything measured so far."]),
+        ("Take the results away",
+         "The plot and the results table are both live. When you are happy with them, save what "
+         "you need.",
+         ["<b>Save plot…</b> writes the plot exactly as shown — PDF or SVG stay sharp at any "
+          "size, so use those for a report.",
+          "<b>Copy table</b> puts it on the clipboard as tab-separated text, which pastes "
+          "straight into Excel. <b>Save table…</b> writes the same thing to a file.",
+          "<b>Export CSV</b> writes the per-frame data — one file per run, because the runs have "
+          "different frame rates and lengths and a merged sheet would need resampling.",
+          "<b>Generate report</b> is the one-press option: plot, table, settings and every run's "
+          "data, into a folder you choose.",
+          "Add another video and run it to compare two specimens on the same axes."]),
     )
 
     def _guide_state(self):
@@ -747,37 +927,23 @@ class PostProcTab(QWidget):
         ]
 
     def _refresh_guide(self):
-        if not self._guide_open or getattr(self, "guide", None) is None:
-            return
-        done = self._guide_state()
-        # The current step is the first not-yet-done one. Everything before it collapses to a
-        # ticked label and everything after dims, so the eye lands on the one thing to do next.
-        cur = next((i for i, d in enumerate(done) if not d), len(done))
-        SEP = "&nbsp;&nbsp;·&nbsp;&nbsp;"
-        parts = []
-        if cur:
-            parts.append(SEP.join(
-                '<span style="color:#2f9e44;">✔ <b>%d. %s</b></span>' % (i + 1, lab)
-                for i, (lab, _) in enumerate(self.GUIDE_STEPS[:cur])))
-        if cur < len(self.GUIDE_STEPS):
-            lab, text = self.GUIDE_STEPS[cur]
-            parts.append('<span style="color:#ffffff;">▶ <b>%d. %s</b> — %s</span>'
-                         % (cur + 1, lab, text))
-        else:
-            parts.append('<span style="color:#2f9e44;"><b>All steps complete.</b> Add another '
-                         'video to compare it against this one, or take the results away.</span>')
-        if cur + 1 < len(self.GUIDE_STEPS):
-            parts.append('<span style="color:#6b7280;">%s</span>' % SEP.join(
-                "%d. %s" % (i + 1, lab)
-                for i, (lab, _) in enumerate(self.GUIDE_STEPS)
-                if i > cur))
-        self.guide.setText("<br>".join(parts))
+        """Re-tick the guide window, if one is open. Cheap enough to call on any state change."""
+        d = getattr(self, "_guide_dlg", None)
+        if d is not None and d.isVisible():
+            d.refresh()
 
-    def on_toggle_guide(self):
-        self._guide_open = not self._guide_open
-        self.guide.setVisible(self._guide_open)
-        self.guideBtn.setText("Hide" if self._guide_open else "Show guide")
-        self._refresh_guide()
+    def on_guide(self):
+        """Open the guide, or bring it forward if it is already up.
+
+        One instance, kept rather than rebuilt, so the page the reader was on survives closing and
+        reopening it — and so "Follow my progress" does not silently switch itself back on.
+        """
+        if getattr(self, "_guide_dlg", None) is None:
+            self._guide_dlg = GuideDialog(self.GUIDE_STEPS, self._guide_state, self)
+        self._guide_dlg.refresh()
+        self._guide_dlg.show()
+        self._guide_dlg.raise_()
+        self._guide_dlg.activateWindow()
 
     def _want_true(self):
         """The checkbox is built after the axes, so this must survive not existing yet."""

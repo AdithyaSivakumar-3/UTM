@@ -5221,15 +5221,41 @@ class UTMApplication(QMainWindow):
 
     def _build_wizard(self, menu):
         from PyQt6.QtGui import QAction
-        self.wizardAct = QAction("&Guided wizard", self, checkable=True)
+        # Two guided wizards now, for two different jobs, so each says which job in its own name.
+        # "Guided wizard" alone was unambiguous while there was one; beside a sibling it would send
+        # somebody looking for the post-processing steps into the test-setup checklist.
+        sub = menu.addMenu("&Guided wizard")
+        self.wizardAct = QAction("Running a &test  (setup checklist)", self, checkable=True)
         self.wizardAct.setShortcut("Ctrl+Shift+G")
         self.wizardAct.setToolTip("A step-by-step checklist for setting up a test. Optional — "
                                   "it changes nothing, and closing it changes nothing.")
         self.wizardAct.toggled.connect(self._toggle_wizard)
-        menu.addAction(self.wizardAct)
+        sub.addAction(self.wizardAct)
+
+        # The post-processing guide lives on the tab that owns it, so the menu only opens it —
+        # there is one guide window, whichever way it is reached, and it keeps its page.
+        self.ppWizardAct = QAction("&DIC post-processing  (measuring a video)", self)
+        self.ppWizardAct.setShortcut("Ctrl+Shift+P")
+        self.ppWizardAct.setToolTip("Open the step-by-step guide for measuring strain from a "
+                                    "recorded video. Also on the Guide button in that tab.")
+        self.ppWizardAct.triggered.connect(self._open_postproc_guide)
+        sub.addAction(self.ppWizardAct)
+
         self._wizard_dock = None
         if self._recall_bool("ui/wizard_open", False):
             self.wizardAct.setChecked(True)
+
+    def _open_postproc_guide(self):
+        """Show the post-processing guide, switching to its tab so the steps have something to
+        point at. A guide describing controls that are not on screen is a leaflet, not a guide."""
+        tab = getattr(self, "postProcTab", None)
+        if tab is None:
+            QMessageBox.information(self, "Guide unavailable",
+                                    "The DIC Post-Processing tab did not load, so its guide has "
+                                    "nothing to describe. The console says why.")
+            return
+        self.tabWidget.setCurrentWidget(tab)
+        tab.on_guide()
 
     def _toggle_wizard(self, on):
         self._remember("ui/wizard_open", bool(on))
