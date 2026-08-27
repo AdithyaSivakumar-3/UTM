@@ -12,8 +12,9 @@
 # ===================================================================================
 import estimator_plots as EP                                          # noqa: E402
 
-EP.all_figs()
+_FIGS = EP.all_figs()
 _E = EP.load()
+_ND = _FIGS["noise_demo"]          # the worked example on the figure, so slide and figure agree
 
 _L0 = _E["method"]["S25"]["auto"]["l0"]
 _PX_UE = 1e6 / _L0                              # what one whole pixel is worth, in microstrain
@@ -233,4 +234,51 @@ footer(s, "The fixed level is KEPT — for reproducibility, since it depends onl
           "level stopped mattering. The −%.0f / −%.0f µε offset against the live rig is the same "
           "in every mode, so it is not the estimator."
           % (abs(_ACC["S25"]["mean_ue"]), abs(_ACC["S26"]["mean_ue"])))
+pageno(s)
+
+
+# ================================================================= 6. how noise is measured
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "HOW THE NOISE IS MEASURED — AND WHAT A MICROSTRAIN IS")
+img_fit(s, "documentation/figures/est_noise_method.png", 0.4, 1.16, 12.5, 2.62)
+
+header(s, 0.45, 4.00, 4.05, "The unit: microstrain (µε)")
+tb(s, 0.45, 4.38, 4.05, 2.05,
+   "Strain is a length divided by a length, so it carries NO unit. That makes the raw numbers "
+   "inconveniently small — a good measurement here is 0.000011 — so they are quoted in millionths.\n\n"
+   "        1 µε  =  10⁻⁶ strain  =  0.0001 %%\n\n"
+   "On this rig's 80 mm gauge, 1 µε is 0.08 µm of extension. Across the %.0f px pixel baseline it "
+   "is %.4f px of marker movement — which is why sub-pixel estimation is not optional."
+   % (_L0, _L0 * 1e-6), fs=10, colour=BLACK)
+
+header(s, 4.75, 4.00, 4.05, "The measurement, in three steps")
+table(s, 4.75, 4.38, 4.05, 2.05, [
+    ["", "Step", "Why"],
+    ["1", "Take a SHORT window where the\ntrue response is nearly straight",
+     "%.2f – %.2f %% strain, %d points" % (_ND["eps_lo"] * 100, _ND["eps_hi"] * 100, _ND["n"])],
+    ["2", "Fit a straight line to the marker\nseparation L over that window",
+     "the material is still elastic\nthere, so a line IS the model"],
+    ["3", "Take the standard deviation of\nwhat is left, ÷ Px₀, × 10⁶",
+     "%.3f px  →  %.1f µε" % (_ND["sd_px"], _ND["sd_ue"])],
+], cw=[0.35, 2.0, 1.7], hf=9.5, bf=8)
+
+header(s, 9.05, 4.00, 3.9, "What it is NOT")
+tb(s, 9.05, 4.38, 3.9, 2.05,
+   "Noise is the SCATTER, not the error in the answer. A measurement can be quiet and still be "
+   "offset — which is why accuracy is checked separately, against the live rig "
+   "(⟪DATA PROOF (2 OF 2)⟫).\n\n"
+   "It is not a fixed property of the rig either. It depends on the estimator, the patch size and "
+   "the marker, so a microstrain figure only means something alongside the settings that "
+   "produced it.",
+   fs=10, colour=BLACK)
+
+banner(s, 0.4, 6.55, 12.55, 0.52,
+       "The window must be SHORT and nearly straight, and fixed the same way for anything being "
+       "compared. Detrending a whole fracture curve with a polynomial measures how badly the "
+       "polynomial fits — a mistake already made once in this project, and the reason every "
+       "figure here is scored over one window pinned in frame numbers.",
+       fill=YELLOW_WARN, fg=BLACK, fs=10)
+footer(s, "Worked on S26 with the chosen estimator, over the same window every other estimator "
+          "figure uses — so this walkthrough lands on %.1f µε, the same number quoted on "
+          "⟪DATA PROOF (1 OF 2)⟫." % _ND["quoted_ue"])
 pageno(s)

@@ -4083,11 +4083,41 @@ if _stale:
         print("   ", _p)
     raise SystemExit(1)
 
+# ---- ONE deck, at one name.
+#
+# The lock fallback used to write V6a_8_6_20_slides_updated.pptx and stop there, which left two
+# files that both looked like the deck — one current and one silently months out of date. Worse,
+# the fallback name is gitignored, so the CURRENT deck was the one that never got committed.
+#
+# So: the canonical file is the only deck. If PowerPoint holds it, the build still produces
+# something to look at, but under a name that cannot be mistaken for the real thing, says loudly
+# that the deck was NOT updated, and is deleted by the next successful build.
+_DECK = "documentation/decks/V6a_8_6_20_slides.pptx"
+_TEMP = "documentation/decks/_LOCKED_rebuild_me.pptx"
+_STALE = ("documentation/decks/V6a_8_6_20_slides_updated.pptx", _TEMP)
+_n = len(prs.slides.__iter__.__self__._sldIdLst)
 try:
-    prs.save("documentation/decks/V6a_8_6_20_slides.pptx")
-    _n = len(prs.slides.__iter__.__self__._sldIdLst)
-    print(f"Saved: V6a_8_6_20_slides.pptx ({_n} slides, "
+    prs.save(_DECK)
+    print(f"Saved: {_os.path.basename(_DECK)} ({_n} slides, "
           f"pages {FIRST_PAGE}-{FIRST_PAGE + _n - 1}, {_resolved} refs resolved by title)")
+    # Tidying up the strays is a SEPARATE concern, and it gets its own guard. Folded into the
+    # try above, a stale file that PowerPoint happened to be holding raised PermissionError
+    # AFTER the deck had already been written, and the handler then announced that the deck had
+    # not been updated. A save that worked must never be reported as a save that failed.
+    for _old in _STALE:
+        if not _os.path.exists(_old):
+            continue
+        try:
+            _os.remove(_old)
+            print(f"Removed the stale {_os.path.basename(_old)} — it was not the deck.")
+        except OSError:
+            print(f"NOTE: {_os.path.basename(_old)} is open in PowerPoint, so it could not be "
+                  f"removed. It is NOT the deck — close it and delete it, or re-run this build.")
 except PermissionError:
-    prs.save("documentation/decks/V6a_8_6_20_slides_updated.pptx")
-    print("Original locked (open in PowerPoint). Saved: decks/V6a_8_6_20_slides_updated.pptx")
+    prs.save(_TEMP)
+    print("\n" + "!" * 78)
+    print(f"THE DECK WAS NOT UPDATED. {_os.path.basename(_DECK)} is open in PowerPoint and locked.")
+    print(f"This build went to {_os.path.basename(_TEMP)} ({_n} slides) so you can look at it,")
+    print("but it is NOT the deck. Close PowerPoint and run this again; the next successful")
+    print("build overwrites the real file and deletes that temporary one.")
+    print("!" * 78)

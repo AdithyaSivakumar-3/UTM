@@ -20,7 +20,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                       # noqa: E402
-from matplotlib.patches import Circle, Rectangle                      # noqa: E402
+from matplotlib.patches import Circle, Patch, Rectangle                      # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -34,6 +34,19 @@ import utm_postproc as PP                                             # noqa: E4
 GRID, MUTED, INK = "#DDDDDD", "#666666", "#212529"
 C_CORR, C_BIN, C_W, C_RIG = "#e08a1e", "#c0392b", "#1f6fb4", "#6c757d"
 GOOD, BAD = "#2e7d32", "#c0392b"
+
+
+def _specimen_legend(ax, **kw):
+    """Legend for the bar charts, where COLOUR means estimator and HATCH means specimen.
+
+    Labelling the bar call itself takes the first bar's colour for the swatch, so a red S25 / red
+    S26 legend appeared beside a chart whose bars were half blue — the swatch then claims a colour
+    meaning the chart does not give it. Neutral grey proxies say what the hatch means and leave the
+    colour to the axis labels, which already name the estimator under each group.
+    """
+    h = [Patch(facecolor="#9aa4ae", edgecolor="white", lw=0.8, label="S25"),
+         Patch(facecolor="#9aa4ae", edgecolor="white", lw=0.8, hatch="//", label="S26")]
+    ax.legend(handles=h, title="fill = specimen", **kw)
 
 
 def _style(ax):
@@ -245,7 +258,7 @@ def fig_compare(D):
     for i, (spec, hatch) in enumerate((("S25", ""), ("S26", "//"))):
         v = [D["method"][spec][k]["noise_ue"] for k in keys]
         b = ax.bar(xs + (i - 0.5) * w, v, w, color=cols, hatch=hatch,
-                   edgecolor="white", lw=0.8, label=spec)
+                   edgecolor="white", lw=0.8)
         for r, val in zip(b, v):
             ax.text(r.get_x() + r.get_width() / 2, val + 0.6, "%.1f" % val, ha="center",
                     fontsize=8.8, color=INK)
@@ -255,9 +268,10 @@ def fig_compare(D):
             ha="left", fontweight="bold")
     ax.set_xticks(xs); ax.set_xticklabels(names, fontsize=9)
     ax.set_ylabel("noise over the fixed window (µε)")
-    ax.set_title("Left bar S25, hatched bar S26 — the SAME frames, the same window",
+    ax.set_title("Every estimator scored on the SAME frames, over the same window",
                  fontsize=10.5, color=INK)
-    ax.legend(fontsize=8.5, loc="upper right", framealpha=0.95, ncol=2)
+    _specimen_legend(ax, fontsize=8.5, loc="upper right", framealpha=0.95, ncol=2,
+                     title_fontsize=8)
     ax.set_ylim(0, 36)
     _style(ax)
 
@@ -307,7 +321,7 @@ def fig_threshold(D):
         t = D["threshold"][spec]
         v = [t["binary_spread_px"], t["weighted_spread_px"]]
         b = bx.bar(xs + (i - 0.5) * w, v, w, color=[C_BIN, C_W], hatch=hatch,
-                   edgecolor="white", lw=0.8, label=spec)
+                   edgecolor="white", lw=0.8)
         for r, val in zip(b, v):
             bx.text(r.get_x() + r.get_width() / 2, val + 0.02,
                     "%.3f px\n%.0f µε" % (val, val / l0 * 1e6), ha="center", fontsize=8.4,
@@ -316,7 +330,7 @@ def fig_threshold(D):
                                           fontsize=9)
     bx.set_ylabel("total movement over the sweep (px)")
     bx.set_title("Weighting cuts the sensitivity ~2.5×", fontsize=10.5, color=INK)
-    bx.legend(fontsize=8.5)
+    _specimen_legend(bx, fontsize=8.5, loc="upper left", framealpha=0.95, title_fontsize=8)
     bx.set_ylim(0, 1.18)
     _style(bx)
     fig.tight_layout()
@@ -370,6 +384,92 @@ def fig_accuracy(D):
     _save(fig, "est_accuracy.png")
 
 
+# ================================================================== 6. how noise is measured
+def fig_noise(D):
+    """The noise measurement itself, in the three steps it actually takes.
+
+    Every microstrain figure in this deck comes out of this procedure, so it is worth showing
+    rather than asserting — particularly the window, which is the part that has already been got
+    wrong once in this project.
+    """
+    SPEC = "S26"
+    a = D["accuracy"][SPEC]
+    l0 = D["method"][SPEC]["auto"]["l0"]
+    t = np.array(a["post_t"], float)
+    e = np.array(a["post_e"], float)
+    L = l0 * (1.0 + e)                     # e is (L - l0)/l0, so this is the separation exactly
+
+    # The window is the one the cache pins in FRAME numbers, not one re-chosen from this run's own
+    # strain — otherwise this figure would explain the procedure while quietly not following it,
+    # and would print a different microstrain figure from every other slide for the same run.
+    # post_t carries the capture offset, so it comes back off before converting to a frame index.
+    off = D["capture_offset_s"][SPEC]
+    fps = a.get("fps") or 19.9273
+    i0, i1 = D["window_frames"][SPEC]
+    idx = (t - off) * fps
+    m = (idx >= i0) & (idx <= i1)
+    tw, Lw = t[m], L[m]
+    k = np.arange(m.sum())
+    fit = np.polyval(np.polyfit(k, Lw, 1), k)
+    res = Lw - fit
+    sd_px = float(res.std())
+    sd_ue = sd_px / l0 * 1e6
+
+    fig, axes = plt.subplots(1, 3, figsize=(12.6, 3.9),
+                             gridspec_kw={"width_ratios": [1.15, 1, 1]})
+
+    # (1) where the window is
+    ax = axes[0]
+    ax.plot(t, e * 100, color="#adb5bd", lw=1.6, label="the whole run")
+    ax.plot(tw, e[m] * 100, color=C_W, lw=2.6, label="the window used")
+    ax.axhspan(e[m].min() * 100, e[m].max() * 100, color=C_W, alpha=0.10)
+    ax.set_ylim(-0.15, 1.6)
+    ax.set_xlabel("time (s)"); ax.set_ylabel("DIC strain (%)")
+    ax.set_title("1 · take a SHORT, nearly straight window\n"
+                 "%.2f – %.2f %% strain, %d points  (run reaches %.1f %%)"
+                 % (e[m].min() * 100, e[m].max() * 100, m.sum(), e.max() * 100),
+                 fontsize=10, color=INK)
+    ax.legend(fontsize=8.5, loc="upper left", framealpha=0.95)
+    _style(ax)
+
+    # (2) the model that gets removed
+    ax = axes[1]
+    ax.plot(k, Lw, "o", ms=3.2, color=C_W, label="measured separation L")
+    ax.plot(k, fit, "-", color=BAD, lw=1.8, label="straight line fitted to it")
+    ax.set_xlabel("sample within the window")
+    ax.set_ylabel("marker separation L (px)")
+    ax.set_title("2 · fit a straight line and subtract it\n"
+                 "over this span the material is still elastic", fontsize=10, color=INK)
+    ax.legend(fontsize=8.5, loc="upper left", framealpha=0.95)
+    _style(ax)
+
+    # (3) what is left
+    ax = axes[2]
+    ax.axhspan(-sd_px, sd_px, color=GOOD, alpha=0.13, label="± 1 sd = %.3f px" % sd_px)
+    ax.axhline(0, color=MUTED, lw=1.0)
+    ax.plot(k, res, "-o", ms=3.0, lw=0.9, color=INK)
+    ax.set_xlabel("sample within the window")
+    ax.set_ylabel("residual (px)")
+    ax.set_title("3 · what is left is the NOISE\n"
+                 "sd ÷ Px₀ × 10⁶  =  %.1f µε" % sd_ue, fontsize=10, color=INK)
+    ax.legend(fontsize=8.5, loc="upper right", framealpha=0.95)
+    _style(ax)
+
+    fig.tight_layout()
+    _save(fig, "est_noise_method.png")
+    # Cross-check against the number the cache quotes for the same run and the same window. A
+    # figure that walks through the procedure and lands somewhere else is worse than no figure.
+    quoted = D["method"][SPEC]["auto"]["noise_ue"]
+    if abs(sd_ue - quoted) > 0.5:
+        print("     WARNING: the worked example gives %.1f ue but the cache quotes %.1f for the "
+              "same run" % (sd_ue, quoted))
+    else:
+        print("     (worked example %.1f ue, matches the cached %.1f)" % (sd_ue, quoted))
+    return {"sd_px": sd_px, "sd_ue": sd_ue, "n": int(m.sum()), "l0": l0,
+            "eps_lo": float(e[m].min()), "eps_hi": float(e[m].max()),
+            "quoted_ue": quoted}
+
+
 def all_figs():
     D = load()
     print("estimator figures (cache measured %s):" % D["measured"])
@@ -379,6 +479,7 @@ def all_figs():
     fig_compare(D)
     fig_threshold(D)
     fig_accuracy(D)
+    D["noise_demo"] = fig_noise(D)
     return D
 
 
