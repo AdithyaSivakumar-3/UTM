@@ -660,6 +660,9 @@ class PostProcTab(QWidget):
         split.setStretchFactor(0, 3); split.setStretchFactor(1, 4)
         lay = QVBoxLayout(self); lay.setContentsMargins(0, 0, 0, 0); lay.addWidget(split)
         self._refresh_table()
+        # The readout is built empty and filled by _update_px_label; without this the panel is a
+        # blank box until the first video is loaded.
+        self._update_px_label()
 
     def _want_true(self):
         """The checkbox is built after the axes, so this must survive not existing yet."""
