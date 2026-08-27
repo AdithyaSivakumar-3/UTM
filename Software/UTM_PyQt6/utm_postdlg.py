@@ -68,7 +68,10 @@ class FrameView(QLabel):
 
     def __init__(self):
         super().__init__()
-        self.setMinimumSize(260, 320)
+        # 320 px here made the left column taller than the window could show, which pushed
+        # the main status line below the fold. The pane still grows to fill whatever is
+        # spare — this is only the floor.
+        self.setMinimumSize(260, 200)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet("background:#101317; border:1px solid #2b3138;")
         self.setText("Load a video to begin")
@@ -375,7 +378,10 @@ class Run:
 
     def status(self):
         if self.done:
-            return "%.3f %% peak, %.0f %% tracked" % (max(self.e) * 100, self.summary.coverage)
+            tail = "  ·  MARKER LOST at %.2f s" % self.summary.lost_at_t \
+                if getattr(self.summary, "stopped_early", False) else ""
+            return "%.3f %% peak, %.0f %% tracked%s" % (max(self.e) * 100,
+                                                        self.summary.coverage, tail)
         return "ready to run" if self.ready else "needs two boxes"
 
 
@@ -396,6 +402,8 @@ class PostProcTab(QWidget):
         self._running = None             # index being measured right now, for the legend tag
         self._line_c = self._line_t = None
         self._last_plot = 0.0
+        self._guide_open = True          # tracked here, not via isVisible(): see on_toggle_guide
+        self._warned = False             # the status line is currently showing a marker-lost warning
         self._loading = False            # guard: writing widgets must not write back to the run
         self._build()
 
@@ -619,6 +627,29 @@ class PostProcTab(QWidget):
         # collapsed away entirely, and when comparing six runs it can be pulled up instead.
         right = QSplitter(Qt.Orientation.Vertical)
 
+        # ---- the guide, above the plot rather than in the left column: the left column is
+        # already the tall one, and this is something you read while looking at the result.
+        guideBox = QWidget(); gv = QVBoxLayout(guideBox); gv.setContentsMargins(6, 6, 6, 0)
+        gv.setSpacing(3)
+        ghdr = QHBoxLayout()
+        gt = QLabel("How to use this tab")
+        gt.setStyleSheet("color:#8a8f98; font-weight:bold;")
+        ghdr.addWidget(gt); ghdr.addStretch(1)
+        self.guideBtn = QPushButton("Hide")
+        self.guideBtn.setToolTip("Collapse the guide. The steps tick themselves off as you go, so "
+                                 "it doubles as a reminder of what is left to do.")
+        self.guideBtn.setMaximumWidth(90)
+        self.guideBtn.clicked.connect(self.on_toggle_guide)
+        ghdr.addWidget(self.guideBtn)
+        gv.addLayout(ghdr)
+        self.guide = QLabel()
+        self.guide.setTextFormat(Qt.TextFormat.RichText)
+        self.guide.setWordWrap(True)
+        self.guide.setStyleSheet(
+            "background:#0e1116; border:1px solid #2b3138; border-left:3px solid #2f9e44;"
+            "border-radius:3px; padding:7px 10px; color:#c9d1d9;")
+        gv.addWidget(self.guide)
+
         plotBox = QWidget(); rv = QVBoxLayout(plotBox); rv.setContentsMargins(6, 6, 6, 6)
         self.fig = Figure(figsize=(6, 5))
         self.canvas = FigureCanvas(self.fig)
@@ -634,7 +665,12 @@ class PostProcTab(QWidget):
         self.savePlotBtn.clicked.connect(self.on_save_plot)
         prow.addWidget(self.showTrue, 1); prow.addWidget(self.savePlotBtn)
         rv.addLayout(prow)
-        right.addWidget(plotBox)
+        # The guide sits above the plot but must not take a share of the stretch, or it would grow
+        # into the space the plot needs.
+        upper = QWidget(); uv = QVBoxLayout(upper)
+        uv.setContentsMargins(0, 0, 0, 0); uv.setSpacing(2)
+        uv.addWidget(guideBox, 0); uv.addWidget(plotBox, 1)
+        right.addWidget(upper)
 
         tableBox = QWidget(); tv = QVBoxLayout(tableBox); tv.setContentsMargins(6, 0, 6, 6)
         hdr = QHBoxLayout()
@@ -660,9 +696,88 @@ class PostProcTab(QWidget):
         split.setStretchFactor(0, 3); split.setStretchFactor(1, 4)
         lay = QVBoxLayout(self); lay.setContentsMargins(0, 0, 0, 0); lay.addWidget(split)
         self._refresh_table()
-        # The readout is built empty and filled by _update_px_label; without this the panel is a
-        # blank box until the first video is loaded.
+        # The readout and the guide are both built empty and filled here; without this they are
+        # blank boxes until the first video is loaded.
         self._update_px_label()
+        self._refresh_guide()
+
+    # Each step: (label, what it says). Which are DONE comes from _guide_state, which reads real
+    # state — a step is ticked because its result exists, not because the operator was told to do
+    # it. That is what makes this a wizard rather than a poster.
+    GUIDE_STEPS = (
+        ("Add the video(s)",
+         "<b>Add video(s)…</b> — one, or several to compare on the same axes. Each keeps its own "
+         "boxes, frame rate and settings. Double-click a name to rename it; that name is what "
+         "appears in the plot legend."),
+        ("Check the frame rate",
+         "Containers routinely lie about fps — one of our own claims 35 and actually ran at 19.93, "
+         "which would stretch the whole time axis. Set the true rate under <b>Timebase</b>. A "
+         "warning appears when the file's value looks wrong."),
+        ("Choose the reference frame",
+         "Scrub the <b>Reference frame</b> slider, or play it with ▶ ⏸ ⏹, to the frame where "
+         "strain should read zero — usually just after preload. That frame is what sets Px₀."),
+        ("Place the two boxes",
+         "<b>Auto-detect markers</b>, or click near a marker and the box snaps to its centre. "
+         "Drag a box, or select it and nudge with the arrow keys. Make the box <b>wider than the "
+         "marker's radius</b>: a patch sitting inside the dot has only flat black to lock onto and "
+         "is about 13× noisier."),
+        ("Set the gauge",
+         "<b>Gauge (A→B)</b> is the real distance between the markers, in mm. It only sets px/mm — "
+         "strain itself is a ratio of PIXELS, so getting the gauge wrong changes no strain."),
+        ("Run it",
+         "<b>Run this video</b>, or <b>Run all pending</b> for the whole list back to back. Watch "
+         "Px₀, L and ε above the video as it goes. If the markers are lost the run stops right "
+         "there, says so, and the plot keeps only what actually tracked."),
+        ("Take the results",
+         "<b>Save plot…</b>, <b>Copy table</b> or <b>Save table…</b>, <b>Export CSV</b> for the "
+         "per-frame data, or <b>Generate report</b> for the plot, table and settings on one page."),
+    )
+
+    def _guide_state(self):
+        """Which steps are done, read from real state rather than remembered."""
+        r = self.run
+        return [
+            bool(self.runs),                            # 1 a video is loaded
+            bool(r and r.fps > 0),                      # 2 a frame rate is set
+            bool(r),                                    # 3 a reference frame exists (0 counts)
+            bool(r and r.ready),                        # 4 both boxes placed
+            bool(r and self.gauge.value() > 0),         # 5 a gauge is set
+            bool(r and r.done),                         # 6 this video has been measured
+            bool(any(x.done for x in self.runs)),       # 7 there is something to take away
+        ]
+
+    def _refresh_guide(self):
+        if not self._guide_open or getattr(self, "guide", None) is None:
+            return
+        done = self._guide_state()
+        # The current step is the first not-yet-done one. Everything before it collapses to a
+        # ticked label and everything after dims, so the eye lands on the one thing to do next.
+        cur = next((i for i, d in enumerate(done) if not d), len(done))
+        SEP = "&nbsp;&nbsp;·&nbsp;&nbsp;"
+        parts = []
+        if cur:
+            parts.append(SEP.join(
+                '<span style="color:#2f9e44;">✔ <b>%d. %s</b></span>' % (i + 1, lab)
+                for i, (lab, _) in enumerate(self.GUIDE_STEPS[:cur])))
+        if cur < len(self.GUIDE_STEPS):
+            lab, text = self.GUIDE_STEPS[cur]
+            parts.append('<span style="color:#ffffff;">▶ <b>%d. %s</b> — %s</span>'
+                         % (cur + 1, lab, text))
+        else:
+            parts.append('<span style="color:#2f9e44;"><b>All steps complete.</b> Add another '
+                         'video to compare it against this one, or take the results away.</span>')
+        if cur + 1 < len(self.GUIDE_STEPS):
+            parts.append('<span style="color:#6b7280;">%s</span>' % SEP.join(
+                "%d. %s" % (i + 1, lab)
+                for i, (lab, _) in enumerate(self.GUIDE_STEPS)
+                if i > cur))
+        self.guide.setText("<br>".join(parts))
+
+    def on_toggle_guide(self):
+        self._guide_open = not self._guide_open
+        self.guide.setVisible(self._guide_open)
+        self.guideBtn.setText("Hide" if self._guide_open else "Show guide")
+        self._refresh_guide()
 
     def _want_true(self):
         """The checkbox is built after the axes, so this must survive not existing yet."""
@@ -744,6 +859,7 @@ class PostProcTab(QWidget):
                         "claim. Check it before trusting the time axis.")
 
     def _refresh_list(self):
+        self._refresh_guide()
         """Rebuild the list without disturbing which row is current."""
         cur = self.runList.currentRow()
         self.runList.blockSignals(True)
@@ -1320,6 +1436,9 @@ class PostProcTab(QWidget):
 
     def on_row(self, r):
         cur = self.run
+        if self._warned:                       # clear a previous run's amber warning
+            self.status.setStyleSheet("color:#c9d1d9;")
+            self._warned = False
         if r.ok and cur is not None:
             cur.t.append(r.t); cur.e.append(r.cauchy); cur.tr.append(r.true)
             self._update_px_label(l_px=r.l_px, corr=r.corr)
@@ -1358,6 +1477,19 @@ class PostProcTab(QWidget):
             if self._want_true():
                 self.ax.plot(r.t, [v * 100 for v in r.tr], color=r.colour, lw=1.0, ls="--",
                              alpha=0.7, label="%s — true" % r.label)
+            # A run that ended because the markers were lost gets a cross where the data stops.
+            # The status line says so too, but this is the artefact anyone actually looks at, and
+            # a curve that simply ends is indistinguishable from one that reached the end of its
+            # video — which is exactly the confusion worth removing.
+            if getattr(r.summary, "stopped_early", False) and r.t:
+                self.ax.plot([r.t[-1]], [r.e[-1] * 100], marker="x", ms=9, mew=2.2,
+                             color=r.colour, ls="none")
+                # Below-left of the cross, not above it: the last point of a run that lost its
+                # markers is by definition the highest strain reached, so anything placed above
+                # lands outside the axes and gets clipped.
+                self.ax.annotate("markers lost", (r.t[-1], r.e[-1] * 100),
+                                 textcoords="offset points", xytext=(-9, -13),
+                                 ha="right", va="top", fontsize=8, color=r.colour)
         if any_data:
             self.ax.legend(frameon=False, fontsize=9)
         self.fig.tight_layout()
@@ -1389,7 +1521,21 @@ class PostProcTab(QWidget):
         msg = ("%s — %d frames, %d tracked (%.1f %%), %d re-seed(s). Px₀ %.2f px, peak strain "
                "%.3f %%." % (r.label if r else "?", summary.n, summary.tracked, summary.coverage,
                              summary.reseeds, summary.l0_px, peak))
-        self.status.setText(msg)
+        # A run that ended because the markers were lost is NOT the same as one that reached the
+        # end of the video, and the difference decides how much of the plot can be believed. Say
+        # it where the operator is already looking, in a colour that is not the normal one.
+        if summary.stopped_early:
+            warn = ("MARKER LOST at %.2f s (frame %d) — tracking stopped there and the plot ends "
+                    "at %.2f s. On a fracture test this is normally the fracture itself."
+                    % (summary.lost_at_t, summary.lost_at_frame,
+                       summary.data_ends_t if summary.data_ends_t is not None else 0.0))
+            self.status.setText("⚠  " + warn + "   " + msg)
+            self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
+            self._warned = True
+            self.log.emit("[PostProc] " + warn)
+        else:
+            self.status.setStyleSheet("color:#c9d1d9;")
+            self.status.setText(msg)
         self.log.emit("[PostProc] " + msg)
         if summary.coverage < 90:
             self.log.emit("[PostProc] coverage below 90 % — try a larger box, a wider search "

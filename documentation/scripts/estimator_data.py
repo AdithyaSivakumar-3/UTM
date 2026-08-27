@@ -112,8 +112,12 @@ def _window_noise(rows, l0, span):
 def _run(video, ms, half, refine, span, step=STEP):
     A = PP.Box(ms[0][0], ms[0][1])
     B = PP.Box(ms[1][0], ms[1][1])
+    # stop_on_loss OFF here, deliberately. The app stops a run the moment tracking is lost, which
+    # is right for measuring a specimen — but these sweeps deliberately include configurations that
+    # track badly, and letting the run abort would score them over a shorter slice of the test than
+    # the good ones. That is the very bias the fixed frame window exists to remove.
     cfg = PP.Settings(gauge_mm=80, box_half=half, search=60, fps=19.9273, step=step,
-                      refine=refine)
+                      refine=refine, stop_on_loss=False)
     gen = PP.analyse(video, A, B, cfg)
     try:
         while True:
@@ -316,7 +320,8 @@ def accuracy_vs_live():
         fps = sc[0] if sc else 19.9273
         off = capture_offset(spec)
         A = PP.Box(ms[0][0], ms[0][1]); B = PP.Box(ms[1][0], ms[1][1])
-        cfg = PP.Settings(gauge_mm=80, box_half=half, search=60, fps=fps, step=STEP)
+        cfg = PP.Settings(gauge_mm=80, box_half=half, search=60, fps=fps, step=STEP,
+                          stop_on_loss=False)
         gen = PP.analyse(v, A, B, cfg)
         try:
             while True:

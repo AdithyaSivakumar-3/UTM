@@ -87,6 +87,13 @@ class Settings:
     #               estimator as a variable when post-processing is compared against a live run
     #               or against the extensometer.
     refine: str = "auto"
+    # Stop as soon as tracking is lost, rather than carrying on past it. Two CONSECUTIVE analysed
+    # frames rather than one: a row is only marked lost when the reference patch AND the re-seeded
+    # patch both fail, so a single one is already a strong signal — but a lone frame can still dip
+    # under min_corr on a flicker, and aborting a good run for one flickering frame is worse than
+    # carrying two useless rows that are dropped anyway.
+    stop_on_loss: bool = True
+    loss_tolerance: int = 2
 
 
 @dataclass
@@ -114,6 +121,16 @@ class Summary:
     px_mm: float = None
     fps: float = 0.0
     rows: list = field(default_factory=list)
+    # Set when the run was CUT SHORT because the markers were lost, rather than because the video
+    # ended. None means the run reached the end of the file.
+    lost_at_frame: int = None
+    lost_at_t: float = None
+    lost_reason: str = ""
+    data_ends_t: float = None      # t of the last row kept, i.e. where the plot stops
+
+    @property
+    def stopped_early(self):
+        return self.lost_at_frame is not None
 
     @property
     def coverage(self):
@@ -518,6 +535,7 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
     cap.set(cv2.CAP_PROP_POS_FRAMES, int(cfg.ref_frame))
     idx = cfg.ref_frame
     done = 0
+    lost_run = 0                 # consecutive analysed frames with no usable match
     while True:
         if should_stop and should_stop():
             break
@@ -593,6 +611,28 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
 
         summary.n += 1
         summary.rows.append(res)
+
+        # ---- give up at the point the markers are actually gone.
+        #
+        # The rows that recorded the loss are dropped, not kept: they carry NaN, they would show
+        # up in the CSV as measurements, and the last thing the record should end on is a frame
+        # where nothing was found. What remains ends at the last frame that genuinely tracked.
+        if res.ok:
+            lost_run = 0
+        elif cfg.stop_on_loss:
+            lost_run += 1
+            if lost_run >= max(1, cfg.loss_tolerance):
+                summary.lost_at_frame = idx
+                summary.lost_at_t = (idx - cfg.ref_frame) / fps if fps > 0 else float(idx)
+                summary.lost_reason = res.note or "no match"
+                while summary.rows and not summary.rows[-1].ok:
+                    summary.rows.pop()
+                    summary.n -= 1
+                # Where the DATA ends, which is not the same instant as where tracking failed and
+                # is the one the operator reads off the plot.
+                summary.data_ends_t = summary.rows[-1].t if summary.rows else 0.0
+                break
+
         if preview is not None:
             # Where the boxes are NOW, so the drawn overlay follows the markers apart rather than
             # sitting where they started. On a lost frame these are the last good positions.
@@ -647,6 +687,10 @@ def metrics(summary, cfg=None, label="", source_video=""):
                                          np.arange(m.sum()))).std() / summary.l0_px * 1e6)
     span = t[-1] - t[0]
     out += [
+        ("Tracking ended",
+         ("MARKER LOST at frame %d, t %.2f s — %s"
+          % (summary.lost_at_frame, summary.lost_at_t or 0.0, summary.lost_reason))
+         if summary.stopped_early else "end of video"),
         ("Frames analysed", "%d" % summary.n),
         ("Frames tracked", "%d  (%.1f %%)" % (summary.tracked, summary.coverage)),
         ("Measured by centroid", "%d" % summary.centroid_frames),
@@ -687,6 +731,16 @@ def to_csv(summary, path, source_video="", cfg=None):
                 % (cfg.box_half, cfg.search, cfg.min_corr))
         f.write("# Frames analysed: %d   tracked: %d (%.1f %%)   re-seeds: %d\n"
                 % (summary.n, summary.tracked, summary.coverage, summary.reseeds))
+        # Whether the record stops because the VIDEO ended or because TRACKING did is the first
+        # thing anyone reading this file later needs to know, and it is not recoverable from the
+        # rows — they look identical either way, because the untracked ones were dropped.
+        if summary.stopped_early:
+            f.write("# Tracking ended: MARKER LOST at frame %d (t %.3f s) - %s\n"
+                    "#                 Rows stop at t %.3f s; nothing past that was measured.\n"
+                    % (summary.lost_at_frame, summary.lost_at_t or 0.0, summary.lost_reason,
+                       summary.data_ends_t or 0.0))
+        else:
+            f.write("# Tracking ended: end of video\n")
         f.write("# DIC_Cauchy    = (L - L0)/L0   engineering strain\n")
         f.write("# DIC_LogStrain = ln(L / L0)    log / Hencky strain (the rig's CSVs call this\n")
         f.write("#                 DIC_True, which is the same quantity under a misleading name:\n")

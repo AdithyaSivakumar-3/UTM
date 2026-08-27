@@ -77,6 +77,16 @@ class UTMApplication(QMainWindow):
         # Load the UI file
         uic.loadUi(UI_FILE, self)
 
+        # ---- Pin the status line to the WINDOW, not to the scrolling content.
+        #
+        # The .ui puts statusLineEdit inside mainScrollArea, at the bottom of the scrolled column.
+        # That is fine while every tab is short, but the DIC post-processing tab is tall enough to
+        # push it below the fold, and the only way to read the status was to scroll down and back
+        # every time. Re-parenting it into verticalLayout_outer — the layout that holds the scroll
+        # area itself — leaves it permanently visible along the bottom edge. addWidget re-parents,
+        # so nothing has to be removed from the old layout first.
+        self.verticalLayout_outer.addWidget(self.statusLineEdit)
+
         # Set window title with version
         self.setWindowTitle(f"UTM Control v{__version__}")
 
