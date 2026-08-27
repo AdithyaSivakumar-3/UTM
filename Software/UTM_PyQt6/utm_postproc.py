@@ -257,11 +257,18 @@ def find_markers(gray, min_area=300, max_area=200000, min_circ=0.45, dedupe_px=2
 def reference_threshold(patch, dark=True):
     """One grey level for a marker, chosen once from its reference patch.
 
-    Otsu recomputed per frame is what makes a centroid noisy: the cut moves a little each frame,
-    the contour's extent moves with it, and the centroid inherits that. Measured on S25, a
-    per-frame Otsu centroid gives 151 microstrain against 25 for the same centroid on a threshold
-    fixed once — a factor of six, for a one-line difference. The live rig uses a fixed level for
-    exactly this reason.
+    Fixed rather than recomputed per frame, for REPRODUCIBILITY rather than precision: the level
+    then depends only on the reference frame, so re-running the same video cannot produce a
+    different answer because a later frame's histogram drifted.
+
+    It is worth being straight about what this does not buy. Measured over a fixed frame window,
+    a per-frame Otsu centroid comes out at 18.2 microstrain on S25 and 11.2 on S26, against 18.5
+    and 11.5 for a level fixed once — the same within 2 %. The choice is not what makes the
+    centroid quiet; the intensity weighting in centroid_refine is, and it is precisely because
+    that weighting uses the edge PROFILE rather than where the threshold cuts that the level stops
+    mattering much. An earlier note here claimed a factor of six in favour of the fixed level.
+    That was an artefact of a noise window each configuration chose from its own strain estimate,
+    and it is withdrawn.
     """
     thr, _ = cv2.threshold(patch, 0, 255,
                            (cv2.THRESH_BINARY_INV if dark else cv2.THRESH_BINARY) | cv2.THRESH_OTSU)
@@ -272,11 +279,12 @@ def centroid_refine(gray, cx, cy, half, dark=True, thr=None, min_frac=0.02, max_
                     weighted=True):
     """Re-locate a round marker by its intensity CENTROID, the way the live rig does.
 
-    Correlation is what finds a patch that has moved; it is not the best way to pin down WHERE a
-    large uniform dot is. Its peak on a flat disc is broad, so sub-pixel position comes from a
-    poorly-conditioned parabola. Measured on S25: correlation alone gives 175-379 microstrain of
-    noise depending on patch size, while the rig's blob centroid on the same specimen gives 28.
-    The centroid averages every pixel of the disc instead of reading one peak.
+    Correlation is what FINDS a patch that has moved; it is not the most dependable way to pin
+    down where a large uniform dot is. Its peak on a flat disc is broad, so sub-pixel position
+    comes from a poorly-conditioned parabola, and how well that behaves varies with the specimen:
+    over a fixed frame window, correlation alone gives 25.8 microstrain on S25 but 11.0 on S26.
+    The centroid averages every pixel of the disc instead of reading one peak, and lands at 18.4
+    and 11.3 — best or tied-best on both, which is the property worth having.
 
     Threshold is Otsu WITHIN the patch, not a fixed global level: the patch is mostly dot and
     surround, which is exactly the bimodal case Otsu is for, and it follows lighting drift down
@@ -322,19 +330,25 @@ def centroid_refine(gray, cx, cy, half, dark=True, thr=None, min_frac=0.02, max_
     #
     # A binary centroid weights every pixel inside the threshold equally, so where the threshold
     # cuts through the marker's soft edge decides the answer: move the level and the contour grows
-    # on whichever side is darker, taking the centre with it. Measured on one S25 frame, sweeping
-    # the threshold 125-185 moves a binary centre by 0.18 px (105 microstrain of L0); on S26,
-    # 0.84 px (500).
+    # on whichever side is darker, taking the centre with it. Sweeping the level 120-190 on the
+    # reference frame moves a binary centre by 0.221 px on S25 and 0.932 px on S26 — 132 and 556
+    # microstrain of L0, both larger than the whole measurement's noise floor.
     #
-    # Weighting by how dark each pixel is uses the edge profile instead of guessing where it ends.
+    # Weighting by how dark each pixel is uses the edge PROFILE instead of guessing where the edge
+    # ends, and the same sweep then moves the centre only 0.091 px (54 ue) and 0.372 px (222 ue).
     # The contour still SELECTS which blob is the marker — dropping that is what makes a plain
     # grey-weighted centroid fragile, because anything else dark in the patch pulls on it.
     #
-    #     estimator            S25 noise   S26 noise   threshold drift (S25 / S26)
-    #     binary contour        25.1 ue     22.5 ue      105 / 500 ue
-    #     contour + weighting   16.3 ue     14.7 ue       32 / 208 ue
+    # Measured over a window fixed in frame numbers so every estimator is scored over the same
+    # slice of the test (documentation/estimator_measurements.json):
     #
-    # against 28 ue for the live rig, which uses the binary form.
+    #     estimator            S25 noise   S26 noise   threshold sweep (S25 / S26)
+    #     correlation only      25.8 ue     11.0 ue         --
+    #     binary contour        25.2 ue     20.5 ue      132 / 556 ue
+    #     contour + weighting   18.4 ue     11.3 ue       54 / 222 ue
+    #
+    # against 28.2 / 28.9 ue for the live rig, which uses the binary form. All three agree on L0
+    # to 0.9 px and on peak strain to 0.05 %, so the estimator sets PRECISION, not the value.
     if not weighted:
         # Rig-matched: the plain binary centroid, so a comparison against a live run differs by
         # physics rather than by estimator.

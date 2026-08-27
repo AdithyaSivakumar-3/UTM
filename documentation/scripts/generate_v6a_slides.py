@@ -4052,6 +4052,9 @@ exec(open("documentation/scripts/gauge_slides_block.py", encoding="utf-8").read(
 # ---- S37: TPU at a 45 mm marker gauge, and the trio comparison redrawn with it
 exec(open("documentation/scripts/s37_slides_block.py", encoding="utf-8").read())
 
+# ---- DIC position estimators: what they do, the candidates, the choice, and the proof
+exec(open("documentation/scripts/estimator_slides_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)
