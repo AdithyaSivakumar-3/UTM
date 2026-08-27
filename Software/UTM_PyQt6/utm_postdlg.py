@@ -690,11 +690,25 @@ class PostProcTab(QWidget):
         self.stopPlayBtn.clicked.connect(self.on_stop_play)
         self.frameSlider = QSlider(Qt.Orientation.Horizontal)
         self.frameSlider.setEnabled(False)
-        self.frameSlider.valueChanged.connect(self.on_ref_frame)
+        self.frameSlider.valueChanged.connect(self.on_browse_frame)
         self.frameLbl = QLabel("0")
         fr.addWidget(self.playPauseBtn); fr.addWidget(self.stopPlayBtn)
         fr.addWidget(self.frameSlider, 1); fr.addWidget(self.frameLbl)
         lv.addLayout(fr)
+
+        # ---- committing the reference is a deliberate act, not a side effect of scrubbing.
+        rf = QHBoxLayout()
+        self.setRefBtn = QPushButton("Set this frame as the reference")
+        self.setRefBtn.setEnabled(False)
+        self.setRefBtn.setToolTip(
+            "Fix the frame you are looking at as the reference — the frame that defines Px₀ and "
+            "therefore zero strain.\n\nThe slider only browses. Nothing you do with it changes "
+            "the reference until you press this.")
+        self.setRefBtn.clicked.connect(self.on_set_ref)
+        self.refLbl = QLabel()
+        self.refLbl.setToolTip("Which frame is currently fixed as the reference.")
+        rf.addWidget(self.setRefBtn); rf.addWidget(self.refLbl, 1)
+        lv.addLayout(rf)
 
         g = QGroupBox("Virtual extensometer"); gl = QGridLayout(g)
         self.autoBtn = QPushButton("Auto-detect markers")
@@ -884,10 +898,15 @@ class PostProcTab(QWidget):
           "work the rate out from the recording's duration and frame count and type it in.",
           "<b>Analyse every N frames</b> below it trades detail for speed and does NOT affect "
           "the time axis."]),
-        ("Choose the reference frame",
+        ("Fix the reference frame",
          "Drag the <b>Reference frame</b> slider, or play the video with ▶ ⏸ ⏹, to the frame "
-         "where strain should read zero — normally just after preload, before the pull starts.",
-         ["That frame sets Px₀, the marker separation everything is measured against. Strain is "
+         "where strain should read zero — normally just after preload, before the pull starts — "
+         "then press <b>Set this frame as the reference</b>.",
+         ["The slider only BROWSES. Nothing you do with it moves the reference until you press "
+          "that button, so you can scrub and play the whole video without disturbing the setup. "
+          "The readout beside the button says which frame is fixed, and turns amber while you are "
+          "looking at a different one.",
+          "That frame sets Px₀, the marker separation everything is measured against. Strain is "
           "(L − Px₀) / Px₀ and nothing else, so this choice IS the zero.",
           "Play through the whole video once before committing: it is worth knowing that the "
           "markers survive to the end before spending a run finding out.",
@@ -1123,9 +1142,14 @@ class PostProcTab(QWidget):
         self.playPauseBtn.setText("▶")
         self.stopPlayBtn.setEnabled(False)
         if self.run is not None:
-            # Back to the reference frame: that is the one the boxes belong to.
-            self.frameLbl.setText(str(self.frameSlider.value()))
-            self._show_frame(self.frameSlider.value())
+            # Back to the COMMITTED reference frame: that is the one the boxes belong to.
+            ref = self.run.ref_frame
+            self.frameSlider.blockSignals(True)
+            self.frameSlider.setValue(ref)
+            self.frameSlider.blockSignals(False)
+            self.frameLbl.setText(str(ref))
+            self._show_frame(ref)
+            self._refresh_ref_label()
 
     # ------------------------------------------------------------------ live pixel readout
     # Readout colours: the reference, the live value, the change, and the answer.
@@ -1351,7 +1375,7 @@ class PostProcTab(QWidget):
         r.box_half = self.boxHalf.value()
         r.search = self.search.value()
         r.min_corr = self.minCorr.value()
-        r.ref_frame = self.frameSlider.value()
+        # ref_frame is NOT taken from the slider: the slider browses, and only on_set_ref commits.
         r.fps = self.fps.value()
         r.step = self.step.value()
         r.refine = self.method.currentData()
@@ -1385,10 +1409,12 @@ class PostProcTab(QWidget):
             self.frameSlider.setValue(r.ref_frame)
             self.frameSlider.blockSignals(False)
             self.frameLbl.setText(str(r.ref_frame))
+            self.setRefBtn.setEnabled(True)
             self._next_box = 0
             self._show_frame(r.ref_frame)
         finally:
             self._loading = False
+        self._refresh_ref_label()
         self._refresh_l0()
         self.status.setText("%s — %s" % (r.label, r.status()))
 
@@ -1442,10 +1468,57 @@ class PostProcTab(QWidget):
         self.view.set_markers(self._markers)
         self._refresh_boxes()
 
-    def on_ref_frame(self, v):
+    def on_browse_frame(self, v):
+        """Scrubbing shows a frame. It does NOT decide which frame is the reference."""
         self.frameLbl.setText(str(v))
         if self.path:
             self._show_frame(v)
+        self._refresh_ref_label()
+
+    def on_set_ref(self):
+        """Fix the frame now on screen as the reference, and say what that changed."""
+        r = self.run
+        if r is None:
+            return
+        was, now = r.ref_frame, self.frameSlider.value()
+        r.ref_frame = now
+        self._refresh_ref_label()
+        self._refresh_l0()
+        if was != now:
+            self.log.emit("[PostProc] %s — reference frame %d → %d. Px₀ is re-measured at that "
+                          "frame when the run starts, so check the boxes still sit on the markers."
+                          % (r.label, was, now))
+            self.status.setText("Reference frame set to %d. Px₀ will be measured there — check "
+                                "the boxes are still on the markers." % now)
+        else:
+            self.log.emit("[PostProc] %s — reference frame confirmed at %d" % (r.label, now))
+            self.status.setText("Reference frame confirmed at %d." % now)
+        self.status.setStyleSheet("color:#c9d1d9;")
+        self._warned = False
+        self._refresh_list()
+
+    def _refresh_ref_label(self):
+        """Say which frame is fixed, and flag it when the view has wandered off that frame.
+
+        Without this the only clue that you are looking at frame 900 while the reference is frame 0
+        is the small number beside the slider, which reads the same either way.
+        """
+        if not getattr(self, "refLbl", None):
+            return
+        r = self.run
+        if r is None:
+            self.refLbl.setText("")
+            return
+        here = self.frameSlider.value()
+        if here == r.ref_frame:
+            self.refLbl.setText("reference = frame %d  ✔" % r.ref_frame)
+            self.refLbl.setStyleSheet("color:#2ecc71; font-weight:bold;")
+            self.setRefBtn.setEnabled(False)
+        else:
+            self.refLbl.setText("viewing frame %d — reference is still %d"
+                                % (here, r.ref_frame))
+            self.refLbl.setStyleSheet("color:#ffc046; font-weight:bold;")
+            self.setRefBtn.setEnabled(True)
 
     def on_click(self, x, y):
         """Place a box — on the nearest marker's CENTRE when there is one near the click.
@@ -1518,6 +1591,19 @@ class PostProcTab(QWidget):
         self._refresh_boxes()
         self.log.emit("[PostProc] auto-detected 2 markers — r %.0f/%.0f px, circularity %.2f/%.2f"
                       % (pair[0][2], pair[1][2], pair[0][3], pair[1][3]))
+        # Boxes belong to the reference frame, but detection runs on whatever is on screen. Now
+        # that scrubbing no longer drags the reference along, detecting on a browsed frame and
+        # running against a different reference is an easy mistake to make silently.
+        r = self.run
+        here = self.frameSlider.value()
+        if r is not None and here != r.ref_frame:
+            self.status.setText("⚠  Markers were detected on frame %d, but the reference is frame "
+                                "%d. Press 'Set this frame as the reference', or go back to frame "
+                                "%d and detect again." % (here, r.ref_frame, r.ref_frame))
+            self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
+            self._warned = True
+            self.log.emit("[PostProc] NOTE: detected on frame %d, reference is %d"
+                          % (here, r.ref_frame))
 
     def _suggest_box_size(self, marker_radius):
         """Size the patch to the marker. This is the single biggest lever on noise.
@@ -1559,7 +1645,8 @@ class PostProcTab(QWidget):
     def _cfg(self):
         return PP.Settings(gauge_mm=self.gauge.value(), box_half=self.boxHalf.value(),
                            search=self.search.value(), min_corr=self.minCorr.value(),
-                           ref_frame=self.frameSlider.value(), fps=self.fps.value(),
+                           ref_frame=(self.run.ref_frame if self.run else 0),
+                           fps=self.fps.value(),
                            step=self.step.value(), refine=self.method.currentData(),
                            stop_on_loss=self.stopLossChk.isChecked())
 
