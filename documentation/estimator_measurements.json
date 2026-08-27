@@ -1,5 +1,5 @@
 {
- "measured": "2026-08-27 14:17",
+ "measured": "2026-08-27 14:55",
  "step": 3,
  "gauge_px_note": "noise quoted over the 0.05-0.35 % strain window, fixed in FRAME numbers from the rig's own strain so every configuration is scored over the same slice of the test",
  "capture_offset_s": {
