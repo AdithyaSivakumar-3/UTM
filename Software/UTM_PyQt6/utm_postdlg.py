@@ -478,10 +478,11 @@ class PostProcTab(QWidget):
         # Px0 and the current L are the two numbers the whole measurement reduces to, and seeing
         # them move while the specimen stretches is what makes the tracking believable — a strain
         # trace alone gives no way to tell a real 2 % from a marker that has quietly slipped.
-        self.pxLbl = QLabel("Px₀ —    L —    ΔL —    ε —")
+        self.pxLbl = QLabel()
+        self.pxLbl.setTextFormat(Qt.TextFormat.RichText)
         self.pxLbl.setStyleSheet(
-            "background:#161a1f; border:1px solid #2b3138; border-radius:3px; padding:4px 6px;"
-            "color:#c9d1d9; font-family:Consolas,'DejaVu Sans Mono',monospace; font-size:11px;")
+            "background:#0e1116; border:1px solid #2b3138; border-left:3px solid #4dabf7;"
+            "border-radius:3px; padding:6px 9px;")
         self.pxLbl.setToolTip("Px₀ is the separation frozen at the reference frame. L is the "
                               "separation right now. Strain is (L − Px₀)/Px₀ — nothing else.")
         lv.addWidget(self.pxLbl)
@@ -816,6 +817,33 @@ class PostProcTab(QWidget):
             self._show_frame(self.frameSlider.value())
 
     # ------------------------------------------------------------------ live pixel readout
+    # Readout colours: the reference, the live value, the change, and the answer.
+    C_REF, C_LIVE, C_DELTA, C_STRAIN, C_DIM = ("#4dabf7", "#ffffff", "#f0a030", "#2ecc71", "#7d8590")
+
+    @staticmethod
+    def _px_html(items, headline):
+        """Small grey label, large bold monospaced value, plus one headline set larger still.
+
+        Monospaced so the digits line up: with a proportional font a number changing from 1676 to
+        1757 also changes width, and the eye reads the movement rather than the magnitude.
+        """
+        mono = "Consolas,'DejaVu Sans Mono',monospace"
+        gap = "<span style=\"font-size:11px;\">&nbsp;&nbsp;&nbsp;</span>"
+        parts = []
+        for name, val, col in items:
+            parts.append(
+                "<span style=\"color:#7d8590;font-size:10px;\">%s</span>"
+                "<span style=\"color:%s;font-family:%s;font-size:14px;font-weight:bold;\">"
+                "&nbsp;%s</span>" % (name, col, mono, val))
+        html = gap.join(parts)
+        if headline:
+            name, val, col = headline
+            html += (gap + gap +
+                     "<span style=\"color:#7d8590;font-size:11px;\">%s</span>"
+                     "<span style=\"color:%s;font-family:%s;font-size:19px;font-weight:bold;\">"
+                     "&nbsp;%s</span>" % (name, col, mono, val))
+        return html
+
     def _update_px_label(self, l_px=None, frame_idx=None, corr=None):
         """Px₀ and the separation right now, above the specimen.
 
@@ -825,10 +853,17 @@ class PostProcTab(QWidget):
         """
         r = self.run
         if r is None or not r.ready:
-            self.pxLbl.setText("Px₀ —    L —    ΔL —    ε —")
+            self.pxLbl.setText(self._px_html(
+                [("Px₀", "—", self.C_DIM),
+                 ("L", "—", self.C_DIM)],
+                ("ε", "—", self.C_DIM)))
             return
         a, b = r.boxes
         l0 = float(np.hypot(b[0] - a[0], b[1] - a[1]))
+        # The NUMBER carries the emphasis, not the word in front of it. Values are set large,
+        # bold and monospaced (so digits line up and the eye sees a change of magnitude rather
+        # than a change of width); the labels stay small and grey. Strain is the headline and is
+        # sized and coloured accordingly — it is the one figure the operator is actually reading.
         # The RUN's L0, not the raw box separation, once one is known. analyse() refines the
         # reference by centroid exactly as it does every frame, so the two differ by a fraction of
         # a pixel — enough to show a non-zero ΔL on the first frame of a run, which reads as the
@@ -840,14 +875,25 @@ class PostProcTab(QWidget):
         elif r.summary is not None and r.summary.l0_px:
             l0 = r.summary.l0_px
         if l_px is None:
-            tail = "L —    ΔL —    ε —" if frame_idx is not None else \
-                   "L = Px₀ at the reference frame"
-            self.pxLbl.setText("Px₀ = %8.2f px    %s" % (l0, tail))
+            if frame_idx is not None:
+                self.pxLbl.setText(self._px_html(
+                    [("Px₀", "%.2f px" % l0, self.C_REF),
+                     ("frame", "%d" % frame_idx, self.C_DIM),
+                     ("L", "not measured while scrubbing", self.C_DIM)], None))
+            else:
+                self.pxLbl.setText(self._px_html(
+                    [("Px₀", "%.2f px" % l0, self.C_REF),
+                     ("L", "= Px₀ at the reference frame", self.C_DIM)], None))
             return
         d = l_px - l0
-        self.pxLbl.setText("Px₀ = %8.2f px    L = %8.2f px    ΔL = %+7.2f px    ε = %+7.4f %%%s"
-                           % (l0, l_px, d, 100.0 * d / l0 if l0 else 0.0,
-                              "" if corr is None else "    corr %.2f" % corr))
+        left = [("Px₀", "%.2f px" % l0, self.C_REF),
+                ("L", "%.2f px" % l_px, self.C_LIVE),
+                ("ΔL", "%+.2f px" % d, self.C_DELTA)]
+        if corr is not None:
+            left.append(("corr", "%.2f" % corr, self.C_DIM))
+        self.pxLbl.setText(self._px_html(
+            left, ("ε", "%+.4f %%" % (100.0 * d / l0 if l0 else 0.0),
+                   self.C_STRAIN)))
 
     # ------------------------------------------------------------------ results table
     def _table_rows(self):
