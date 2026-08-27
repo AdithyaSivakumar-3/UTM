@@ -829,10 +829,21 @@ def build_report(runs, out_dir, title="DIC post-processing", note=""):
         fig.text(0.082, y, "%d of %d frames tracked (%.1f %%)   ·   Px0 %.2f px   ·   %.4f fps"
                  % (s_.tracked, s_.n, s_.coverage, s_.l0_px, s_.fps), fontsize=8.4, color=GREY)
         y -= 0.022
+        # nanmax, not max: with "stop when the markers are lost" turned off, the series carries a
+        # NaN at each dropout so the plotted curve breaks there. Plain max() on a list holding a
+        # NaN returns whatever the comparison order happened to give, which is not a peak.
         fig.text(0.082, y, "peak %.3f %% engineering   ·   %.3f %% log   ·   %s"
-                 % (max(r["e"]) * 100, max(r["tr"]) * 100, r["cfg"].refine),
+                 % (np.nanmax(r["e"]) * 100, np.nanmax(r["tr"]) * 100, r["cfg"].refine),
                  fontsize=8.4, color=GREY)
         y -= 0.034
+        if s_.stopped_early:
+            fig.text(0.082, y, "tracking ended early: markers lost at %.2f s" % s_.lost_at_t,
+                     fontsize=8.4, color="#c0392b")
+            y -= 0.022
+        elif s_.tracked < s_.n:
+            fig.text(0.082, y, "%d frame(s) not tracked — the curve is broken where they are"
+                     % (s_.n - s_.tracked), fontsize=8.4, color="#c0392b")
+            y -= 0.022
 
     # ---- the table, as text so it stays selectable in the PDF
     rows = report_table(runs)

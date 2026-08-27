@@ -355,6 +355,7 @@ class Run:
     fps: float = 30.0
     step: int = 1
     refine: str = "auto"
+    stop_on_loss: bool = True
     fps_note: str = ""
     t: list = None
     e: list = None
@@ -376,11 +377,21 @@ class Run:
     def done(self):
         return self.summary is not None and bool(self.t)
 
+    @property
+    def peak(self):
+        """Highest strain reached, ignoring the NaN holes that mark dropouts."""
+        vals = [v for v in self.e if v == v]
+        return max(vals) if vals else 0.0
+
     def status(self):
         if self.done:
-            tail = "  ·  MARKER LOST at %.2f s" % self.summary.lost_at_t \
-                if getattr(self.summary, "stopped_early", False) else ""
-            return "%.3f %% peak, %.0f %% tracked%s" % (max(self.e) * 100,
+            if getattr(self.summary, "stopped_early", False):
+                tail = "  ·  MARKER LOST at %.2f s" % self.summary.lost_at_t
+            elif self.summary.coverage < 99.95:
+                tail = "  ·  %d frame(s) not tracked" % (self.summary.n - self.summary.tracked)
+            else:
+                tail = ""
+            return "%.3f %% peak, %.0f %% tracked%s" % (self.peak * 100,
                                                         self.summary.coverage, tail)
         return "ready to run" if self.ready else "needs two boxes"
 
@@ -756,7 +767,19 @@ class PostProcTab(QWidget):
         self.playChk.setToolTip("Show each frame with the tracking boxes following the markers, so "
                                 "the pull can be watched as it is measured. Turn it off for a "
                                 "slightly faster run on a long video.")
-        lv.addWidget(self.playChk)
+        self.stopLossChk = QCheckBox("Stop when the markers are lost")
+        self.stopLossChk.setChecked(True)
+        self.stopLossChk.setToolTip(
+            "ON (default): the run ends the moment tracking is lost, and the plot holds only what "
+            "actually tracked. On a fracture test that point is normally the fracture itself.\n\n"
+            "OFF: the run carries on to the end of the video and keeps trying to re-acquire. Use "
+            "it when a marker drops out briefly and comes back, or to see what the tracker did "
+            "after losing its grip. Frames with no match leave a visible BREAK in the curve — "
+            "they are not bridged, because a line drawn across a dropout looks like measurement.")
+        self.stopLossChk.toggled.connect(self._store_widgets)
+        cks = QHBoxLayout()
+        cks.addWidget(self.playChk); cks.addWidget(self.stopLossChk); cks.addStretch(1)
+        lv.addLayout(cks)
 
         rr = QHBoxLayout()
         self.runBtn = QPushButton("Run this video"); self.runBtn.setEnabled(False)
@@ -898,6 +921,9 @@ class PostProcTab(QWidget):
           "If the markers are lost the run STOPS there, marks the point on the plot with an ×, "
           "and keeps only what actually tracked. On a fracture test that point is normally the "
           "fracture itself.",
+          "<b>Stop when the markers are lost</b> decides what happens at that point. Leave it on "
+          "and the run ends there. Turn it off and the run carries on trying to re-acquire, and "
+          "any frame with no match leaves a visible BREAK in the curve rather than being bridged.",
           "<b>Stop</b> ends a run early and keeps everything measured so far."]),
         ("Take the results away",
          "The plot and the results table are both live. When you are happy with them, save what "
@@ -1277,7 +1303,7 @@ class PostProcTab(QWidget):
                         "cfg": PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half,
                                            search=r.search, min_corr=r.min_corr,
                                            ref_frame=r.ref_frame, fps=r.fps, step=r.step,
-                                           refine=r.refine)})
+                                           refine=r.refine, stop_on_loss=r.stop_on_loss)})
         return out
 
     def on_report(self):
@@ -1329,6 +1355,7 @@ class PostProcTab(QWidget):
         r.fps = self.fps.value()
         r.step = self.step.value()
         r.refine = self.method.currentData()
+        r.stop_on_loss = self.stopLossChk.isChecked()
 
     def on_select_run(self, i):
         if self._busy():
@@ -1346,6 +1373,7 @@ class PostProcTab(QWidget):
             k = self.method.findData(r.refine)
             if k >= 0:
                 self.method.setCurrentIndex(k)
+            self.stopLossChk.setChecked(r.stop_on_loss)
             self.gauge.blockSignals(False)
             self.fpsWarn.setText(r.fps_note)
             self.fileLbl.setText("%s — %d frames, %dx%d"
@@ -1532,7 +1560,8 @@ class PostProcTab(QWidget):
         return PP.Settings(gauge_mm=self.gauge.value(), box_half=self.boxHalf.value(),
                            search=self.search.value(), min_corr=self.minCorr.value(),
                            ref_frame=self.frameSlider.value(), fps=self.fps.value(),
-                           step=self.step.value(), refine=self.method.currentData())
+                           step=self.step.value(), refine=self.method.currentData(),
+                           stop_on_loss=self.stopLossChk.isChecked())
 
     def on_run(self, _checked=False, queued=False):
         r = self.run
@@ -1605,9 +1634,20 @@ class PostProcTab(QWidget):
         if self._warned:                       # clear a previous run's amber warning
             self.status.setStyleSheet("color:#c9d1d9;")
             self._warned = False
-        if r.ok and cur is not None:
-            cur.t.append(r.t); cur.e.append(r.cauchy); cur.tr.append(r.true)
-            self._update_px_label(l_px=r.l_px, corr=r.corr)
+        if cur is not None:
+            if r.ok:
+                cur.t.append(r.t); cur.e.append(r.cauchy); cur.tr.append(r.true)
+                self._update_px_label(l_px=r.l_px, corr=r.corr)
+            elif not cur.stop_on_loss and cur.t and cur.e[-1] == cur.e[-1]:
+                # An untracked frame, with "stop when lost" OFF. Record it as a HOLE rather than
+                # skipping it: matplotlib breaks a line at NaN, so the curve shows the dropout
+                # instead of drawing a straight segment across it. One NaN per gap is enough.
+                #
+                # Only when the option is off. With it on, the generator still yields the first
+                # lost row before giving up on the second, and holing that one would leave a NaN
+                # as the series' last point — which is where the "markers lost" cross is drawn.
+                cur.t.append(r.t)
+                cur.e.append(float("nan")); cur.tr.append(float("nan"))
         self.status.setText(
             "frame %d   t %.2f s   L %s px   ε %s   corr %.2f%s"
             % (r.idx, r.t,
@@ -1648,12 +1688,17 @@ class PostProcTab(QWidget):
             # a curve that simply ends is indistinguishable from one that reached the end of its
             # video — which is exactly the confusion worth removing.
             if getattr(r.summary, "stopped_early", False) and r.t:
-                self.ax.plot([r.t[-1]], [r.e[-1] * 100], marker="x", ms=9, mew=2.2,
+                # The last REAL point, not simply the last one: a NaN hole at the end would put
+                # the cross nowhere and silently drop the annotation.
+                j = next((k for k in range(len(r.e) - 1, -1, -1) if r.e[k] == r.e[k]), None)
+                if j is None:
+                    continue
+                self.ax.plot([r.t[j]], [r.e[j] * 100], marker="x", ms=9, mew=2.2,
                              color=r.colour, ls="none")
                 # Below-left of the cross, not above it: the last point of a run that lost its
                 # markers is by definition the highest strain reached, so anything placed above
                 # lands outside the axes and gets clipped.
-                self.ax.annotate("markers lost", (r.t[-1], r.e[-1] * 100),
+                self.ax.annotate("markers lost", (r.t[j], r.e[j] * 100),
                                  textcoords="offset points", xytext=(-9, -13),
                                  ha="right", va="top", fontsize=8, color=r.colour)
         if any_data:
@@ -1683,7 +1728,7 @@ class PostProcTab(QWidget):
         self.stopBtn.setEnabled(False)
         self.playPauseBtn.setEnabled(bool(r))
         self.runBtn.setEnabled(bool(r and r.ready))
-        peak = max((v for v in (r.e if r else [])), default=0.0) * 100
+        peak = (r.peak if r else 0.0) * 100
         msg = ("%s — %d frames, %d tracked (%.1f %%), %d re-seed(s). Px₀ %.2f px, peak strain "
                "%.3f %%." % (r.label if r else "?", summary.n, summary.tracked, summary.coverage,
                              summary.reseeds, summary.l0_px, peak))
@@ -1699,6 +1744,16 @@ class PostProcTab(QWidget):
             self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
             self._warned = True
             self.log.emit("[PostProc] " + warn)
+        elif summary.tracked < summary.n:
+            # It did not stop, because the operator asked it not to. The curve therefore has holes
+            # in it, and a hole is exactly the thing that is easy to miss on a plot.
+            gap = ("%d of %d frames had no match — 'Stop when the markers are lost' is off, so the "
+                   "run continued and the curve is BROKEN where they are."
+                   % (summary.n - summary.tracked, summary.n))
+            self.status.setText("⚠  " + gap + "   " + msg)
+            self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
+            self._warned = True
+            self.log.emit("[PostProc] " + gap)
         else:
             self.status.setStyleSheet("color:#c9d1d9;")
             self.status.setText(msg)
