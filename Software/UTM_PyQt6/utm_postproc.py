@@ -220,15 +220,108 @@ def _grab(path):
     return cap
 
 
+# Files whose seek cannot be trusted, and one open capture each for walking them.
+# Keyed by path; holds (capture, next_frame_index). Kept because a sequential fallback that
+# re-opened the file for every scrub step would make the slider unusable on a long video.
+_SEQ = {}
+_SEEK_OK = {}
+
+
+def _seek_is_trustworthy(path):
+    """Does this file return the frame you ask for? Measured once, then remembered.
+
+    Asks for a frame well into the file and checks the decoder ended up where it said it would.
+    A container can report a frame count far larger than it holds, so the probe index is kept
+    small enough to exist in almost any real recording.
+    """
+    if path in _SEEK_OK:
+        return _SEEK_OK[path]
+    ok = True
+    try:
+        # Deep enough to matter: this file seeks CORRECTLY for the first ~40 frames and only starts
+        # returning stale pictures past ~80, so a shallow probe passes and learns nothing.
+        probe = 120
+        # Decode to `probe` the slow, always-correct way. Forty frames is cheap and it is the only
+        # answer that can be trusted: the position PROPERTY is no use here, because the file that
+        # motivated this reports position 41 perfectly correctly while handing back frame 0's
+        # picture. Content is the only thing that reveals it.
+        # grab() decodes without handing the frame back, which is three times cheaper than read()
+        # on a 2464x2056 file — 0.7 s instead of 2.0 s. Only the probe frame is retrieved.
+        cap = cv2.VideoCapture(path)
+        for _ in range(probe):
+            if not cap.grab():
+                cap.release()
+                _SEEK_OK[path] = True       # too short to judge; leave seeking alone
+                return True
+        got, truth = cap.read()
+        cap.release()
+        if not got:
+            _SEEK_OK[path] = True
+            return True
+
+        cap = cv2.VideoCapture(path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, probe)
+        got, seek_fr = cap.read()
+        cap.release()
+        if got and truth is not None and seek_fr.shape == truth.shape:
+            d = float(np.abs(seek_fr.astype(np.int16) - truth.astype(np.int16)).mean())
+            ok = d < 0.5                     # identical frames differ by exactly zero
+    except Exception:
+        ok = True                       # never let a probe failure disable ordinary playback
+    _SEEK_OK[path] = ok
+    return ok
+
+
+def _read_sequential(path, idx):
+    """Decode forward to `idx`, reusing the open capture when we are already before it."""
+    ent = _SEQ.get(path)
+    if ent is None or ent[1] > idx:      # asked to go backwards: start again
+        if ent is not None:
+            ent[0].release()
+        cap = cv2.VideoCapture(path)
+        ent = [cap, 0]
+        _SEQ[path] = ent
+    cap, pos = ent
+    frame = None
+    while pos <= idx:
+        got, fr = cap.read()
+        if not got:
+            ent[1] = pos
+            return None
+        frame = fr
+        pos += 1
+    ent[1] = pos
+    return frame
+
+
 def read_frame(path, idx):
-    """One frame as greyscale — for the UI preview and for placing the boxes."""
-    cap = _grab(path)
-    cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
-    ok, frame = cap.read()
-    cap.release()
-    if not ok:
-        return None
+    """One frame as greyscale — for the UI preview and for placing the boxes.
+
+    Verifies that this file's seek actually works, and walks the file instead when it does not.
+    A preview showing a different frame from the one requested is worse than a slow preview: the
+    reference frame, the marker detection and Px0 all come from whatever this returns.
+    """
+    idx = int(idx)
+    if _seek_is_trustworthy(path):
+        cap = _grab(path)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ok, frame = cap.read()
+        cap.release()
+        if not ok:
+            return None
+    else:
+        frame = _read_sequential(path, idx)
+        if frame is None:
+            return None
     return cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+
+
+def seek_warning(path):
+    """A line for the UI when this file needs walking rather than seeking, else ""."""
+    if _seek_is_trustworthy(path):
+        return ""
+    return ("This file does not support seeking reliably, so frames are decoded in order. "
+            "Scrubbing forward is normal speed; jumping backwards re-reads from the start.")
 
 
 def find_markers(gray, min_area=300, max_area=200000, min_circ=0.45, dedupe_px=25.0):

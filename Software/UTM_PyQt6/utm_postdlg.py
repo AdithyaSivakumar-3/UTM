@@ -1041,6 +1041,13 @@ class PostProcTab(QWidget):
             added += 1
             self.log.emit("[PostProc] added %s as \"%s\" — %d frames, %.4f fps"
                           % (info["name"], r.label, info["frames"], fps))
+            # Whether this file can be seeked decides whether the PREVIEW is the frame it claims
+            # to be. Probing here rather than on first scrub keeps the cost in the load, and the
+            # result is remembered per file.
+            sw = PP.seek_warning(path)
+            if sw:
+                r.fps_note = (r.fps_note + "  " + sw).strip()
+                self.log.emit("[PostProc] %s: %s" % (info["name"], sw))
         if not added:
             return
         self._refresh_list()
