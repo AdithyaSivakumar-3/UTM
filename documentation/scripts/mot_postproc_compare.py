@@ -171,6 +171,65 @@ def recover_fps(f_pp, e_pp, t_mot, e_mot, levels=None):
     return float(fps), float(c), float(r2), levels[ok], tx[ok], fx[ok]
 
 
+GAUGE_MM = 80.0
+COMMANDED_MM_S = 0.100      # set on BOTH machines
+
+
+def read_ours_full(pat):
+    """Time, strain AND crosshead position together, on the loading ramp only.
+
+    MC.read_ours drops the position column, and position is the whole point here: it is what says
+    how much of the commanded travel the gauge actually received.
+    """
+    p = glob.glob(os.path.join(MC.DATA, pat))[0]
+    rows = [ln.rstrip().split(",") for ln in io.open(p, encoding="utf-8", errors="replace")
+            if not ln.startswith("#") and ln.strip()]
+    h = rows[0]
+    d = [dict(zip(h, r)) for r in rows[1:]]
+
+    def col(k):
+        out = []
+        for r in d:
+            try:
+                out.append(float(r[k]))
+            except Exception:
+                out.append(np.nan)
+        return np.array(out)
+
+    t, e, F, pos, L, B = (col("Time_s"), col("DIC_Cauchy"), col("Force_N"),
+                          col("Position_mm"), col("L_px"), col("DIC_Blobs"))
+    ipk = int(np.nanargmax(F))
+    keep = (np.arange(len(F)) < ipk) & np.isfinite(e) & (L > 100) & (B == 2)
+    return t[keep], e[keep], pos[keep], F[keep]
+
+
+def gauge_share(rate_mot):
+    """What fraction of the commanded crosshead travel each machine's GAUGE actually sees.
+
+    The slope difference reduces to this one number. Both machines were set to 0.1 mm/s, so if the
+    gauge received all of it both would show d(eps)/dt = 0.1/80 = 1.25e-3 /s. Neither does.
+
+    For our rig both ends are logged in the same file, so the loss is measured. For the MOT only
+    the gauge end exists — it logs no position channel — so its share rests on the commanded speed
+    having been met, and is labelled that way wherever it appears.
+    """
+    out = {}
+    for spec, pat in (("S25", "Specimen_S25_V2_Spray_Video2/*.csv"),
+                      ("S26", "Specimen_S26_V2_Spray_Video3/*.csv")):
+        t, e, pos, F = read_ours_full(pat)
+        m = (e >= LO) & (e <= HI)
+        rate = float(np.polyfit(t[m], e[m], 1)[0])
+        # Crosshead speed over the SAME rows, so the two are not taken from different parts of
+        # the test.
+        vx = float(np.polyfit(t[m], pos[m], 1)[0])
+        out[spec] = {"rate": rate, "crosshead_mm_s": vx, "gauge_mm_s": rate * GAUGE_MM,
+                     "share": rate * GAUGE_MM / vx, "measured_crosshead": True}
+    out["MOT"] = {"rate": rate_mot, "crosshead_mm_s": COMMANDED_MM_S,
+                  "gauge_mm_s": rate_mot * GAUGE_MM,
+                  "share": rate_mot * GAUGE_MM / COMMANDED_MM_S, "measured_crosshead": False}
+    return out
+
+
 def build():
     # ---- the three records ------------------------------------------------------------------
     f_pp, e_pp, L_pp, head, pp_name = read_postproc()
@@ -276,6 +335,27 @@ def build():
            "matched_slope": float(sl), "matched_offset_ue": float(ic * 1e6),
            "matched_n": int(w.sum()),
            "noise_ratio": rows[1][2]["rms_ue"] / rows[0][2]["rms_ue"]}
+    # ---- where the commanded travel goes ------------------------------------------------------
+    share = gauge_share(rows[1][1][0])
+    out["gauge_share"] = share
+    print("\nWHERE THE COMMANDED 0.1 mm/s GOES — the slope difference reduces to this")
+    print("   %-6s %11s %12s %12s %8s" % ("", "d(eps)/dt", "crosshead", "gauge", "share"))
+    for k in ("S25", "S26", "MOT"):
+        v = share[k]
+        print("   %-6s %11.3e %12s %11.5f %7.1f %%"
+              % (k, v["rate"],
+                 ("%.4f" % v["crosshead_mm_s"]) if v["measured_crosshead"]
+                 else "%.4f*" % v["crosshead_mm_s"],
+                 v["gauge_mm_s"], 100 * v["share"]))
+    print("   * commanded, not measured: the MOT logs no position channel.")
+    ours = [share["S25"]["share"], share["S26"]["share"]]
+    print("   our rig %.0f-%.0f %%, the MOT %.0f %% -> %.1fx more of the same motion reaches it"
+          % (100 * min(ours), 100 * max(ours), 100 * share["MOT"]["share"],
+             share["MOT"]["share"] / np.mean(ours)))
+    print("   and the %.0f -> %.0f %% SPREAD between two identical runs is the informative part:"
+          % (100 * min(ours), 100 * max(ours)))
+    print("   a fixed machine compliance would repeat; something that varies per mounting does not.")
+
     io.open(os.path.join(HERE, "..", "mot_postproc_compare.json"), "w",
             encoding="utf-8", newline="").write(json.dumps(out, indent=1))
     figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps)

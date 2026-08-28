@@ -4055,6 +4055,9 @@ exec(open("documentation/scripts/s37_slides_block.py", encoding="utf-8").read())
 # ---- DIC position estimators: what they do, the candidates, the choice, and the proof
 exec(open("documentation/scripts/estimator_slides_block.py", encoding="utf-8").read())
 
+# ---- MOT XT-205 vs our rig, with its own video run through our calculation
+exec(open("documentation/scripts/motpp_slides_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)

@@ -38,5 +38,28 @@
  "matched_slope": 1.02556927966292,
  "matched_offset_ue": -32.346014224540234,
  "matched_n": 83,
- "noise_ratio": 7.89605052978623
+ "noise_ratio": 7.89605052978623,
+ "gauge_share": {
+  "S25": {
+   "rate": 0.0002665605186689255,
+   "crosshead_mm_s": 0.10012137488360352,
+   "gauge_mm_s": 0.02132484149351404,
+   "share": 0.21298989869351387,
+   "measured_crosshead": true
+  },
+  "S26": {
+   "rate": 0.00040633987250290686,
+   "crosshead_mm_s": 0.09995354737888117,
+   "gauge_mm_s": 0.03250718980023255,
+   "share": 0.3252229725975777,
+   "measured_crosshead": true
+  },
+  "MOT": {
+   "rate": 0.0007423560519135528,
+   "crosshead_mm_s": 0.1,
+   "gauge_mm_s": 0.059388484153084224,
+   "share": 0.5938848415308422,
+   "measured_crosshead": false
+  }
+ }
 }
