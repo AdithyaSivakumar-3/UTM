@@ -23,6 +23,10 @@ Software/UTM_PyQt6/*.spec
 *.csv
 # ...and the .orig backups left by header rewrites, which are the same data
 *.csv.orig
+# Post-processing reports written beside the test data they came from. Derived artefacts of one
+# run — regenerable from the video plus the settings recorded in their own header — and the same
+# reason the CSVs above are excluded. The FINDINGS live in documentation/, which is tracked.
+Software/UTM_PyQt6/Test data/**/dic_postproc_*
 
 # Claude Code / AI documentation (local only)
 CLAUDE.md

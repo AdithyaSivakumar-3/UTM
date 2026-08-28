@@ -326,7 +326,17 @@ def build():
           % (rows[1][2]["rms_ue"] / rows[0][2]["rms_ue"],
              rows[0][2]["rms_ue"], rows[1][2]["rms_ue"]))
 
-    out = {"fps_daq": daq_fps, "fps_from_crossings": fps, "fps_r2": r2, "scale_k": k,
+    # PROVENANCE. The post-processing CSV this rests on is a hand-made export from the tab, and
+    # every .csv under Test data/ is gitignored — so this JSON is the only durable record of which
+    # run produced these numbers and how it was set up. Without it, a slide quoting 1.0017 could
+    # not be traced back to the settings that gave it.
+    out = {"source_csv": pp_name,
+           "source_settings": {k2: head.get(k2) for k2 in
+                               ("Source video", "Reference frame", "L0 (Px0)", "Gauge",
+                                "Frame rate used", "Box half-size", "Tracking ended")},
+           "rows_used": int(len(f_pp)), "rows_before_trim": int(n_raw),
+           "trim_threshold_px_per_frame": round(thr, 4),
+           "fps_daq": daq_fps, "fps_from_crossings": fps, "fps_r2": r2, "scale_k": k,
            "rows": [{"name": n, "rate": (rt[0] if rt else None), "r2": (rt[1] if rt else None),
                      "n": (rt[2] if rt else None), "noise_ue": nz["rms_ue"]}
                     for n, rt, nz, _ in rows],

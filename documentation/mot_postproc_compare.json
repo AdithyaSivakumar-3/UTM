@@ -1,4 +1,17 @@
 {
+ "source_csv": "dic_postproc_20260827_152810_test2_chan 0.csv",
+ "source_settings": {
+  "Source video": "C:/Users/sivadi/OneDrive - Jonkoping University/Dokument/Python codes/UTM-main current/Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Videoextesometer MOT/test2.chan 0.avi",
+  "Reference frame": "0",
+  "L0 (Px0)": "2234.436 px",
+  "Gauge": "80.00 mm  ->  px_per_mm: 27.9305",
+  "Frame rate used": "1000.0000 fps",
+  "Box half-size": "105 px   search: 40 px   min correlation: 0.55",
+  "Tracking ended": "MARKER LOST at frame 772 (t 0.772 s) - LOST \u2014 best correlation 0.00"
+ },
+ "rows_used": 443,
+ "rows_before_trim": 771,
+ "trim_threshold_px_per_frame": 0.5183,
  "fps_daq": 19.405031520409754,
  "fps_from_crossings": 19.406715275215337,
  "fps_r2": 0.997299578378181,
