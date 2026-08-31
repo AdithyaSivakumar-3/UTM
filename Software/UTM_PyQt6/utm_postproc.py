@@ -306,27 +306,77 @@ def reference_image(path):
     return g
 
 
-def reference_mismatch(img_path, video_path):
-    """Why this image cannot serve as `video_path`'s reference, or "" if it can.
+# How much LARGER than the video a reference image may be and still be usable. Generous enough for
+# an encoder rounding the width down to an even number — which is exactly what happens to our own
+# captures, 419 px of ROI written as a 418 px AVI — and far too small to let an arbitrarily
+# different crop through.
+REF_SIZE_TOLERANCE = 8
 
-    Only the SHAPE is checked, because that is the only thing that can be checked and it is the
-    thing that matters: box coordinates, Px0 and every later separation are in frame pixels, so an
-    image of a different size puts the zero in one coordinate system and the measurement in
-    another. Whether it shows the same specimen at rest is the operator's judgement, and the tab
-    displays the image so that judgement can be made by eye.
+
+def reference_align(img_path, video_path, ref_frame=0):
+    """Fit a reference image onto the video's coordinate system.
+
+    Returns (gray, (ox, oy), note) on success, or (None, None, why) when it cannot be done.
+
+    Equal sizes are taken as they are. An image up to REF_SIZE_TOLERANCE pixels LARGER is cropped
+    to the video's frame, with the offset found by matching against a real frame rather than
+    assumed: rounding down from the top-left is what this encoder does, but that is a library's
+    behaviour, and library behaviour taken on trust has already produced two wrong answers in this
+    project. A smaller image is refused, because the missing pixels cannot be invented.
+
+    What is deliberately NOT enforced is that the picture LOOKS like the video. A reference may
+    legitimately be a separate photograph of the unloaded specimen, which will not match frame 0 at
+    all; the operator judges that by eye, and the tab shows the image so it can be judged.
     """
     g = reference_image(img_path)
     if g is None:
-        return "that file could not be read as an image"
+        return None, None, "that file could not be read as an image"
     try:
         info = probe(video_path)
     except Exception as e:
-        return "the video could not be probed: %s" % e
-    if (g.shape[1], g.shape[0]) != (info["w"], info["h"]):
-        return ("the image is %d x %d but the video is %d x %d. They must match, because Px\u2080 "
-                "and every later separation are measured in frame pixels."
-                % (g.shape[1], g.shape[0], info["w"], info["h"]))
-    return ""
+        return None, None, "the video could not be probed: %s" % e
+
+    vw, vh = info["w"], info["h"]
+    ih, iw = g.shape[0], g.shape[1]
+    if (iw, ih) == (vw, vh):
+        return g, (0, 0), ""
+    if iw < vw or ih < vh:
+        return None, None, ("the image is %d x %d, SMALLER than the video's %d x %d. The missing "
+                            "pixels cannot be invented, and Px\u2080 must be measured in the "
+                            "video's own coordinates." % (iw, ih, vw, vh))
+    dw, dh = iw - vw, ih - vh
+    if dw > REF_SIZE_TOLERANCE or dh > REF_SIZE_TOLERANCE:
+        return None, None, ("the image is %d x %d and the video %d x %d — too different to line up. "
+                            "Px\u2080 and every later separation are measured in frame pixels, so "
+                            "the two must share a coordinate system." % (iw, ih, vw, vh))
+
+    # Which offset? Ask the pictures. Falls back to the top-left if the video will not read.
+    best, frame = (0, 0), read_frame(video_path, int(ref_frame))
+    if frame is not None and frame.shape[0] >= vh and frame.shape[1] >= vw:
+        import numpy as _np
+        score = None
+        for oy in range(dh + 1):
+            for ox in range(dw + 1):
+                crop = g[oy:oy + vh, ox:ox + vw]
+                if crop.shape != (vh, vw):
+                    continue
+                d = float(_np.abs(crop.astype(_np.int16) - frame.astype(_np.int16)).mean())
+                if score is None or d < score:
+                    score, best = d, (ox, oy)
+        note = ("the image is %d x %d and the video %d x %d — a video writer rounds the width down "
+                "to an even number. Cropped at x+%d, y+%d, which matches frame %d to %.1f grey "
+                "levels." % (iw, ih, vw, vh, best[0], best[1], int(ref_frame), score or 0.0))
+    else:
+        note = ("the image is %d x %d and the video %d x %d; cropped at the top-left (the video "
+                "frame could not be read to check the alignment)." % (iw, ih, vw, vh))
+    ox, oy = best
+    return g[oy:oy + vh, ox:ox + vw], best, note
+
+
+def reference_mismatch(img_path, video_path, ref_frame=0):
+    """Why this image cannot serve as `video_path`'s reference, or "" if it can."""
+    _g, _off, note = reference_align(img_path, video_path, ref_frame)
+    return "" if _g is not None else note
 
 
 def read_frame(path, idx):
@@ -593,11 +643,10 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
     # image only replaces the ZERO; `ref_frame` still says where the analysis starts, so a run can
     # be zeroed on a separate picture of the specimen at rest and still measure the whole video.
     if cfg.ref_image:
-        why = reference_mismatch(cfg.ref_image, path)
-        if why:
+        gray0, _off, _note = reference_align(cfg.ref_image, path, cfg.ref_frame)
+        if gray0 is None:
             cap.release()
-            raise ValueError("reference image rejected — %s" % why)
-        gray0 = reference_image(cfg.ref_image)
+            raise ValueError("reference image rejected — %s" % _note)
     else:
         cap.set(cv2.CAP_PROP_POS_FRAMES, int(cfg.ref_frame))
         ok, frame = cap.read()

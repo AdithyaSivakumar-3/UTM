@@ -1547,12 +1547,17 @@ class PostProcTab(QWidget):
             "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)")
         if not path:
             return
-        why = PP.reference_mismatch(path, r.path)
-        if why:
+        aligned, off, note = PP.reference_align(path, r.path, r.ref_frame)
+        if aligned is None:
             QMessageBox.warning(self, "That image cannot be the reference",
-                                "%s\n\n%s" % (os.path.basename(path), why))
+                                "%s\n\n%s" % (os.path.basename(path), note))
             return
         r.ref_image = path
+        if note:
+            # It fitted, but not exactly. Say how it was made to fit rather than adjusting
+            # silently — our own capture stills are one column wider than the AVI beside them,
+            # because the video writer rounds an odd width down to an even one.
+            self.log.emit("[PostProc] reference image %s — %s" % (os.path.basename(path), note))
         # The old boxes were placed on a different picture. Keeping them would silently measure
         # Px₀ at coordinates chosen against something else.
         self.boxes = [None, None]
@@ -1569,7 +1574,9 @@ class PostProcTab(QWidget):
         if r is None:
             return
         if r.ref_image:
-            g = PP.reference_image(r.ref_image)
+            # The ALIGNED image, so the boxes are placed on exactly the pixels analyse() will use.
+            # Showing the raw still instead would put them one column out on our own captures.
+            g, _off, _note = PP.reference_align(r.ref_image, r.path, r.ref_frame)
             if g is None:
                 return
             self.view.set_frame(g)

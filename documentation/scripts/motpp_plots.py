@@ -147,10 +147,16 @@ def fig_setup(D=None):
                 ax.add_patch(Circle((mx, my), mr * 1.35, fill=False, ec=col, lw=1.6))
             ax.annotate("", xy=(xb, yb), xytext=(xa, ya),
                         arrowprops=dict(arrowstyle="<->", color=col, lw=1.6))
-            ax.text((xa + xb) / 2, min(ya, yb) - 0.16 * h_mm,
+            # Pinned near the TOP of the panel, not offset from the markers. Offset from the
+            # markers put it on the specimen itself, where bold red on bright white is close to
+            # unreadable; the panels differ in height so a fraction of the height is what keeps
+            # both captions in the dark band above the bar. The backing box makes it legible
+            # whatever it lands on.
+            ax.text((xa + xb) / 2, 0.11 * h_mm,
                     "80.0 mm gauge  ·  %.0f px  ·  %.1f px/mm"
                     % (np.hypot(ms[1][0] - ms[0][0], ms[1][1] - ms[0][1]), ppm),
-                    ha="center", va="bottom", fontsize=9.5, color=col, fontweight="bold")
+                    ha="center", va="top", fontsize=9.5, color=col, fontweight="bold",
+                    bbox=dict(boxstyle="round,pad=0.28", fc="white", ec=col, lw=0.9, alpha=0.92))
         ax.set_title(ttl, fontsize=9.5, color=INK, loc="left")
         ax.set_yticks([])
         ax.set_xlabel("millimetres — BOTH PANELS AT THE SAME SCALE", fontsize=8.5, color=MUTED)
