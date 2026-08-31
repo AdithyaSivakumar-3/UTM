@@ -4073,6 +4073,9 @@ exec(open("documentation/scripts/sf20_slides_block.py", encoding="utf-8").read()
 # ---- SF20: its built-in guide, and the seven steps read from the app itself
 exec(open("documentation/scripts/sf20_guide_block.py", encoding="utf-8").read())
 
+# ---- why 20.9 px/mm, and whether more would be better
+exec(open("documentation/scripts/pxmm_slides_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)
