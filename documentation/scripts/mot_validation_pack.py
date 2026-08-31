@@ -299,7 +299,7 @@ def page_reference(pdf, sel):
              ["eps_f", f"{TDS['ef']*100:.0f}", f"{f['mean']*100:.1f}",
               f"{100*f['mean']/TDS['ef']:.0f} %"]]
     table(ax, ML + 7.6, y2 + 0.62, PAGE[0] - MR - (ML + 7.6),
-          ["", "TDS", "ours", "of TDS"], trows, [1.0, 1.0, 1.0, 1.0],
+          ["", "TDS", "PPD-UTM", "of TDS"], trows, [1.0, 1.0, 1.0, 1.0],
           align=["left", "right", "right", "right"])
 
     para(ax, ML + 7.6, y2 + 2.30, PAGE[0] - MR - (ML + 7.6),
@@ -338,7 +338,7 @@ def page_sheet(pdf, sel):
         y += 0.18
         rows = [[m, "", "", "", ""] for m in
                 ("E  GPa", "sigma_y  MPa", "UTS  MPa", "eps_f  %", "secant 0.05-0.25 %  GPa")]
-        y = table(ax, ML, y, w, ["Property", "Ours (DIC)", "Theirs (extensometer)",
+        y = table(ax, ML, y, w, ["Property", "PPD-UTM (DIC)", "XT-205 (extensometer)",
                                  "difference %", "notes"],
                   rows, [1.6, 1.4, 1.8, 1.2, 4.8], rowh=0.24,
                   align=["left", "right", "right", "right", "left"])
@@ -358,7 +358,7 @@ def page_traps(pdf, sel):
     w = (PAGE[0] - ML - MR - 0.4) / 2
     items = [
         ("1. Strain zero", BAD,
-         "Ours starts after a ~300 N preload; theirs probably starts at 0 N. The toe region is "
+         "The PPD-UTM starts after a ~300 N preload; theirs probably starts at 0 N. The toe region is "
          "then inside their strain and not ours. Lowers their apparent E and moves the 0.2 % "
          "offset yield with it. Fix: match the preload, or compare on the 0.05-0.25 % secant, "
          "which does not care where zero was."),

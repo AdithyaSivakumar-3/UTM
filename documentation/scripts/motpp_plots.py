@@ -31,6 +31,8 @@ import cv2                                                            # noqa: E4
 import utm_postproc as PP                                             # noqa: E402
 import mot_compare as MC                                              # noqa: E402
 
+RIG = MC.RIG
+
 INK, GRID, MUTED = "#212529", "#DDDDDD", "#666666"
 C_MOT, C_OURS, C_S25, C_S26 = "#d62728", "#1f77b4", "#1f77b4", "#e8590c"
 GOOD, BAD = "#2e7d32", "#c0392b"
@@ -72,7 +74,7 @@ def fig_setup():
     fig, axes = plt.subplots(2, 1, figsize=(11.4, 5.4))
     for ax, g, name, ppm, l0, col in (
             (axes[0], gm, "MOT XT-205 — test2.chan 0.avi", 2234.4 / 80.0033, 2234.4, C_MOT),
-            (axes[1], go, "Our rig — S26 video.avi", 1676.3 / 80.0, 1676.3, C_OURS)):
+            (axes[1], go, "%s — S26 video.avi" % RIG, 1676.3 / 80.0, 1676.3, C_OURS)):
         if g is None:
             continue
         # Our specimen is filmed upright, theirs on its side; rotate ours so the gauge runs the
@@ -108,7 +110,7 @@ def fig_share(D):
                                  gridspec_kw={"width_ratios": [1.25, 1]})
 
     keys = ["S25", "S26", "MOT"]
-    labels = ["S25\n(our rig)", "S26\n(our rig)", "MOT\nXT-205"]
+    labels = ["S25\n%s" % RIG, "S26\n%s" % RIG, "MOT\nXT-205"]
     cols = [C_S25, C_S26, C_MOT]
     share = [100 * sh[k]["share"] for k in keys]
     b = ax.bar(labels, share, color=cols, width=0.6)
@@ -136,7 +138,8 @@ def fig_share(D):
             "%.0f points apart\non two runs of the\nSAME protocol" % (share[1] - share[0]),
             fontsize=9, color=INK, va="center")
     bx.set_xlim(-0.35, 1.5); bx.set_ylim(0, 75)
-    bx.set_xticks([0, 1]); bx.set_xticklabels(["our rig\n(two specimens)", "MOT"])
+    bx.set_xticks([0, 1])
+    bx.set_xticklabels(["%s\n(two specimens)" % RIG, "MOT XT-205"])
     bx.set_ylabel("share reaching the gauge (%)")
     bx.set_title("A fixed compliance would repeat.\nThis does not — so it is not fixed.",
                  fontsize=10.5, color=INK)

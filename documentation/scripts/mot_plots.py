@@ -123,7 +123,7 @@ def fig_rate(out="mot_rate.png"):
     a2.set_xlabel("time from first strain (s)")
     a2.set_ylabel(r"d$\varepsilon$/dt   ($10^{-4}$/s)")
     a2.legend(fontsize=8.4, loc="upper left")
-    a2.annotate("our rig's seating take-up:\nthe gauge receives more of the\ncrosshead as slack "
+    a2.annotate("the PPD-UTM's seating take-up:\nthe gauge receives more of the\ncrosshead as slack "
                 "is used up", xy=(30, 4.4), xytext=(20, 9.6), fontsize=8.0, color=GREY,
                 arrowprops=dict(arrowstyle="->", color="#999"))
     _style(a2)

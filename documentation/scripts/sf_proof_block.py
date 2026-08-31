@@ -56,7 +56,7 @@ pageno(s)
 
 # ---------------------------------------------------------------- B. SF12 auto-calibration
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF12 · DIC AUTO-CALIBRATION — THE SWEEP, ON THE RIG")
+title(s, "SF12 · DIC AUTO-CALIBRATION — THE SWEEP, ON THE PPD-UTM")
 img_fit(s, "documentation/figures/UTM_Autocalibrate.png", 0.45, 1.35, 6.2, 4.5)
 header(s, 7.0, 1.35, 5.95, "What the dialog is showing")
 tb(s, 7.0, 1.75, 5.95, 2.5,

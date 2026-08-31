@@ -47,6 +47,23 @@ import mot_compare as MC                                              # noqa: E4
 # The strain interval the deck already uses everywhere. It sits comfortably inside the XT-205's
 # valid range (it goes invalid at 0.4015 %), so all four records can be fitted over the same span.
 LO, HI = 0.0005, 0.0035
+
+# Taken from mot_compare, which defines it for the whole MOT family — one name, one place.
+RIG = MC.RIG
+
+# The four records: (key, full label, short two-line label for an axis tick).
+#
+# Keyed, and looked up by key everywhere. They used to be phrased one way here, another in the
+# figure and a third on the slides, with the slide block matching on a substring of the prose — so
+# a reworded label broke a lookup in a different file and nothing said so.
+RECORDS = (
+    ("pp",  "XT-205 footage, %s DIC" % RIG,      "XT-205 footage\n%s DIC" % RIG),
+    ("mot", "XT-205 footage, XT-205 extensometer", "XT-205 footage\nXT-205 extensometer"),
+    ("S25", "S25, %s" % RIG,                     "S25\n%s" % RIG),
+    ("S26", "S26, %s" % RIG,                     "S26\n%s" % RIG),
+)
+LABEL = {k: full for k, full, _ in RECORDS}
+SHORT = {k: sh for k, _, sh in RECORDS}
 C_MOT, C_PP, C_S25, C_S26 = "#d62728", "#7048e8", "#1f77b4", "#e8590c"
 INK, GRID, MUTED = "#212529", "#DDDDDD", "#666666"
 
@@ -267,17 +284,17 @@ def build():
     print("   rate recovered by matching %d strain levels : %.4f fps  (R2 %.5f)"
           % (len(lv), fps, r2))
     print("   rate the DAQ actually recorded              : %.4f fps" % daq_fps)
-    print("   => strain-scale factor ours/theirs k        : %.5f  (%.2f %% apart)"
-          % (k, abs(k - 1) * 100))
+    print("   => strain-scale factor, %s DIC / XT-205     : %.5f  (%.2f %% apart)" % (RIG,
+             k, abs(k - 1) * 100))
 
     # ---- the four slopes, over one shared strain interval ------------------------------------
     rows = []
     r = MC.rate_over_strain(t_pp, e_pp, LO, HI)
     n_pp = MC.noise_over_strain(t_pp, e_pp, LO, HI)
-    rows.append(("MOT video, OUR calculation", r, n_pp, C_PP))
+    rows.append(("pp", r, n_pp, C_PP))
     r = MC.rate_over_strain(t_mot, e_mot, LO, HI)
     n_mot = MC.noise_over_strain(t_mot, e_mot, LO, HI)
-    rows.append(("MOT video, XT-205's own answer", r, n_mot, C_MOT))
+    rows.append(("mot", r, n_mot, C_MOT))
     ours = {}
     # The same two runs, and the same patterns, mot_compare.py already uses — so this leg and the
     # existing MOT-vs-rig slides cannot quietly diverge onto different files.
@@ -285,18 +302,17 @@ def build():
                            ("S26", "Specimen_S26_V2_Spray_Video3/*.csv", C_S26)):
         t, e, F, name = MC.read_ours(pat)
         ours[spec] = (t, e)
-        rows.append(("%s, our rig + our calculation" % spec,
-                     MC.rate_over_strain(t, e, LO, HI),
+        rows.append((spec, MC.rate_over_strain(t, e, LO, HI),
                      MC.noise_over_strain(t, e, LO, HI), col))
 
-    print("\n%-34s %12s %8s %10s %9s" % ("record", "d(eps)/dt", "R2", "noise ue", "n"))
-    print("-" * 78)
-    for name, rate, nz, _ in rows:
+    print("\n%-38s %12s %8s %10s %9s" % ("record", "d(eps)/dt", "R2", "noise ue", "n"))
+    print("-" * 82)
+    for key, rate, nz, _ in rows:
         if rate is None:
-            print("%-34s %12s" % (name, "too few points"))
+            print("%-38s %12s" % (LABEL[key], "too few points"))
             continue
-        print("%-34s %11.3e %8.5f %10.1f %9d"
-              % (name, rate[0], rate[1], nz["rms_ue"], rate[2]))
+        print("%-38s %11.3e %8.5f %10.1f %9d"
+              % (LABEL[key], rate[0], rate[1], nz["rms_ue"], rate[2]))
 
     a = rows[0][1][0]      # our calculation on their video
     b = rows[1][1][0]      # their own answer on the same video
@@ -311,35 +327,37 @@ def build():
     diff = e_pp[m][w] - ei[w]
     sl, ic = np.polyfit(ei[w], e_pp[m][w], 1)
 
-    print("\nSAME VIDEO, SAME SPECIMEN, SAME INSTANT — only the maths differs:")
+    print("\nSAME FOOTAGE, SAME SPECIMEN, SAME INSTANT — only the analysis differs:")
     print("   strain read at matched times, %d points over %.2f-%.2f %%:"
           % (int(w.sum()), LO * 100, HI * 100))
-    print("      ours / XT-205   median %.4f   mean %.4f   sd %.4f"
-          % (np.median(ratio), ratio.mean(), ratio.std()))
-    print("      difference      %+.1f ue mean, %.1f ue rms"
+    print("      %s DIC / XT-205 extensometer   median %.4f   mean %.4f   sd %.4f"
+          % (RIG, np.median(ratio), ratio.mean(), ratio.std()))
+    print("      difference                      %+.1f ue mean, %.1f ue rms"
           % (diff.mean() * 1e6, diff.std() * 1e6))
-    print("      ours = %.4f x theirs %+.0f ue   (R2 %.5f)"
-          % (sl, ic * 1e6, np.corrcoef(ei[w], e_pp[m][w])[0, 1] ** 2))
-    print("   fitted strain rate  ours / theirs = %.4f   (%.2f %% apart)"
+    print("      %s DIC = %.4f x extensometer %+.0f ue   (R2 %.5f)"
+          % (RIG, sl, ic * 1e6, np.corrcoef(ei[w], e_pp[m][w])[0, 1] ** 2))
+    print("   fitted strain rate ratio = %.4f   (%.2f %% apart)"
           % (a / b, abs(a / b - 1) * 100))
-    print("\n   and on their own footage our measurement is %.1fx quieter: %.1f vs %.1f ue"
-          % (rows[1][2]["rms_ue"] / rows[0][2]["rms_ue"],
+    print("\n   on the XT-205's own footage the %s pipeline is %.1fx quieter: %.1f vs %.1f ue"
+          % (RIG, rows[1][2]["rms_ue"] / rows[0][2]["rms_ue"],
              rows[0][2]["rms_ue"], rows[1][2]["rms_ue"]))
 
     # PROVENANCE. The post-processing CSV this rests on is a hand-made export from the tab, and
     # every .csv under Test data/ is gitignored — so this JSON is the only durable record of which
     # run produced these numbers and how it was set up. Without it, a slide quoting 1.0017 could
     # not be traced back to the settings that gave it.
-    out = {"source_csv": pp_name,
+    out = {"rig_name": RIG,
+           "source_csv": pp_name,
            "source_settings": {k2: head.get(k2) for k2 in
                                ("Source video", "Reference frame", "L0 (Px0)", "Gauge",
                                 "Frame rate used", "Box half-size", "Tracking ended")},
            "rows_used": int(len(f_pp)), "rows_before_trim": int(n_raw),
            "trim_threshold_px_per_frame": round(thr, 4),
            "fps_daq": daq_fps, "fps_from_crossings": fps, "fps_r2": r2, "scale_k": k,
-           "rows": [{"name": n, "rate": (rt[0] if rt else None), "r2": (rt[1] if rt else None),
+           "rows": [{"key": kk, "name": LABEL[kk], "short": SHORT[kk],
+                     "rate": (rt[0] if rt else None), "r2": (rt[1] if rt else None),
                      "n": (rt[2] if rt else None), "noise_ue": nz["rms_ue"]}
-                    for n, rt, nz, _ in rows],
+                    for kk, rt, nz, _ in rows],
            "ratio_rate": a / b,
            "ratio_matched_median": float(np.median(ratio)),
            "matched_slope": float(sl), "matched_offset_ue": float(ic * 1e6),
@@ -359,8 +377,8 @@ def build():
                  v["gauge_mm_s"], 100 * v["share"]))
     print("   * commanded, not measured: the MOT logs no position channel.")
     ours = [share["S25"]["share"], share["S26"]["share"]]
-    print("   our rig %.0f-%.0f %%, the MOT %.0f %% -> %.1fx more of the same motion reaches it"
-          % (100 * min(ours), 100 * max(ours), 100 * share["MOT"]["share"],
+    print("   %s %.0f-%.0f %%, the XT-205 %.0f %% -> %.1fx more of the same motion reaches it"
+          % (RIG, 100 * min(ours), 100 * max(ours), 100 * share["MOT"]["share"],
              share["MOT"]["share"] / np.mean(ours)))
     print("   and the %.0f -> %.0f %% SPREAD between two identical runs is the informative part:"
           % (100 * min(ours), 100 * max(ours)))
@@ -378,13 +396,13 @@ def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
 
     ax = axes[0]
     ax.plot(t_mot, e_mot * 100, "-", color=C_MOT, lw=2.4, alpha=0.85,
-            label="XT-205, its own answer")
-    ax.plot(t_pp, e_pp * 100, "--", color=C_PP, lw=1.5, label="XT-205 video, OUR calculation")
+            label="XT-205 extensometer")
+    ax.plot(t_pp, e_pp * 100, "--", color=C_PP, lw=1.5, label="%s DIC" % RIG)
     ax.axhspan(LO * 100, HI * 100, color="#1f77b4", alpha=0.10)
     ax.set_xlim(t_mot[0] - 1, t_mot[-1] + 1)
     ax.set_ylim(-0.05, 0.55)
     ax.set_xlabel("time (s)"); ax.set_ylabel("strain (%)")
-    ax.set_title("The same footage, measured two ways\n(shaded: the fitted window)",
+    ax.set_title("The XT-205's own footage, measured two ways\n(shaded: the fitted window)",
                  fontsize=10.5, color=INK)
     ax.legend(fontsize=8.4, loc="upper left", framealpha=0.95)
     _style(ax)
@@ -397,21 +415,28 @@ def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
     ax.plot(xs, daq_fps * xs + c, "--", color=INK, lw=1.4,
             label="DAQ's own: %.3f fps" % daq_fps)
     ax.set_xlabel("time on the XT-205 clock (s)")
-    ax.set_ylabel("frame in our video")
+    ax.set_ylabel("frame in the XT-205's video")
     ax.set_title("Scale check: the two lines coincide,\nso the strain scales agree",
                  fontsize=10.5, color=INK)
     ax.legend(fontsize=8.4, loc="upper left", framealpha=0.95)
     _style(ax)
 
+    # HORIZONTAL bars. Naming the records properly made the labels too long to sit under vertical
+    # bars in a third of the figure's width — they overlapped into each other. Turning the chart on
+    # its side gives each label a whole line to itself, which is the only fix that does not either
+    # abbreviate the names back into jargon or tilt them.
     ax = axes[2]
-    names = ["ours on\ntheir video", "XT-205\nitself", "S25", "S26"]
+    names = [SHORT[r[0]].replace("\n", " · ") for r in rows]
     vals = [r[1][0] for r in rows]
     cols = [r[3] for r in rows]
-    b = ax.bar(names, [v * 1e4 for v in vals], color=cols, width=0.62)
+    y = np.arange(len(rows))[::-1]          # first record at the top, reading order
+    b = ax.barh(y, [v * 1e4 for v in vals], color=cols, height=0.62)
     for rr, v in zip(b, vals):
-        ax.text(rr.get_x() + rr.get_width() / 2, v * 1e4 + 0.06, "%.2e" % v,
-                ha="center", fontsize=8.2, color=INK)
-    ax.set_ylabel("d(ε)/dt over 0.05–0.35 %  (×10⁻⁴ /s)")
+        ax.text(v * 1e4 + 0.12, rr.get_y() + rr.get_height() / 2, "%.2e" % v,
+                va="center", fontsize=8.4, color=INK)
+    ax.set_yticks(y); ax.set_yticklabels(names, fontsize=8.6)
+    ax.set_xlim(0, max(vals) * 1e4 * 1.28)
+    ax.set_xlabel("d(ε)/dt over 0.05–0.35 %  (×10⁻⁴ /s)")
     ax.set_title("Strain rate on one shared window", fontsize=10.5, color=INK)
     _style(ax)
 

@@ -12,42 +12,36 @@ import motpp_plots as MPP                                             # noqa: E4
 
 MPP.all_figs()
 _M = _mjson.load(_mio.open("documentation/mot_postproc_compare.json", encoding="utf-8"))
-_MR = {r["name"]: r for r in _M["rows"]}
+# Keyed, not matched on prose. mot_postproc_compare.RECORDS owns the wording; this file only
+# names which record it wants, so a relabelled axis cannot silently pick the wrong row here.
+_MR = {r["key"]: r for r in _M["rows"]}
 _SH = _M["gauge_share"]
-
-
-def _rate(key):
-    for n, r in _MR.items():
-        if key in n:
-            return r
-    raise KeyError(key)
-
-
-_OURS_V = _rate("OUR calculation")          # our maths on their video
-_MOT_V = _rate("XT-205's own")              # their maths on their video
-_S25 = _rate("S25")
-_S26 = _rate("S26")
+_RIG = _M["rig_name"]   # the machine's name, taken from the analysis rather than repeated here
+_PP = _MR["pp"]         # the XT-205's footage through the PPD-UTM DIC pipeline
+_MOT = _MR["mot"]       # the XT-205's footage through its own extensometer
+_S25 = _MR["S25"]
+_S26 = _MR["S26"]
 
 
 # ================================================================= 1. what was tested
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "MOT XT-205 vs OUR RIG — WHAT WAS TESTED, AND HOW")
+title(s, "MOT XT-205 vs %s — WHAT WAS TESTED, AND HOW" % _RIG)
 img_fit(s, "documentation/figures/motpp_setup.png", 0.4, 1.16, 12.5, 2.72)
 
 header(s, 0.45, 4.02, 6.15, "The design: three legs, so a disagreement can be attributed")
 table(s, 0.45, 4.40, 6.15, 1.62, [
     ["Comparison", "What differs", "What it isolates"],
-    ["XT-205's own answer  vs\nOUR maths on ITS video",
-     "only the arithmetic — same\nfootage, specimen and instant", "the CALCULATION"],
-    ["our maths on THEIR video  vs\nour maths on S25 / S26",
-     "the machine and the mounting,\nnot the maths", "the RIG"],
-    ["(previously) XT-205  vs  our rig",
+    ["XT-205 extensometer  vs\n%s DIC on the same footage" % _RIG,
+     "only the analysis — same footage,\nspecimen and instant", "the CALCULATION"],
+    ["%s DIC on XT-205 footage  vs\n%s DIC on S25 / S26" % (_RIG, _RIG),
+     "the machine and the mounting,\nnot the analysis", "the RIG"],
+    ["(previously) XT-205  vs  %s" % _RIG,
      "instrument AND specimen at once", "nothing, on its own"],
 ], cw=[2.4, 2.35, 1.4], hf=9.5, bf=8)
 
 header(s, 6.85, 4.02, 6.1, "The two records")
 table(s, 6.85, 4.40, 6.1, 1.62, [
-    ["", "MOT XT-205", "our rig (S25/S26)"],
+    ["", "MOT XT-205", "%s  (S25/S26)" % _RIG],
     ["marker span Px₀", "2234 px", "1676 px"],
     ["scale", "27.9 px/mm", "21.0 px/mm"],
     ["specimen width", "9.60 mm", "10.12 mm"],
@@ -70,24 +64,24 @@ s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "THE TWO CALCULATIONS AGREE — SAME VIDEO, SAME ANSWER")
 img_fit(s, "documentation/figures/mot_postproc_compare.png", 0.4, 1.14, 12.5, 2.55)
 
-header(s, 0.45, 3.84, 6.15, "Read at matched instants — no fitting at all")
+header(s, 0.45, 3.84, 6.15, "Read at matched instants — no fitting at all")  # noqa
 table(s, 0.45, 4.22, 6.15, 1.55, [
     ["Test", "Result"],
-    ["strain ratio, ours ÷ XT-205 (%d points)" % _M["matched_n"],
+    ["strain ratio, %s DIC ÷ XT-205 (%d points)" % (_RIG, _M["matched_n"]),
      "median %.4f" % _M["ratio_matched_median"]],
-    ["straight fit of ours against theirs",
-     "%.4f × theirs %+.0f µε" % (_M["matched_slope"], _M["matched_offset_ue"])],
+    ["%s DIC as a straight fit of the XT-205" % _RIG,
+     "%.4f × XT-205 %+.0f µε" % (_M["matched_slope"], _M["matched_offset_ue"])],
     ["independent scale check (see below)", "k = %.5f" % _M["scale_k"]],
-    ["fitted strain rate, ours ÷ theirs", "%.4f" % _M["ratio_rate"]],
+    ["fitted strain-rate ratio", "%.4f" % _M["ratio_rate"]],
 ], cw=[3.9, 2.25], hf=9.5, bf=8.5)
 
-header(s, 6.85, 3.84, 6.1, "…and ours is the quieter of the two")
+header(s, 6.85, 3.84, 6.1, "…and the %s is the quieter of the two" % _RIG)
 table(s, 6.85, 4.22, 6.1, 1.55, [
     ["Record", "d(ε)/dt", "noise"],
-    ["XT-205 video, OUR maths", "%.3e /s" % _OURS_V["rate"], "%.1f µε" % _OURS_V["noise_ue"]],
-    ["XT-205 video, ITS OWN answer", "%.3e /s" % _MOT_V["rate"], "%.1f µε" % _MOT_V["noise_ue"]],
-    ["S25, our rig", "%.3e /s" % _S25["rate"], "%.1f µε" % _S25["noise_ue"]],
-    ["S26, our rig", "%.3e /s" % _S26["rate"], "%.1f µε" % _S26["noise_ue"]],
+    [_PP["name"], "%.3e /s" % _PP["rate"], "%.1f µε" % _PP["noise_ue"]],
+    [_MOT["name"], "%.3e /s" % _MOT["rate"], "%.1f µε" % _MOT["noise_ue"]],
+    [_S25["name"], "%.3e /s" % _S25["rate"], "%.1f µε" % _S25["noise_ue"]],
+    [_S26["name"], "%.3e /s" % _S26["rate"], "%.1f µε" % _S26["noise_ue"]],
 ], cw=[2.85, 1.75, 1.5], hf=9.5, bf=8.5)
 
 banner(s, 0.4, 5.90, 12.55, 0.58,
@@ -97,9 +91,9 @@ banner(s, 0.4, 5.90, 12.55, 0.58,
        "on the same pixels." % _M["scale_k"],
        fill=GREEN_PASS, fg=DARK_GREEN, fs=10.5)
 tb(s, 0.4, 6.54, 12.55, 0.34,
-   "On their own footage our measurement is %.1f× quieter than theirs (%.1f vs %.1f µε) — a larger "
-   "pixel baseline and a sub-pixel centroid against their %d Hz output."
-   % (_M["noise_ratio"], _OURS_V["noise_ue"], _MOT_V["noise_ue"], 20),
+   "On the XT-205's own footage the %s reads %.1f× quieter (%.1f vs %.1f µε) — a larger pixel "
+   "baseline and a sub-pixel centroid against the extensometer's %d Hz output."
+   % (_RIG, _M["noise_ratio"], _PP["noise_ue"], _MOT["noise_ue"], 20),
    fs=10, colour=BLACK, align=PP_ALIGN.CENTER)
 footer(s, "Fitted over 0.05–0.35 % strain, inside the XT-205's valid range — it loses its marks at "
           "0.4015 %. See ⟪HOW THE NOISE IS MEASURED⟫ for what a microstrain is.")
@@ -115,9 +109,9 @@ header(s, 0.45, 3.66, 12.5,
        "Ranked by how much of the gap each accounts for — the MOT's crosshead is commanded, not measured")
 table(s, 0.45, 4.04, 12.5, 2.56, [
     ["#", "Cause", "The evidence", "Size"],
-    ["1", "Motor speed is not specimen speed.\nOur Position_mm is a MOTOR-shaft encoder read "
+    ["1", "Motor speed is not specimen speed.\nThe rig's Position_mm is a MOTOR-shaft encoder read "
           "through 20:1 gearing\nand a 5 mm screw. It proves the motor turned; it proves nothing "
-          "about\nthe grips, and no sensor on the rig measures them.",
+          "about\nthe grips, and no sensor measures them directly.",
      "motor %.4f mm/s — exactly commanded — while the gauge\nsees %.4f mm/s (S25) and %.4f mm/s "
      "(S26). Everything between\nthe motor and the specimen is assumed rigid, and is not."
      % (_SH["S25"]["crosshead_mm_s"], _SH["S25"]["gauge_mm_s"], _SH["S26"]["gauge_mm_s"]),
@@ -129,14 +123,14 @@ table(s, 0.45, 4.04, 12.5, 2.56, [
      % (100 * _SH["S25"]["share"], 100 * _SH["S26"]["share"],
         100 * (_SH["S26"]["share"] - _SH["S25"]["share"])),
      "explains the\nSPREAD"],
-    ["3", "Our markers sit on the fillet shoulders.\nWider material carries the same load at "
+    ["3", "The %s markers sit on the fillet shoulders.\nWider material carries the same load at " % _RIG +
           "lower stress, so it strains less\nand dilutes the average over the span.",
-     "only 85 % of our marker span is parallel; at its two ends the\nspecimen is 64 % and 69 % "
+     "only 85 %% of the %s marker span is parallel; at its two ends the\nspecimen is 64 %% and 69 %% " % _RIG +
      "wider. The XT-205's span is parallel\nacross 100 %.",
      "6.5 % — real\nbut minor"],
     ["4", "Strain-rate dependence then compounds it.\nPLA is viscoelastic, so its elastic slope "
           "rises with strain rate.",
-     "our gauge is strained at a third of theirs, so a lower modulus\nfollows even from a perfect "
+     "the %s gauge is strained at a third of the XT-205's, so a lower\nmodulus follows even from a perfect " % _RIG +
      "instrument. A CONSEQUENCE of 1–2,\nnot an independent cause.",
      "multiplies\n1 and 2"],
 ], cw=[0.32, 4.5, 5.55, 2.13], hf=9.5, bf=7.5)
@@ -162,7 +156,7 @@ table(s, 0.45, 1.60, 12.5, 3.30, [
      "test2.daq carries EXACTLY 2281 rows for those 2281\nframes, each timestamped. The time base "
      "is now read\nfrom it rather than from the container."],
     ["Recovering the frame rate by\nmatching strain curves",
-     "Circular. If our strain were k× theirs the fit returns\nfps ÷ k, and the two rates then "
+     "Circular. If the %s strain were k× the XT-205's the fit\nreturns fps ÷ k, and the two rates then " % _RIG +
      "agree BY CONSTRUCTION.\nThat version reported 0.6 % agreement.",
      "Replaced by the DAQ's own timestamps; the honest\nfigure is %.1f %%. The matching fit is "
      "kept, demoted to\nthe scale check it is genuinely good for."

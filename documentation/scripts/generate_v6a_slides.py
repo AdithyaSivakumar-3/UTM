@@ -788,7 +788,7 @@ pageno(s)
 
 # ---- Slide 167: TO BE TESTED — rig / camera ----
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "VALIDATED ON THE RIG  (2026-07-28 / 29)")
+title(s, "VALIDATED ON THE PPD-UTM  (2026-07-28 / 29)")
 header(s, 0.4, 1.28, 7.35, "Feature checks — ALL PASSED")
 tst = [
     ["Feature", "Result"],
@@ -3432,7 +3432,7 @@ tb(s, 0.4, 1.13, 12.55, 0.50,
    fs=12, italic=True, colour=GREY_TEXT)
 
 table(s, 0.4, 1.72, 5.55, 2.50,
-      [["Parameter", "MOT XT-205", "Ours"],
+      [["Parameter", "MOT XT-205", "PPD-UTM"],
        ["Instrument", "XT-205 video ext.", "Basler acA2440-35um, 2 spray dots"],
        ["Gauge length", "80.0033 mm", "80.0 mm"],
        ["Sampling", "20.0 Hz", "19.9 Hz"],
@@ -3513,7 +3513,7 @@ header(s, 7.70, 4.88, 5.25, "The honest reading")
 tb(s, 7.70, 5.26, 5.25, 1.35,
    "The XT-205 holds the QUIETEST baseline of the three (median 12 µε vs our 13 and 17). It loses "
    "on RMS only because of a handful of large excursions — 95ᵗʰ percentile 116 µε against our 45. "
-   "Ours is not finer; it is more CONSISTENT.", fs=10.5, colour=BLACK)
+   "The PPD-UTM is not finer; it is more CONSISTENT.", fs=10.5, colour=BLACK)
 
 banner(s, 0.4, 6.50, 12.55, 0.50,
        "Two spray dots hold %.1f× lower RMS strain noise than the commercial extensometer, and our "
@@ -4055,7 +4055,7 @@ exec(open("documentation/scripts/s37_slides_block.py", encoding="utf-8").read())
 # ---- DIC position estimators: what they do, the candidates, the choice, and the proof
 exec(open("documentation/scripts/estimator_slides_block.py", encoding="utf-8").read())
 
-# ---- MOT XT-205 vs our rig, with its own video run through our calculation
+# ---- MOT XT-205 vs the PPD-UTM, with the extensometer's own video through our DIC
 exec(open("documentation/scripts/motpp_slides_block.py", encoding="utf-8").read())
 
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and

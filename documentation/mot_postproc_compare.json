@@ -1,4 +1,5 @@
 {
+ "rig_name": "PPD-UTM",
  "source_csv": "dic_postproc_20260827_152810_test2_chan 0.csv",
  "source_settings": {
   "Source video": "C:/Users/sivadi/OneDrive - Jonkoping University/Dokument/Python codes/UTM-main current/Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Videoextesometer MOT/test2.chan 0.avi",
@@ -18,28 +19,36 @@
  "scale_k": 0.9999132385474974,
  "rows": [
   {
-   "name": "MOT video, OUR calculation",
+   "key": "pp",
+   "name": "XT-205 footage, PPD-UTM DIC",
+   "short": "XT-205 footage\nPPD-UTM DIC",
    "rate": 0.0007598129639406738,
    "r2": 0.9999570405419231,
    "n": 79,
    "noise_ue": 5.682863950756829
   },
   {
-   "name": "MOT video, XT-205's own answer",
+   "key": "mot",
+   "name": "XT-205 footage, XT-205 extensometer",
+   "short": "XT-205 footage\nXT-205 extensometer",
    "rate": 0.0007423560519135528,
    "r2": 0.9972812077853467,
    "n": 80,
    "noise_ue": 44.872180909076526
   },
   {
-   "name": "S25, our rig + our calculation",
+   "key": "S25",
+   "name": "S25, PPD-UTM",
+   "short": "S25\nPPD-UTM",
    "rate": 0.0002665605186689255,
    "r2": 0.9992797566374185,
    "n": 129,
    "noise_ue": 23.519873423001904
   },
   {
-   "name": "S26, our rig + our calculation",
+   "key": "S26",
+   "name": "S26, PPD-UTM",
+   "short": "S26\nPPD-UTM",
    "rate": 0.00040633987250290686,
    "r2": 0.9992991350521899,
    "n": 86,

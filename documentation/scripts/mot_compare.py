@@ -53,6 +53,10 @@ CROSSHEAD_MM_S = 0.112          # measured from Position_mm, not the commanded 0
 GAUGE_MM = 80.0
 CEILING = CROSSHEAD_MM_S / GAUGE_MM      # d(eps)/dt if ALL crosshead motion reached the gauge
 
+# The machine's name, defined ONCE for every MOT comparison script — they all import this
+# module already. PPD for the department, UTM for what it is, so no label says "PPD-UTM rig".
+RIG = "PPD-UTM"
+
 INK, RULE = "#1A1A1A", "#C9CDD2"
 C_OURS, C_MOT = "#1f77b4", "#d62728"
 
@@ -176,7 +180,7 @@ def build():
     for spec, (t, e, F, _n) in runs.items():
         ax.plot(t - t[np.argmax(e > LO)], moving_rate(t, e) / 1e-4,
                 color=C_OURS, lw=1.2, alpha=0.55 if spec == "S26" else 1.0,
-                ls="-" if spec == "S25" else "--", label="ours " + spec)
+                ls="-" if spec == "S25" else "--", label="%s %s" % (RIG, spec))
     ax.axhline(CEILING / 1e-4, color="#444", ls=":", lw=1.2)
     ax.text(0.99, CEILING / 1e-4, " ceiling %.2fe-4 /s " % (CEILING / 1e-4), fontsize=7.5,
             ha="right", va="bottom", transform=ax.get_yaxis_transform(), color="#444")
@@ -189,11 +193,11 @@ def build():
     # (c) the comparison itself, on a common origin
     ax = axes[1][0]
     for lab, (t, e), c, ls in (("MOT", (tm, em), C_MOT, "-"),
-                               ("ours S25", runs["S25"][:2], C_OURS, "-"),
-                               ("ours S26", runs["S26"][:2], C_OURS, "--")):
+                               ("%s S25" % RIG, runs["S25"][:2], C_OURS, "-"),
+                               ("%s S26" % RIG, runs["S26"][:2], C_OURS, "--")):
         m = (e >= LO) & (e <= HI)
         ax.plot(t[m] - t[m].min(), e[m] * 100, color=c, ls=ls, lw=1.6, label=lab)
-        sl = res[lab.split()[-1] if "ours" in lab else "MOT"][0]
+        sl = res[lab.split()[-1] if RIG in lab else "MOT"][0]
         tt = np.linspace(0, (t[m].max() - t[m].min()), 5)
         ax.plot(tt, (e[m].min() + sl * tt) * 100, color=c, lw=0.8, ls=":", alpha=0.8)
     ax.axhspan(LO * 100, HI * 100, color="#ffe08a", alpha=0.25, zorder=0)
