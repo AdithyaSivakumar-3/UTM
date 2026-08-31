@@ -153,11 +153,75 @@ def fig_share(D):
     print("  motpp_share.png")
 
 
+def fig_scalecheck(D):
+    """The scale check, given room to explain itself.
+
+    Left: the two routes to ONE video's frame rate. Right: the calibration of the argument — feed
+    the check a known scale error and it reports that error back, which is what makes agreement
+    mean something rather than being a foregone conclusion.
+    """
+    cr = D["crossings"]
+    sens = D["scale_sensitivity"]
+    tx = np.array(cr["t"]); fx = np.array(cr["frame"])
+    inferred, daq = D["fps_from_crossings"], D["fps_daq"]
+
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(11.4, 4.0),
+                                 gridspec_kw={"width_ratios": [1.0, 1.0], "wspace": 0.24})
+
+    ax.plot(tx, fx, "o", color="#7048e8", ms=7, label="the 9 shared strain levels")
+    xs = np.array([tx.min(), tx.max()])
+    ax.plot(xs, inferred * xs + cr["fit_intercept"], "-", color="#7048e8", lw=1.6,
+            label="INFERRED from strain: %.3f fps" % inferred)
+    ax.plot(xs, daq * xs + cr["fit_intercept"], "--", color=INK, lw=1.6,
+            label="RECORDED in the log: %.3f fps" % daq)
+    ax.set_xlabel("time on the XT-205 clock (s)")
+    ax.set_ylabel("frame number in the XT-205's video")
+    ax.set_title("Both lines describe ONE video — the XT-205's.\nNot two machines.",
+                 fontsize=10.5, color=INK)
+    ax.legend(fontsize=8.6, loc="upper left", framealpha=0.95)
+    _style(ax)
+
+    k = np.array([r["k"] for r in sens])
+    got = np.array([r["recovered_k"] for r in sens])
+    bx.plot([k.min() - 0.02, k.max() + 0.02], [k.min() - 0.02, k.max() + 0.02], "--",
+            color=MUTED, lw=1.2, label="perfect detection")
+    bx.plot(k, got, "o-", color=BAD, lw=1.8, ms=8, label="what the check reports")
+    _i = int(np.argmin(np.abs(k - 1.0)))
+    bx.plot([k[_i]], [got[_i]], "o", ms=15, mfc="none", mec=GOOD, mew=2.4)
+    bx.annotate("the real data:\nk = %.4f" % got[_i], xy=(k[_i], got[_i]),
+                xytext=(k[_i] - 0.075, got[_i] + 0.055), fontsize=9, color=GOOD,
+                fontweight="bold",
+                arrowprops=dict(arrowstyle="->", color=GOOD, lw=1.3))
+    bx.set_xlabel("scale error deliberately injected into our strain")
+    bx.set_ylabel("scale error the check reports")
+    bx.set_title("Does the check actually detect an error?\nStretch the strain by k and it says k.",
+                 fontsize=10.5, color=INK)
+    bx.legend(fontsize=8.6, loc="lower right", framealpha=0.95)
+    _style(bx)
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIGS, "mot_scalecheck.png"), dpi=200, bbox_inches="tight",
+                facecolor="white")
+    plt.close(fig)
+    print("  mot_scalecheck.png")
+
+
 def all_figs():
+    """Re-run the ANALYSIS, then draw everything that depends on it.
+
+    The analysis is rebuilt here rather than assumed fresh. mot_postproc_compare.py owns both the
+    cache these figures read AND mot_postproc_compare.png, so leaving it out meant a deck build
+    refreshed two of the three figures and silently kept a stale third — which is exactly what
+    happened after its axis labels were rewritten: the slide still carried the old wording with
+    nothing to say so.
+    """
+    import mot_postproc_compare as MP
+    print("MOT post-processing analysis + figures:")
+    MP.build()                      # writes the cache and mot_postproc_compare.png
     D = load()
-    print("MOT post-processing figures:")
     fig_setup()
     fig_share(D)
+    fig_scalecheck(D)
     return D
 
 

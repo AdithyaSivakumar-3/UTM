@@ -285,6 +285,25 @@ def write_matched_csv(rows, path):
                     % (r["t"], r["ours"] * 100, r["theirs"] * 100, r["off_ue"], r["off_pc"]))
 
 
+def scale_sensitivity(f_pp, e_pp, t_mot, e_mot, daq_fps, ks=(0.90, 0.95, 1.00, 1.05, 1.10)):
+    """Stretch our strain by a known k and check the test reports k back.
+
+    This is what makes the scale check an argument rather than an assertion. If the inferred rate
+    simply always came out near the recorded one, the check would prove nothing; showing that a
+    deliberate 10 % error moves it by 10 % is what establishes that agreement is informative.
+
+    Why it works: the inferred rate comes from WHEN each record reaches a given strain. Multiply
+    our strain by k and it reaches every level earlier, by a factor k — so the fitted rate comes
+    back as fps/k. The recorded rate cannot move, because it never looks at strain.
+    """
+    out = []
+    for k in ks:
+        fps, _c, r2, _lv, _tx, _fx = recover_fps(f_pp, e_pp * k, t_mot, e_mot)
+        out.append({"k": float(k), "inferred_fps": float(fps),
+                    "recovered_k": float(daq_fps / fps), "r2": float(r2)})
+    return out
+
+
 def build():
     # ---- the three records ------------------------------------------------------------------
     f_pp, e_pp, L_pp, head, pp_name = read_postproc()
@@ -321,7 +340,7 @@ def build():
     print("\nscale check (this is what a slope fit alone cannot tell you):")
     print("   rate recovered by matching %d strain levels : %.4f fps  (R2 %.5f)"
           % (len(lv), fps, r2))
-    print("   rate the DAQ actually recorded              : %.4f fps" % daq_fps)
+    print("   rate the acquisition log actually recorded  : %.4f fps" % daq_fps)
     print("   => strain-scale factor, %s DIC / XT-205     : %.5f  (%.2f %% apart)" % (RIG,
              k, abs(k - 1) * 100))
 
@@ -385,6 +404,8 @@ def build():
     # run produced these numbers and how it was set up. Without it, a slide quoting 1.0017 could
     # not be traced back to the settings that gave it.
     out = {"rig_name": RIG,
+           "crossings": {"t": [float(x) for x in tx], "frame": [float(x) for x in fx],
+                         "fit_slope": float(fps), "fit_intercept": float(c)},
            "source_csv": pp_name,
            "source_settings": {k2: head.get(k2) for k2 in
                                ("Source video", "Reference frame", "L0 (Px0)", "Gauge",
@@ -422,6 +443,16 @@ def build():
           % (100 * min(ours), 100 * max(ours)))
     print("   a fixed machine compliance would repeat; something that varies per mounting does not.")
 
+    # ---- does the scale check actually detect a scale error? ----------------------------------
+    sens = scale_sensitivity(f_pp, e_pp, t_mot, e_mot, daq_fps)
+    out["scale_sensitivity"] = sens
+    print("\nsensitivity of the scale check — inject k, see whether it comes back:")
+    print("     k      inferred fps     recovered k")
+    for r in sens:
+        print("   %.2f       %8.4f        %.4f%s"
+              % (r["k"], r["inferred_fps"], r["recovered_k"],
+                 "   <- the real data" if abs(r["k"] - 1.0) < 1e-9 else ""))
+
     # ---- the per-point record ------------------------------------------------------------------
     pts = matched_table(t_pp, e_pp, t_mot, e_mot)
     csv_path = os.path.join(HERE, "..", "mot_matched_points.csv")
@@ -452,8 +483,11 @@ def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
     # Three panels that belong together. At 13.2 in the gaps took a third of the width and every
     # axis came out stretched; 11.6 in with the spacing set explicitly keeps each panel close to
     # square and reads as one grouped figure rather than three separate ones.
-    fig, axes = plt.subplots(1, 3, figsize=(11.6, 3.9),
-                             gridspec_kw={"width_ratios": [1.0, 1.0, 1.1], "wspace": 0.22})
+    # TWO panels, not three. The scale check used to sit in the middle and was read as a third
+    # machine-versus-machine comparison, which it is not — both its lines describe one video. It
+    # now has its own slide, where it has room to say so.
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.9),
+                             gridspec_kw={"width_ratios": [1.0, 1.12], "wspace": 0.20})
 
     ax = axes[0]
     ax.plot(t_mot, e_mot * 100, "-", color=C_MOT, lw=2.4, alpha=0.85,
@@ -469,24 +503,6 @@ def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
     _style(ax)
 
     ax = axes[1]
-    ax.plot(tx, fx, "o", color=C_PP, ms=6, label="shared strain levels")
-    xs = np.array([tx.min(), tx.max()])
-    ax.plot(xs, fps * xs + c, "-", color=C_PP, lw=1.4,
-            label="matched: %.3f fps" % fps)
-    ax.plot(xs, daq_fps * xs + c, "--", color=INK, lw=1.4,
-            label="DAQ's own: %.3f fps" % daq_fps)
-    ax.set_xlabel("time on the XT-205 clock (s)")
-    ax.set_ylabel("frame in the XT-205's video")
-    ax.set_title("Scale check: the two lines coincide,\nso the strain scales agree",
-                 fontsize=10.5, color=INK)
-    ax.legend(fontsize=8.4, loc="upper left", framealpha=0.95)
-    _style(ax)
-
-    # HORIZONTAL bars. Naming the records properly made the labels too long to sit under vertical
-    # bars in a third of the figure's width — they overlapped into each other. Turning the chart on
-    # its side gives each label a whole line to itself, which is the only fix that does not either
-    # abbreviate the names back into jargon or tilt them.
-    ax = axes[2]
     names = [SHORT[r[0]].replace("\n", " · ") for r in rows]
     vals = [r[1][0] for r in rows]
     cols = [r[3] for r in rows]

@@ -46,7 +46,8 @@ table(s, 6.85, 4.40, 6.1, 1.62, [
     ["marker span Px₀", "2234 px", "1676 px"],
     ["scale", "27.9 px/mm", "21.0 px/mm"],
     ["specimen width", "9.60 mm", "10.12 mm"],
-    ["frame rate", "19.405 fps (from its DAQ)", "19.93 fps (from index.csv)"],
+    ["frame rate", "19.405 fps, from its own\nper-frame acquisition log",
+     "19.93 fps, from the\ncapture's index.csv"],
     ["strain range usable", "to 0.40 %, then its\nmarks are lost", "to fracture"],
 ], cw=[1.85, 2.15, 2.1], hf=9.5, bf=8)
 
@@ -72,7 +73,7 @@ table(s, 0.45, 4.22, 6.15, 1.55, [
      "median %.4f" % _M["ratio_matched_median"]],
     ["%s DIC as a straight fit of the XT-205" % _RIG,
      "%.4f × XT-205 %+.0f µε" % (_M["matched_slope"], _M["matched_offset_ue"])],
-    ["independent scale check (see below)", "k = %.5f" % _M["scale_k"]],
+    ["independent scale check (⟪THE SCALE CHECK⟫)", "k = %.5f" % _M["scale_k"]],
     ["fitted strain-rate ratio", "%.4f" % _M["ratio_rate"]],
 ], cw=[3.9, 2.25], hf=9.5, bf=8.5)
 
@@ -86,10 +87,10 @@ table(s, 6.85, 4.22, 6.1, 1.55, [
 ], cw=[2.85, 1.75, 1.5], hf=9.5, bf=8.5)
 
 banner(s, 0.4, 5.90, 12.55, 0.58,
-       "The scale check is the load-bearing one. Recovering the frame rate by matching strain "
-       "levels returns fps ÷ k for any scale error k — so comparing it against the rate the DAQ "
-       "actually recorded measures k directly. k = %.5f, so the two pipelines put the same number "
-       "on the same pixels." % _M["scale_k"],
+       "Same footage, same specimen, same instant — so the only thing that differs is the "
+       "arithmetic, and it agrees. That the two strains are also the same SIZE, and not merely the "
+       "same shape, is established separately and to %.2f %% (⟪THE SCALE CHECK⟫); what is left over "
+       "here is each instrument's own noise." % (abs(_M["scale_k"] - 1) * 100),
        fill=GREEN_PASS, fg=DARK_GREEN, fs=10.5)
 tb(s, 0.4, 6.54, 12.55, 0.34,
    "On the XT-205's own footage the %s reads %.1f× quieter (%.1f vs %.1f µε) — a larger pixel "
@@ -159,7 +160,7 @@ table(s, 0.45, 1.60, 12.5, 3.30, [
     ["Recovering the frame rate by\nmatching strain curves",
      "Circular. If the %s strain were k× the XT-205's the fit\nreturns fps ÷ k, and the two rates then " % _RIG +
      "agree BY CONSTRUCTION.\nThat version reported 0.6 % agreement.",
-     "Replaced by the DAQ's own timestamps; the honest\nfigure is %.1f %%. The matching fit is "
+     "Replaced by the acquisition log's per-frame\ntimestamps; the honest figure is %.1f %%. The fit is "
      "kept, demoted to\nthe scale check it is genuinely good for."
      % (abs(_M["ratio_rate"] - 1) * 100)],
     ["cv2 seeking returns a STALE\nframe on this file",
@@ -195,6 +196,53 @@ tb(s, 6.85, 5.44, 6.1, 1.42,
    fs=10, colour=BLACK)
 footer(s, "Sources: mot_postproc_compare.py and motpp_plots.py, both reading the raw records at "
           "build time. Measured %s." % _M.get("measured", "2026-08-27"))
+pageno(s)
+
+
+# ================================================================= 5. the scale check, explained
+_SENS = _M["scale_sensitivity"]
+_K1 = next(r for r in _SENS if abs(r["k"] - 1.0) < 1e-9)
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "THE SCALE CHECK — WHY IT IS NEEDED, AND WHAT IT RULES OUT")
+
+header(s, 0.45, 1.14, 6.15, "1 · The problem: a strain RATE needs a clock")
+tb(s, 0.45, 1.52, 6.15, 1.18,
+   "Comparing d(ε)/dt between two machines means knowing when each video frame happened. "
+   "test2.chan 0.avi declares 1000 fps and 117 497 frames; it holds 2281 frames at about 19.4 fps. "
+   "Believe the file and every rate on these slides is out by a factor of 52.",
+   fs=10, colour=BLACK)
+
+header(s, 6.85, 1.14, 6.1, "2 · Two ways to get the real one")
+table(s, 6.85, 1.52, 6.1, 1.18, [
+    ["Route", "Where it comes from", "Result"],
+    ["INFERRED", "when each record reaches the\nsame strain levels",
+     "%.3f fps" % _M["fps_from_crossings"]],
+    ["RECORDED", "the XT-205's own log, one\ntimestamped row per frame",
+     "%.3f fps" % _M["fps_daq"]],
+], cw=[1.15, 3.05, 1.9], hf=9.5, bf=8.5)
+
+img_fit(s, "documentation/figures/mot_scalecheck.png", 0.45, 2.86, 12.5, 2.86)
+
+header(s, 0.45, 5.84, 6.15, "3 · Why not just use the recorded one and move on?")
+tb(s, 0.45, 6.22, 6.15, 0.72,
+   "Because then nothing would test whether the two strains agree in SIZE. The INFERRED route "
+   "depends on size — stretch our strain by k and it returns fps ÷ k. The RECORDED route cannot "
+   "move, because it never looks at strain. So the gap between them IS the size error.",
+   fs=10, colour=BLACK)
+
+header(s, 6.85, 5.84, 6.1, "4 · And the check is calibrated, not asserted")
+tb(s, 6.85, 6.22, 6.1, 0.72,
+   "Feeding it a deliberate 10 %% error makes it report 10 %% (right-hand plot), so agreement is "
+   "informative rather than inevitable. On the real data it reports k = %.4f: the two strain "
+   "scales match to %.2f %%."
+   % (_K1["recovered_k"], abs(_K1["recovered_k"] - 1) * 100),
+   fs=10, colour=BLACK)
+
+footer(s, "What it does NOT rule out: if the recorded frame rate were wrong by a factor m AND our "
+          "strain were stretched by the same m, the test would still pass. That needs two "
+          "independent errors to coincide exactly — the log comes from the other instrument — but "
+          "it is not logically excluded.")
 pageno(s)
 
 
