@@ -247,6 +247,44 @@ def gauge_share(rate_mot):
     return out
 
 
+def matched_table(t_pp, e_pp, t_mot, e_mot):
+    """Every matched point in the comparison window: both raw strains, and the offset.
+
+    Both instruments sit on the same clock, so the XT-205's record is interpolated onto OUR sample
+    times rather than either being resampled onto a common grid — interpolating one series is a
+    smaller intervention than rebuilding both, and it leaves our column exactly as measured.
+
+    Offset is given in microstrain AND per cent because they say different things here: at 0.05 %
+    strain a 10 ue difference is 2 % of the reading, and at 0.35 % the same 10 ue is 0.3 %. Reading
+    only the percentage makes the early points look far worse than they are.
+    """
+    m = (t_pp >= t_mot[0]) & (t_pp <= t_mot[-1])
+    ei = np.interp(t_pp[m], t_mot, e_mot)
+    w = (ei >= LO) & (ei <= HI)
+    tt, ours, theirs = t_pp[m][w], e_pp[m][w], ei[w]
+    return [{"t": float(a), "ours": float(b), "theirs": float(c),
+             "off_ue": float((b - c) * 1e6), "off_pc": float((b / c - 1) * 100)}
+            for a, b, c in zip(tt, ours, theirs)]
+
+
+def write_matched_csv(rows, path):
+    """The full point list as a file, because 83 rows is more than a slide should carry."""
+    with io.open(path, "w", encoding="utf-8", newline="") as f:
+        f.write("# Per-point comparison over the %.2f-%.2f %% strain window.\n"
+                "# %s_strain_pct is RAW: no smoothing anywhere in the post-processor, and the\n"
+                "#   source column is exactly (L_px - Px0)/Px0.\n"
+                "# XT205_strain_pct is the XT-205's own output, interpolated onto our sample\n"
+                "#   times. Whatever it does internally before writing strain.csv is not\n"
+                "#   knowable from the file.\n"
+                "# offset_ue = ours - theirs;  offset_pct = ours/theirs - 1\n"
+                % (LO * 100, HI * 100, RIG.replace("-", "_")))
+        f.write("Time_s,%s_strain_pct,XT205_strain_pct,offset_ue,offset_pct\n"
+                % RIG.replace("-", "_"))
+        for r in rows:
+            f.write("%.4f,%.6f,%.6f,%.2f,%.4f\n"
+                    % (r["t"], r["ours"] * 100, r["theirs"] * 100, r["off_ue"], r["off_pc"]))
+
+
 def build():
     # ---- the three records ------------------------------------------------------------------
     f_pp, e_pp, L_pp, head, pp_name = read_postproc()
@@ -384,6 +422,26 @@ def build():
           % (100 * min(ours), 100 * max(ours)))
     print("   a fixed machine compliance would repeat; something that varies per mounting does not.")
 
+    # ---- the per-point record ------------------------------------------------------------------
+    pts = matched_table(t_pp, e_pp, t_mot, e_mot)
+    csv_path = os.path.join(HERE, "..", "mot_matched_points.csv")
+    write_matched_csv(pts, csv_path)
+    ue = np.array([p["off_ue"] for p in pts])
+    pc = np.array([p["off_pc"] for p in pts])
+    out["matched_points"] = pts
+    out["offset_summary"] = {
+        "n": len(pts),
+        "t_from": pts[0]["t"], "t_to": pts[-1]["t"],
+        "ue_min": float(ue.min()), "ue_med": float(np.median(ue)), "ue_max": float(ue.max()),
+        "pc_min": float(pc.min()), "pc_med": float(np.median(pc)), "pc_max": float(pc.max()),
+        "within_50ue": int((np.abs(ue) <= 50).sum()),
+    }
+    print("\nper-point comparison: %d points, %.2f-%.2f s" % (len(pts), pts[0]["t"], pts[-1]["t"]))
+    print("   offset  %+.0f to %+.0f ue (median %+.0f);  %+.2f to %+.2f %% (median %+.2f)"
+          % (ue.min(), ue.max(), np.median(ue), pc.min(), pc.max(), np.median(pc)))
+    print("   %d of %d points within +/-50 ue" % (int((np.abs(ue) <= 50).sum()), len(pts)))
+    print("   wrote %s" % os.path.relpath(csv_path, REPO))
+
     io.open(os.path.join(HERE, "..", "mot_postproc_compare.json"), "w",
             encoding="utf-8", newline="").write(json.dumps(out, indent=1))
     figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps)
@@ -391,8 +449,11 @@ def build():
 
 
 def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
-    fig, axes = plt.subplots(1, 3, figsize=(13.2, 4.1),
-                             gridspec_kw={"width_ratios": [1.25, 1.25, 1]})
+    # Three panels that belong together. At 13.2 in the gaps took a third of the width and every
+    # axis came out stretched; 11.6 in with the spacing set explicitly keeps each panel close to
+    # square and reads as one grouped figure rather than three separate ones.
+    fig, axes = plt.subplots(1, 3, figsize=(11.6, 3.9),
+                             gridspec_kw={"width_ratios": [1.0, 1.0, 1.1], "wspace": 0.22})
 
     ax = axes[0]
     ax.plot(t_mot, e_mot * 100, "-", color=C_MOT, lw=2.4, alpha=0.85,
@@ -429,20 +490,29 @@ def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
     names = [SHORT[r[0]].replace("\n", " · ") for r in rows]
     vals = [r[1][0] for r in rows]
     cols = [r[3] for r in rows]
+    # Labels INSIDE the axes, above each bar, rather than as y-ticks. Tick labels this long need a
+    # left margin as wide as the panel itself, and once the three panels were brought close together
+    # they simply ran over the middle plot.
+    from matplotlib.transforms import blended_transform_factory
     y = np.arange(len(rows))[::-1]          # first record at the top, reading order
-    b = ax.barh(y, [v * 1e4 for v in vals], color=cols, height=0.62)
-    for rr, v in zip(b, vals):
-        ax.text(v * 1e4 + 0.12, rr.get_y() + rr.get_height() / 2, "%.2e" % v,
-                va="center", fontsize=8.4, color=INK)
-    ax.set_yticks(y); ax.set_yticklabels(names, fontsize=8.6)
-    ax.set_xlim(0, max(vals) * 1e4 * 1.28)
+    b = ax.barh(y, [v * 1e4 for v in vals], color=cols, height=0.40)
+    tr = blended_transform_factory(ax.transAxes, ax.transData)   # x in axes units, y in data units
+    for rr, v, nm in zip(b, vals, names):
+        yc = rr.get_y() + rr.get_height() / 2
+        ax.text(0.012, yc + 0.30, nm, transform=tr, va="bottom", ha="left",
+                fontsize=8.2, color=INK)
+        ax.text(v * 1e4 + 0.10, yc, "%.2e /s" % v, va="center", fontsize=8.2,
+                color=INK, fontweight="bold")
+    ax.set_yticks([])
+    ax.set_ylim(-0.62, len(rows) - 0.32)
+    ax.set_xlim(0, max(vals) * 1e4 * 1.30)
     ax.set_xlabel("d(ε)/dt over 0.05–0.35 %  (×10⁻⁴ /s)")
     ax.set_title("Strain rate on one shared window", fontsize=10.5, color=INK)
     _style(ax)
 
-    fig.tight_layout()
-    fig.savefig(os.path.join(FIGS, "mot_postproc_compare.png"), dpi=200, bbox_inches="tight",
-                facecolor="white")
+    # tight_layout would override the wspace set above, so only the margins are trimmed.
+    fig.subplots_adjust(left=0.055, right=0.995, top=0.86, bottom=0.145)
+    fig.savefig(os.path.join(FIGS, "mot_postproc_compare.png"), dpi=200, facecolor="white")
     plt.close(fig)
     print("\nwrote documentation/figures/mot_postproc_compare.png")
 

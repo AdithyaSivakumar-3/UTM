@@ -196,3 +196,45 @@ tb(s, 6.85, 5.44, 6.1, 1.42,
 footer(s, "Sources: mot_postproc_compare.py and motpp_plots.py, both reading the raw records at "
           "build time. Measured %s." % _M.get("measured", "2026-08-27"))
 pageno(s)
+
+
+# ================================================================= 5. the raw points
+_PTS = _M["matched_points"]
+_OS = _M["offset_summary"]
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "RAW DATA — EVERY POINT IN THE COMPARISON WINDOW")
+
+tb(s, 0.45, 1.12, 12.5, 0.52,
+   "All %d matched samples, %.2f–%.2f s, unaveraged and unsmoothed. The %s column is RAW — the "
+   "post-processor applies no filtering of any kind and its source value is exactly (L_px − Px₀)/Px₀. "
+   "The XT-205 column is that instrument's own output, interpolated onto our sample times; what it "
+   "does internally cannot be seen from the file, so the two columns are not equally traceable."
+   % (_OS["n"], _OS["t_from"], _OS["t_to"], _RIG),
+   fs=9.5, colour=BLACK)
+
+_HDR = ["t (s)", _RIG, "XT-205", "Δ µε", "Δ %"]
+_n = len(_PTS)
+_per = -(-_n // 3)                       # ceil, so the last group is the short one
+for _g in range(3):
+    _chunk = _PTS[_g * _per:(_g + 1) * _per]
+    if not _chunk:
+        continue
+    _data = [_HDR] + [["%.2f" % p["t"], "%.4f" % (p["ours"] * 100),
+                       "%.4f" % (p["theirs"] * 100), "%+.0f" % p["off_ue"],
+                       "%+.2f" % p["off_pc"]] for p in _chunk]
+    table(s, 0.42 + _g * 4.18, 1.74, 4.05, 0.150 * len(_data), _data,
+          cw=[0.72, 0.88, 0.85, 0.72, 0.88], hf=7.5, bf=7)
+
+kpi(s, 0.42, 6.20, 3.02, "MEDIAN OFFSET", "%+.0f µε" % _OS["ue_med"], h=0.68, vfs=15,
+    fill=GREEN_PASS)
+kpi(s, 3.62, 6.20, 3.02, "WITHIN ± 50 µε", "%d of %d" % (_OS["within_50ue"], _OS["n"]),
+    h=0.68, vfs=15, fill=GREEN_PASS)
+kpi(s, 6.82, 6.20, 3.02, "RANGE", "%+.0f to %+.0f µε" % (_OS["ue_min"], _OS["ue_max"]),
+    h=0.68, vfs=13)
+kpi(s, 10.02, 6.20, 2.93, "MEDIAN, AS A %", "%+.2f %%" % _OS["pc_med"], h=0.68, vfs=15)
+
+footer(s, "Read Δ µε before Δ %% : at 0.05 %% strain a 10 µε difference is 2 %% of the reading and at "
+          "0.35 %% the same 10 µε is 0.3 %%, so the percentage column exaggerates the early points and "
+          "flatters the late ones. Full list, to six decimals: documentation/mot_matched_points.csv")
+pageno(s)
