@@ -872,12 +872,12 @@ def pic_or_ph(sl, path, x, y, w, ph_h, note):
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "SMART-UTM FEATURE SET — SF1 to SF19")
 tb(s, 0.4, 1.15, 12.55, 0.40,
-   "16 built and RIG-VALIDATED (green) · 2 built, offline-verified only (teal) · "
+   "17 built and RIG-VALIDATED (green) · 2 built, offline-verified only (teal) · "
    "1 hardware-blocked (amber). Numeric order, so a card can be found by its SF number.",
    fs=11.5, italic=True, colour=GREY_TEXT)
 # SF numbers are append-only IDs. SF17 was carded and retired the same day — a card has to be
 # something the OPERATOR invokes or that acts on the machine during a run, and a developer-only
-# simulation harness is neither — so the next free numbers are 18 and 19.
+# simulation harness is neither — so 17 stays struck and the numbering continues 18, 19, 20.
 _SF_BUILT = RGBColor(0xCF, 0xE2, 0xF3)      # built, not yet seen on the rig. BLUE, not a
                                             # near-green teal: at chip size teal and green
                                             # were the same colour to the eye.
@@ -900,6 +900,7 @@ _sf_cards = [
     (16, "Dead-DIC guard + backstops", "0.2 s freeze / 1.0 s halt", "done"),
     (18, "Live Px₀ overlay", "frozen vs live pair, on the feed", "done"),
     (19, "Video + image capture", "PNG + 3 AVI styles, 0 dropped", "done"),
+    (20, "DIC post-processing", "measure any recorded video", "done"),
 ]
 _fill = {"done": (GREEN_PASS, DARK_GREEN), "built": (_SF_BUILT, DARK_GREEN),
          "plan": (LIGHT_BLUE, BLACK), "block": (YELLOW_WARN, BLACK)}
@@ -3676,13 +3677,13 @@ sf_overview([
      "Creeps in tension on a 0.2 → 0.1 → 0.02 mm/s schedule and stops at 1.03× target, offsetting "
      "the ~2 % PLA relaxation that follows.", "done"),
 ])
-footer(s, "Green = built and rig-validated. The dense index of all 19 is on ⟪SMART-UTM FEATURE SET — SF1⟫; SF11–SF19 "
+footer(s, "Green = built and rig-validated. The dense index of all 20 is on ⟪SMART-UTM FEATURE SET — SF1⟫; SF11–SF19 "
           "continue on the next slide.")
 pageno(s)
 
 # ---- p249: SF11-SF19, the data and the setup ----
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SMART FEATURES 11–19 — SETUP, EVIDENCE AND SAFETY")
+title(s, "SMART FEATURES 11–20 — SETUP, EVIDENCE AND SAFETY")
 tb(s, 0.4, 1.15, 12.55, 0.38,
    # No blue cards remain on this slide as of 2026-08-26, so the legend no longer explains one.
    "The features that make a run trustworthy rather than merely possible. Green = built AND "
@@ -3716,15 +3717,19 @@ sf_overview([
     (19, "Video + image capture",
      "PNG stills plus three AVI views — raw, contrast-boosted and adaptive speckle — recorded "
      "together. S25/S26: 3 127 stills and 3 × 3 127 frames, 0 dropped, 19.9 fps.", "done"),
+    (20, "DIC post-processing",
+     "A tab that measures strain from ANY recorded video with the rig's own pixel-to-strain rule, "
+     "so our runs can be re-checked and another machine's footage measured on the same footing.",
+     "done"),
 ])
 # Row 5 is free on this slide (8 cards, not 10), so it carries the legend and the one sentence
 # that says what the set adds up to — better than leaving a band of white under the cards.
 for _i, (_lab, _st, _txt) in enumerate([
-        ("18", "done", "built AND rig-validated"),
+        ("19", "done", "built AND rig-validated"),
         ("1", "block", "blocked by hardware")]):
-    _x = 0.40 + _i * 2.35
+    _x = 6.90 + _i * 2.35
     _f, _fg = _SF_STATUS[_st]
-    _c = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(_x), Inches(6.00),
+    _c = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(_x), Inches(5.92),
                             Inches(0.48), Inches(0.34))
     _c.fill.solid(); _c.fill.fore_color.rgb = _f
     _c.line.color.rgb = _fg; _c.line.width = Pt(0.9); _c.shadow.inherit = False
@@ -3733,12 +3738,11 @@ for _i, (_lab, _st, _txt) in enumerate([
     _p = _tf.paragraphs[0]; _p.alignment = PP_ALIGN.CENTER; _p.text = ""
     _r = _p.add_run(); _r.text = _lab
     _r.font.size = Pt(11); _r.font.bold = True; _r.font.color.rgb = _fg; _r.font.name = "Calibri"
-    tb(s, _x + 0.56, 6.06, 1.75, 0.26, _txt, fs=9.0, colour=GREY_TEXT)
+    tb(s, _x + 0.56, 5.98, 1.75, 0.26, _txt, fs=9.0, colour=GREY_TEXT)
 
-banner(s, 0.4, 6.46, 12.55, 0.50,
-       "EVERY BUILT FEATURE IS NOW RIG-VALIDATED. SF12 turned green on 2026-08-22 and SF18 on "
-       "2026-08-26, the last card that was waiting on a screenshot. SF14 is the only one left, "
-       "and hardware blocks it — not code.", fill=GREEN_PASS, fg=DARK_GREEN, fs=10.5)
+banner(s, 6.90, 6.32, 6.05, 0.52,
+       "EVERY BUILT FEATURE IS RIG-VALIDATED. SF14 is the only one outstanding, and hardware "
+       "blocks it — not code.", fill=GREEN_PASS, fg=DARK_GREEN, fs=10)
 footer(s, "SF17 is absent by design: it was carded and retired the same day, because a card has to "
           "be something the OPERATOR invokes or that acts on the machine during a run.")
 pageno(s)
@@ -4062,6 +4066,9 @@ exec(open("documentation/scripts/estimator_slides_block.py", encoding="utf-8").r
 
 # ---- MOT XT-205 vs the PPD-UTM, with the extensometer's own video through our DIC
 exec(open("documentation/scripts/motpp_slides_block.py", encoding="utf-8").read())
+
+# ---- SF20: the post-processing tab itself, and the evidence that it measures
+exec(open("documentation/scripts/sf20_slides_block.py", encoding="utf-8").read())
 
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
