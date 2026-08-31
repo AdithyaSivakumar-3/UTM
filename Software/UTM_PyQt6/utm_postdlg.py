@@ -33,7 +33,7 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QSize
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QFont
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
                              QFileDialog, QDoubleSpinBox, QSpinBox, QGroupBox, QSplitter,
@@ -41,7 +41,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLa
                              QListWidget, QListWidgetItem, QInputDialog, QDialog, QFrame,
                              QScrollArea, QTableWidget, QTableWidgetItem)
 
-from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import (FigureCanvasQTAgg as FigureCanvas,
+                                                NavigationToolbar2QT as NavigationToolbar)
 from matplotlib.figure import Figure
 
 import utm_postproc as PP
@@ -842,6 +843,16 @@ class PostProcTab(QWidget):
         self.canvas = FigureCanvas(self.fig)
         self.ax = self.fig.add_subplot(111)
         self._reset_plot()
+        # The same toolbar the Load and Stress/Strain plots carry — pan, zoom to rectangle, back
+        # and forward through views, Home, and matplotlib's own save. Above the canvas, as on the
+        # other two, so the three plots are operated the same way.
+        self.plotToolbar = NavigationToolbar(self.canvas, plotBox)
+        self.plotToolbar.setFixedHeight(24)
+        self.plotToolbar.setIconSize(QSize(16, 16))
+        self.plotToolbar.setStyleSheet("background-color: #f0f0f0;")
+        self.plotToolbar.setToolTip("Pan, zoom to a rectangle, step back through views, or Home "
+                                    "to return to the full curve.")
+        rv.addWidget(self.plotToolbar)
         rv.addWidget(self.canvas, 1)
         prow = QHBoxLayout()
         self.showTrue = QCheckBox("also plot true (log) strain")
@@ -963,7 +974,10 @@ class PostProcTab(QWidget):
         ("Take the results away",
          "The plot and the results table are both live. When you are happy with them, save what "
          "you need.",
-         ["<b>Save plot…</b> writes the plot exactly as shown — PDF or SVG stay sharp at any "
+         ["The toolbar above the plot pans and zooms it, the same one the Load and Stress/Strain "
+          "plots carry. A zoom set during a run is kept as the curve grows; <b>Home</b> returns to "
+          "the whole curve, and a new run starts fresh.",
+          "<b>Save plot…</b> writes the plot exactly as shown — PDF or SVG stay sharp at any "
           "size, so use those for a report.",
           "<b>Copy table</b> puts it on the clipboard as tab-separated text, which pastes "
           "straight into Excel. <b>Save table…</b> writes the same thing to a file.",
@@ -1012,7 +1026,17 @@ class PostProcTab(QWidget):
         return bool(c and c.isChecked())
 
     def _reset_plot(self):
+        # Autoscale back on, and the toolbar's view history cleared. A new run means new data, and
+        # a window framed around the previous one is unlikely to contain it — nor should Back walk
+        # into views of a curve that is no longer on the axes.
         self.ax.clear()
+        self.ax.set_autoscale_on(True)
+        tb = getattr(self, "plotToolbar", None)
+        if tb is not None:
+            try:
+                tb.update()                      # empties the pan/zoom history
+            except Exception:
+                pass
         self.ax.set_xlabel("time (s)")
         self.ax.set_ylabel("DIC strain (%)")
         self.ax.set_title("DIC strain vs time")
@@ -1768,6 +1792,8 @@ class PostProcTab(QWidget):
         # moment a run starts, and nothing else would clear it now that the marker-lost warning
         # has moved to a dialog.
         self.status.setStyleSheet("color:#c9d1d9;")
+        # A zoom chosen for the previous run should not frame this one.
+        self.ax.set_autoscale_on(True)
         r = self.run
         if r is None or not r.ready or self._busy():
             return
@@ -1869,6 +1895,13 @@ class PostProcTab(QWidget):
             if now - getattr(self, "_last_plot", 0.0) < 1.0 / self.PLOT_HZ:
                 return
             self._last_plot = now
+        # A live run redraws several times a second, and ax.clear() would reset the view every
+        # time — so a zoom set during a run would vanish before it could be read. Matplotlib turns
+        # autoscale OFF when the operator pans or zooms, which is exactly the signal for "this
+        # window was chosen deliberately, keep it".
+        keep = None
+        if not (self.ax.get_autoscalex_on() and self.ax.get_autoscaley_on()):
+            keep = (self.ax.get_xlim(), self.ax.get_ylim())
         self.ax.clear()
         self.ax.set_xlabel("time (s)")
         self.ax.set_ylabel("DIC strain (%)")
@@ -1895,6 +1928,8 @@ class PostProcTab(QWidget):
             # generated report.
         if any_data:
             self.ax.legend(frameon=False, fontsize=9)
+        if keep:
+            self.ax.set_xlim(keep[0]); self.ax.set_ylim(keep[1])
         self.fig.tight_layout()
         self.canvas.draw_idle()
 
