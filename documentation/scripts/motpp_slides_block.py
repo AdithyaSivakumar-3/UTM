@@ -42,6 +42,7 @@ table(s, 0.45, 4.40, 6.15, 1.62, [
 header(s, 6.85, 4.02, 6.1, "The two records")
 table(s, 6.85, 4.40, 6.1, 1.62, [
     ["", "MOT XT-205", "%s  (S25/S26)" % _RIG],
+    ["configuration", "—", "Mk II, after the\n2026-08-12 realignment"],
     ["marker span Px₀", "2234 px", "1676 px"],
     ["scale", "27.9 px/mm", "21.0 px/mm"],
     ["specimen width", "9.60 mm", "10.12 mm"],

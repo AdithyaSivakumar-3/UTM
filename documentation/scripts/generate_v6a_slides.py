@@ -788,7 +788,7 @@ pageno(s)
 
 # ---- Slide 167: TO BE TESTED — rig / camera ----
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "VALIDATED ON THE PPD-UTM  (2026-07-28 / 29)")
+title(s, "VALIDATED ON THE PPD-UTM Mk I  (2026-07-28 / 29)")
 header(s, 0.4, 1.28, 7.35, "Feature checks — ALL PASSED")
 tst = [
     ["Feature", "Result"],
@@ -813,7 +813,7 @@ banner(s, 0.4, 5.5, 12.55, 1.05,
        "anchor-corrected). Strain-rate 6.2 held the target rate by adapting crosshead speed 0.10 → 0.05 mm/s. "
        "ONE hardware limit found — motor torque ceiling ~2.6 kN (next slide).",
        fill=GREEN_PASS, fg=BLACK, fs=11.5)
-footer(s, "Full step-by-step results: Software/UTM_PyQt6/docs/TESTING_TODO.md; thresholds confirmed (fracture arm "
+footer(s, "PPD-UTM — the Department of Product Development, Production and Design's universal testing machine; Mk I and Mk II are defined on " + ref("TESTS AFTER THE REALIGNMENT") + ".  ·  Full step-by-step results: Software/UTM_PyQt6/docs/TESTING_TODO.md; thresholds confirmed (fracture arm "
           "30% / collapse 50%, travel cap 30 mm, stall guard 0.05 mm / 6 s).")
 pageno(s)
 
@@ -1262,14 +1262,19 @@ _pf100 = [x for x in _pf if "100 %" in x[2]]
 _pf100_pk = [x[4] for x in _pf100]
 
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "TESTS AFTER THE REALIGNMENT — THE RELIABLE SET")
-tb(s, 0.5, 1.16, 12.4, 0.42,
-   "Every run below (%s onward) was on a rig whose crossheads were known to be aligned and whose "
-   "load holders were known to be tight. Both stalls on record fall BEFORE this line; none after."
+title(s, "TESTS AFTER THE REALIGNMENT — PPD-UTM Mk II, THE RELIABLE SET")
+# The designation is DEFINED here rather than on the slide that first uses it, because this is the
+# slide about the split — anyone asking "Mk II of what, and since when?" is already looking at it.
+tb(s, 0.5, 1.14, 12.4, 0.66,
+   "“Mk” is MARK — the engineering convention for successive configurations of ONE machine, not for "
+   "two different machines. PPD-UTM Mk I is this rig up to %s; PPD-UTM Mk II is the SAME rig after "
+   "its crossheads were realigned and its load holders re-tightened. No other part of it changed, "
+   "and no recalibration of the load cell or the optics was involved.\n"
+   "Every run below is Mk II. Both stalls on record fall BEFORE that line; none after."
    % TFX.FIX_DATE,
-   fs=12, italic=True, colour=GREY_TEXT)
+   fs=11.5, italic=True, colour=GREY_TEXT)
 
-table(s, 0.4, 1.68, 12.55, 3.35,
+table(s, 0.4, 1.88, 12.55, 3.15,
       [["Specimen", "Date", "Material", "What it was for", "Peak", "UTS", "E", "Outcome"]] +
       [[spec, date, mat, role, "%.0f N" % pk, "%.1f MPa" % uts,
         ("%.2f GPa" % E) if E else "—", "fractured"]

@@ -266,7 +266,7 @@ def page_reference(pdf, sel):
     for r in sel:
         post = str(r["date"])[:10] >= FIX_DATE
         tag = ("<< EXTENSOMETER PAIR" if r["specimen"] in REF
-               else ("post-realign" if post else ""))
+               else ("Mk II" if post else "Mk I"))
         rows.append([r["specimen"], str(r["date"])[:10], f"{r['UTS_MPa']:.2f}",
                      f"{r['sy_MPa']:.2f}", f"{r['E_GPa']:.3f}", f"{r['ef']*100:.2f}",
                      f"{r['anchor_N']:.0f}", tag])
@@ -313,7 +313,7 @@ def page_reference(pdf, sel):
                "dropped, 100 % DIC coverage. Every frame still exists, so their software can "
                "re-process our pixels. Quote these two first.", fill=WARN, fs=8.4)
     y = para(ax, ML, y + 0.34, 7.4,
-             f"GREEN ROWS ran after the rig was realigned on {FIX_DATE}. Prefer them if a wider "
+             f"GREEN ROWS are PPD-UTM Mk II — after the {FIX_DATE} realignment. Prefer them if a wider "
              "subset has to be quoted: same rig, same DIC, and a load path known to be free of the "
              "binding that produced the earlier stalls.", fs=8.4)
     para(ax, ML, y + 0.16, 7.4,

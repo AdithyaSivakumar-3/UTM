@@ -44,7 +44,7 @@ banner(s, 0.4, 6.4, 12.55, 0.5,
        "Px₀ / 45 mm = 20.89 px/mm and Px₀ / 80 mm = 20.94 px/mm — THE SAME OPTICS, so the data "
        "itself confirms the two spacings.",
        fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
-footer(s, "S33 and S34, 2026-08-24, on the post-realignment rig (see ⟪RESOLVED — THE “TORQUE CEILING”⟫). Reference pair S25 / "
+footer(s, "S33 and S34, 2026-08-24, on the PPD-UTM Mk II (see ⟪RESOLVED — THE “TORQUE CEILING”⟫). Reference pair S25 / "
           "S26 from the same material and protocol at 80 mm.")
 pageno(s)
 

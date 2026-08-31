@@ -56,6 +56,33 @@ CEILING = CROSSHEAD_MM_S / GAUGE_MM      # d(eps)/dt if ALL crosshead motion rea
 # The machine's name, defined ONCE for every MOT comparison script — they all import this
 # module already. PPD for the department, UTM for what it is, so no label says "PPD-UTM rig".
 RIG = "PPD-UTM"
+RIG_DEPT = "Department of Product Development, Production and Design"
+
+# The rig was realigned and its load holders re-tightened on this date. It is a real dividing
+# line in the record — both stalls on file fall before it and none after — so it is carried in
+# the designation rather than restated in prose every time a result needs placing.
+REALIGN_DATE = "2026-08-12"
+
+
+# "Mk" is Mark — the usual engineering notation for successive configurations of ONE machine, as
+# opposed to two different machines. Swap these two strings for "Rev. A"/"Rev. B" or "Gen 1"/"Gen 2"
+# and the whole deck follows. Deliberately not v1/v2: the APP already carries a version number
+# (v0.5.4) and two version schemes in one document would be read as the same thing.
+MK_PRE, MK_POST = "Mk I", "Mk II"
+
+
+def mk(date):
+    """Which configuration a test date belongs to, as an ISO yyyy-mm-dd string.
+
+    ISO dates compare correctly as strings, which is the whole reason the project writes them
+    that way; no parsing needed.
+    """
+    return MK_POST if str(date)[:10] >= REALIGN_DATE else MK_PRE
+
+
+def rig_mk(date):
+    """The full designation for a run on a given date, e.g. "PPD-UTM Mk II"."""
+    return "%s %s" % (RIG, mk(date))
 
 INK, RULE = "#1A1A1A", "#C9CDD2"
 C_OURS, C_MOT = "#1f77b4", "#d62728"
