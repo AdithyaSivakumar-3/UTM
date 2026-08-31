@@ -198,43 +198,70 @@ footer(s, "Sources: mot_postproc_compare.py and motpp_plots.py, both reading the
 pageno(s)
 
 
-# ================================================================= 5. the raw points
+# ================================================================= 5-6. the raw points
+#
+# Two slides, not one. 83 rows in three columns at 7 pt is a wall of digits; two columns of 21 at
+# 9 pt can be read from across a room, which is the only reason to put a table on a slide at all.
 _PTS = _M["matched_points"]
 _OS = _M["offset_summary"]
-
-s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "RAW DATA — EVERY POINT IN THE COMPARISON WINDOW")
-
-tb(s, 0.45, 1.12, 12.5, 0.52,
-   "All %d matched samples, %.2f–%.2f s, unaveraged and unsmoothed. The %s column is RAW — the "
-   "post-processor applies no filtering of any kind and its source value is exactly (L_px − Px₀)/Px₀. "
-   "The XT-205 column is that instrument's own output, interpolated onto our sample times; what it "
-   "does internally cannot be seen from the file, so the two columns are not equally traceable."
-   % (_OS["n"], _OS["t_from"], _OS["t_to"], _RIG),
-   fs=9.5, colour=BLACK)
-
 _HDR = ["t (s)", _RIG, "XT-205", "Δ µε", "Δ %"]
-_n = len(_PTS)
-_per = -(-_n // 3)                       # ceil, so the last group is the short one
-for _g in range(3):
-    _chunk = _PTS[_g * _per:(_g + 1) * _per]
-    if not _chunk:
+_HALF = -(-len(_PTS) // 2)              # ceil, so the second slide is the shorter one
+
+
+def _pt_rows(chunk):
+    return [_HDR] + [["%.2f" % p["t"], "%.4f" % (p["ours"] * 100),
+                      "%.4f" % (p["theirs"] * 100), "%+.0f" % p["off_ue"],
+                      "%+.2f" % p["off_pc"]] for p in chunk]
+
+
+for _half in (0, 1):
+    _pts = _PTS[_half * _HALF:(_half + 1) * _HALF]
+    if not _pts:
         continue
-    _data = [_HDR] + [["%.2f" % p["t"], "%.4f" % (p["ours"] * 100),
-                       "%.4f" % (p["theirs"] * 100), "%+.0f" % p["off_ue"],
-                       "%+.2f" % p["off_pc"]] for p in _chunk]
-    table(s, 0.42 + _g * 4.18, 1.74, 4.05, 0.150 * len(_data), _data,
-          cw=[0.72, 0.88, 0.85, 0.72, 0.88], hf=7.5, bf=7)
+    _lo_e, _hi_e = _pts[0]["ours"] * 100, _pts[-1]["ours"] * 100
 
-kpi(s, 0.42, 6.20, 3.02, "MEDIAN OFFSET", "%+.0f µε" % _OS["ue_med"], h=0.68, vfs=15,
-    fill=GREEN_PASS)
-kpi(s, 3.62, 6.20, 3.02, "WITHIN ± 50 µε", "%d of %d" % (_OS["within_50ue"], _OS["n"]),
-    h=0.68, vfs=15, fill=GREEN_PASS)
-kpi(s, 6.82, 6.20, 3.02, "RANGE", "%+.0f to %+.0f µε" % (_OS["ue_min"], _OS["ue_max"]),
-    h=0.68, vfs=13)
-kpi(s, 10.02, 6.20, 2.93, "MEDIAN, AS A %", "%+.2f %%" % _OS["pc_med"], h=0.68, vfs=15)
+    s = prs.slides.add_slide(BLANK); ju(s)
+    title(s, "RAW DATA (%d OF 2) — %.3f TO %.3f %% STRAIN" % (_half + 1, _lo_e, _hi_e))
 
-footer(s, "Read Δ µε before Δ %% : at 0.05 %% strain a 10 µε difference is 2 %% of the reading and at "
-          "0.35 %% the same 10 µε is 0.3 %%, so the percentage column exaggerates the early points and "
-          "flatters the late ones. Full list, to six decimals: documentation/mot_matched_points.csv")
-pageno(s)
+    if _half == 0:
+        tb(s, 0.55, 1.12, 12.4, 0.56,
+           "All %d matched samples across both slides, %.2f–%.2f s, unaveraged and unsmoothed. The "
+           "%s column is RAW: the post-processor applies no filtering of any kind, and its source "
+           "value is exactly (L_px − Px₀) / Px₀. The XT-205 column is that instrument's own output "
+           "interpolated onto our sample times — what it does internally cannot be seen from the "
+           "file, so the two columns are NOT equally traceable and are not presented as if they were."
+           % (_OS["n"], _OS["t_from"], _OS["t_to"], _RIG),
+           fs=10, colour=BLACK)
+        _y = 1.80
+    else:
+        tb(s, 0.55, 1.12, 12.4, 0.30,
+           "Continued — points %d to %d of %d. Same two columns, same raw values; see "
+           "⟪RAW DATA (1 OF 2)⟫ for what each one is."
+           % (_HALF + 1, len(_PTS), len(_PTS)),
+           fs=10, colour=BLACK)
+        _y = 1.54
+
+    # Two column groups per slide, wide enough that no cell has to be squeezed.
+    _per = -(-len(_pts) // 2)
+    for _g in range(2):
+        _chunk = _pts[_g * _per:(_g + 1) * _per]
+        if not _chunk:
+            continue
+        _d = _pt_rows(_chunk)
+        table(s, 0.55 + _g * 6.25, _y, 5.90, 0.200 * len(_d), _d,
+              cw=[1.05, 1.30, 1.25, 1.05, 1.25], hf=9.5, bf=9)
+
+    if _half == 1:
+        kpi(s, 0.55, 6.14, 2.96, "MEDIAN OFFSET", "%+.0f µε" % _OS["ue_med"], h=0.68, vfs=15,
+            fill=GREEN_PASS)
+        kpi(s, 3.68, 6.14, 2.96, "WITHIN ± 50 µε", "%d of %d" % (_OS["within_50ue"], _OS["n"]),
+            h=0.68, vfs=15, fill=GREEN_PASS)
+        kpi(s, 6.81, 6.14, 2.96, "RANGE", "%+.0f to %+.0f µε" % (_OS["ue_min"], _OS["ue_max"]),
+            h=0.68, vfs=13)
+        kpi(s, 9.94, 6.14, 3.01, "MEDIAN, AS A %", "%+.2f %%" % _OS["pc_med"], h=0.68, vfs=15)
+
+    footer(s, "Read Δ µε before Δ % : at 0.05 % strain a 10 µε difference is 2 % of the reading, "
+              "and at 0.35 % the same 10 µε is 0.3 % — so the percentage column exaggerates the "
+              "early points and flatters the late ones. Full list to six decimals: "
+              "documentation/mot_matched_points.csv")
+    pageno(s)
