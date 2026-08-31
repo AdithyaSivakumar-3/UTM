@@ -94,6 +94,10 @@ class Settings:
     # carrying two useless rows that are dropped anyway.
     stop_on_loss: bool = True
     loss_tolerance: int = 2
+    # A still image to use as the reference frame instead of the video's own frame `ref_frame`.
+    # The zero has to be a frame with the specimen at rest, and a recording does not always hold
+    # one. Must match the video's dimensions — see reference_gray().
+    ref_image: str = ""
 
 
 @dataclass
@@ -292,6 +296,37 @@ def _read_sequential(path, idx):
         pos += 1
     ent[1] = pos
     return frame
+
+
+def reference_image(path):
+    """A still, as greyscale, or None. Any format cv2 can read."""
+    if not path or not os.path.exists(path):
+        return None
+    g = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    return g
+
+
+def reference_mismatch(img_path, video_path):
+    """Why this image cannot serve as `video_path`'s reference, or "" if it can.
+
+    Only the SHAPE is checked, because that is the only thing that can be checked and it is the
+    thing that matters: box coordinates, Px0 and every later separation are in frame pixels, so an
+    image of a different size puts the zero in one coordinate system and the measurement in
+    another. Whether it shows the same specimen at rest is the operator's judgement, and the tab
+    displays the image so that judgement can be made by eye.
+    """
+    g = reference_image(img_path)
+    if g is None:
+        return "that file could not be read as an image"
+    try:
+        info = probe(video_path)
+    except Exception as e:
+        return "the video could not be probed: %s" % e
+    if (g.shape[1], g.shape[0]) != (info["w"], info["h"]):
+        return ("the image is %d x %d but the video is %d x %d. They must match, because Px\u2080 "
+                "and every later separation are measured in frame pixels."
+                % (g.shape[1], g.shape[0], info["w"], info["h"]))
+    return ""
 
 
 def read_frame(path, idx):
@@ -553,12 +588,23 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
     cap = _grab(path)
 
     # ---- reference frame: templates and L0
-    cap.set(cv2.CAP_PROP_POS_FRAMES, int(cfg.ref_frame))
-    ok, frame = cap.read()
-    if not ok:
-        cap.release()
-        raise IOError("cannot read reference frame %d" % cfg.ref_frame)
-    gray0 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    #
+    # From a still image when one is given, otherwise from the video's own frame `ref_frame`. The
+    # image only replaces the ZERO; `ref_frame` still says where the analysis starts, so a run can
+    # be zeroed on a separate picture of the specimen at rest and still measure the whole video.
+    if cfg.ref_image:
+        why = reference_mismatch(cfg.ref_image, path)
+        if why:
+            cap.release()
+            raise ValueError("reference image rejected — %s" % why)
+        gray0 = reference_image(cfg.ref_image)
+    else:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(cfg.ref_frame))
+        ok, frame = cap.read()
+        if not ok:
+            cap.release()
+            raise IOError("cannot read reference frame %d" % cfg.ref_frame)
+        gray0 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
     h, w = gray0.shape
     for b in (box_a, box_b):
         b.half = int(cfg.box_half)
@@ -807,7 +853,9 @@ def metrics(summary, cfg=None, label="", source_video=""):
         ("Box half-size", "%d px" % cfg.box_half),
         ("Search window", "%d px" % cfg.search),
         ("Min correlation", "%.2f" % cfg.min_corr),
-        ("Reference frame", "%d" % cfg.ref_frame),
+        ("Reference", ("image: %s" % os.path.basename(cfg.ref_image)) if cfg.ref_image
+         else "frame %d" % cfg.ref_frame),
+        ("Analysis starts at frame", "%d" % cfg.ref_frame),
         ("Analysed every", "%d frame(s)" % cfg.step),
     ]
     return out
@@ -819,7 +867,11 @@ def to_csv(summary, path, source_video="", cfg=None):
     with open(path, "w", encoding="utf-8", newline="") as f:
         f.write("# UTM DIC Post-Processing\n#\n")
         f.write("# Source video: %s\n" % source_video)
-        f.write("# Reference frame: %d\n" % cfg.ref_frame)
+        if cfg.ref_image:
+            f.write("# Reference: image %s (analysis starts at frame %d)\n"
+                    % (os.path.basename(cfg.ref_image), cfg.ref_frame))
+        else:
+            f.write("# Reference frame: %d\n" % cfg.ref_frame)
         f.write("# L0 (Px0): %.3f px\n" % summary.l0_px)
         f.write("# Gauge: %.2f mm  ->  px_per_mm: %s\n"
                 % (cfg.gauge_mm, ("%.4f" % summary.px_mm) if summary.px_mm else "n/a"))

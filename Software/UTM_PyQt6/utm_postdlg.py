@@ -352,6 +352,7 @@ class Run:
     search: int = 40
     min_corr: float = 0.55
     ref_frame: int = 0
+    ref_image: str = ""              # a still used as the zero instead of the video's own frame
     fps: float = 30.0
     step: int = 1
     refine: str = "auto"
@@ -705,9 +706,20 @@ class PostProcTab(QWidget):
             "therefore zero strain.\n\nThe slider only browses. Nothing you do with it changes "
             "the reference until you press this.")
         self.setRefBtn.clicked.connect(self.on_set_ref)
+        # The zero does not have to come from the video. A recording may start after the pull
+        # began, or the best picture of the unloaded specimen may have been taken separately.
+        self.refImgBtn = QPushButton("Use an image…")
+        self.refImgBtn.setEnabled(False)
+        self.refImgBtn.setMaximumWidth(120)
+        self.refImgBtn.setToolTip(
+            "Use a still image as the reference instead of a frame of this video — for when the "
+            "recording holds no clean frame of the specimen at rest.\n\nIt must have the SAME "
+            "dimensions as the video, because Px₀ and every later separation are measured in "
+            "frame pixels. Press again to go back to using the video.")
+        self.refImgBtn.clicked.connect(self.on_ref_image)
         self.refLbl = QLabel()
-        self.refLbl.setToolTip("Which frame is currently fixed as the reference.")
-        rf.addWidget(self.setRefBtn); rf.addWidget(self.refLbl, 1)
+        self.refLbl.setToolTip("Which frame, or which image, is currently the reference.")
+        rf.addWidget(self.setRefBtn); rf.addWidget(self.refImgBtn); rf.addWidget(self.refLbl, 1)
         lv.addLayout(rf)
 
         g = QGroupBox("Virtual extensometer"); gl = QGridLayout(g)
@@ -902,7 +914,11 @@ class PostProcTab(QWidget):
          "Drag the <b>Reference frame</b> slider, or play the video with ▶ ⏸ ⏹, to the frame "
          "where strain should read zero — normally just after preload, before the pull starts — "
          "then press <b>Set this frame as the reference</b>.",
-         ["The slider only BROWSES. Nothing you do with it moves the reference until you press "
+         ["If the recording holds no clean frame of the specimen at rest — it starts after the pull "
+          "began, or the early frames are mid-adjustment — press <b>Use an image…</b> and pick a "
+          "still instead. It must be the SAME size as the video, and the boxes are then placed on "
+          "it, because that is where Px₀ is measured.",
+          "The slider only BROWSES. Nothing you do with it moves the reference until you press "
           "that button, so you can scrub and play the whole video without disturbing the setup. "
           "The readout beside the button says which frame is fixed, and turns amber while you are "
           "looking at a different one.",
@@ -1155,7 +1171,7 @@ class PostProcTab(QWidget):
             self.frameSlider.setValue(ref)
             self.frameSlider.blockSignals(False)
             self.frameLbl.setText(str(ref))
-            self._show_frame(ref)
+            self._show_reference()
             self._refresh_ref_label()
 
     # ------------------------------------------------------------------ live pixel readout
@@ -1251,8 +1267,8 @@ class PostProcTab(QWidget):
         cols = []
         for r in done:
             cfg = PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half, search=r.search,
-                              min_corr=r.min_corr, ref_frame=r.ref_frame, fps=r.fps,
-                              step=r.step, refine=r.refine)
+                              min_corr=r.min_corr, ref_frame=r.ref_frame, ref_image=r.ref_image,
+                              fps=r.fps, step=r.step, refine=r.refine)
             cols.append(PP.metrics(r.summary, cfg, label=r.label, source_video=r.path))
         names = [n for n, _ in cols[0]]
         rows = [["Parameter"] + [r.label for r in done]]
@@ -1333,7 +1349,8 @@ class PostProcTab(QWidget):
                         "t": r.t, "e": r.e, "tr": r.tr, "summary": r.summary,
                         "cfg": PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half,
                                            search=r.search, min_corr=r.min_corr,
-                                           ref_frame=r.ref_frame, fps=r.fps, step=r.step,
+                                           ref_frame=r.ref_frame, ref_image=r.ref_image,
+                                           fps=r.fps, step=r.step,
                                            refine=r.refine, stop_on_loss=r.stop_on_loss)})
         return out
 
@@ -1418,7 +1435,7 @@ class PostProcTab(QWidget):
             self.frameLbl.setText(str(r.ref_frame))
             self.setRefBtn.setEnabled(True)
             self._next_box = 0
-            self._show_frame(r.ref_frame)
+            self._show_reference()
         finally:
             self._loading = False
         self._refresh_ref_label()
@@ -1503,6 +1520,66 @@ class PostProcTab(QWidget):
         self.status.setStyleSheet("color:#c9d1d9;")
         self._refresh_list()
 
+    def on_ref_image(self):
+        """Pick a still to use as the reference, or go back to the video.
+
+        The image is shown as soon as it is accepted. That is deliberate rather than cosmetic: the
+        boxes and Px₀ belong to the reference, so the reference has to be what is on screen when
+        they are placed.
+        """
+        r = self.run
+        if r is None:
+            return
+        if r.ref_image:                       # already using one — this press reverts
+            r.ref_image = ""
+            self.boxes = [None, None]
+            self._next_box = 0
+            self.log.emit("[PostProc] %s — reference back to the video, frame %d. Boxes cleared: "
+                          "they belonged to the image." % (r.label, r.ref_frame))
+            self.status.setText("Reference is the video again, frame %d. Place the boxes again."
+                                % r.ref_frame)
+            self._show_frame(r.ref_frame)
+            self._refresh_ref_label(); self._refresh_l0(); self._refresh_list()
+            return
+
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Choose a reference image", os.path.dirname(r.path),
+            "Images (*.png *.jpg *.jpeg *.bmp *.tif *.tiff);;All files (*)")
+        if not path:
+            return
+        why = PP.reference_mismatch(path, r.path)
+        if why:
+            QMessageBox.warning(self, "That image cannot be the reference",
+                                "%s\n\n%s" % (os.path.basename(path), why))
+            return
+        r.ref_image = path
+        # The old boxes were placed on a different picture. Keeping them would silently measure
+        # Px₀ at coordinates chosen against something else.
+        self.boxes = [None, None]
+        self._next_box = 0
+        self._show_reference()
+        self.log.emit("[PostProc] %s — reference image %s. Boxes cleared; place them on it."
+                      % (r.label, os.path.basename(path)))
+        self.status.setText("Reference image set. Place the two boxes on IT — Px₀ is measured here.")
+        self._refresh_ref_label(); self._refresh_l0(); self._refresh_list()
+
+    def _show_reference(self):
+        """Put the reference on screen — the image if there is one, else its video frame."""
+        r = self.run
+        if r is None:
+            return
+        if r.ref_image:
+            g = PP.reference_image(r.ref_image)
+            if g is None:
+                return
+            self.view.set_frame(g)
+            self._markers = PP.find_markers(g)
+            self._markers_frame = -1          # not a video frame; see on_auto's off-reference check
+            self.view.set_markers(self._markers)
+            self._refresh_boxes()
+        else:
+            self._show_frame(r.ref_frame)
+
     def _refresh_ref_label(self):
         """Say which frame is fixed, and flag it when the view has wandered off that frame.
 
@@ -1515,7 +1592,22 @@ class PostProcTab(QWidget):
         if r is None:
             self.refLbl.setText("")
             return
+        self.refImgBtn.setEnabled(True)
+        self.refImgBtn.setText("Use the video" if r.ref_image else "Use an image…")
         here = self.frameSlider.value()
+        if r.ref_image:
+            # With an image as the zero, the slider cannot change the reference at all, so the
+            # "set this frame" button has nothing to do and says so by being unavailable.
+            self.setRefBtn.setEnabled(False)
+            if self._markers_frame == -1:
+                self.refLbl.setText("reference = image: %s  ✔"
+                                    % os.path.basename(r.ref_image))
+                self.refLbl.setStyleSheet("color:#2ecc71; font-weight:bold;")
+            else:
+                self.refLbl.setText("viewing video frame %d — the reference is the image %s"
+                                    % (here, os.path.basename(r.ref_image)))
+                self.refLbl.setStyleSheet("color:#ffc046; font-weight:bold;")
+            return
         if here == r.ref_frame:
             self.refLbl.setText("reference = frame %d  ✔" % r.ref_frame)
             self.refLbl.setStyleSheet("color:#2ecc71; font-weight:bold;")
@@ -1602,7 +1694,15 @@ class PostProcTab(QWidget):
         # running against a different reference is an easy mistake to make silently.
         r = self.run
         here = self.frameSlider.value()
-        if r is not None and here != r.ref_frame:
+        if r is not None and r.ref_image:
+            if self._markers_frame != -1:
+                self.status.setText("⚠  Markers were detected on video frame %d, but the reference "
+                                    "is the image %s. Press 'Use the video' to switch back, or "
+                                    "re-show the image before detecting."
+                                    % (here, os.path.basename(r.ref_image)))
+                self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
+                self.log.emit("[PostProc] NOTE: detected on frame %d, reference is an image" % here)
+        elif r is not None and here != r.ref_frame:
             self.status.setText("⚠  Markers were detected on frame %d, but the reference is frame "
                                 "%d. Press 'Set this frame as the reference', or go back to frame "
                                 "%d and detect again." % (here, r.ref_frame, r.ref_frame))
@@ -1651,6 +1751,7 @@ class PostProcTab(QWidget):
         return PP.Settings(gauge_mm=self.gauge.value(), box_half=self.boxHalf.value(),
                            search=self.search.value(), min_corr=self.minCorr.value(),
                            ref_frame=(self.run.ref_frame if self.run else 0),
+                           ref_image=(self.run.ref_image if self.run else ""),
                            fps=self.fps.value(),
                            step=self.step.value(), refine=self.method.currentData(),
                            stop_on_loss=self.stopLossChk.isChecked())
@@ -1905,8 +2006,8 @@ class PostProcTab(QWidget):
         written = []
         for r in done:
             cfg = PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half, search=r.search,
-                              min_corr=r.min_corr, ref_frame=r.ref_frame, fps=r.fps,
-                              step=r.step, refine=r.refine)
+                              min_corr=r.min_corr, ref_frame=r.ref_frame, ref_image=r.ref_image,
+                              fps=r.fps, step=r.step, refine=r.refine)
             safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in r.label).strip()
             out = os.path.join(folder, "%s_dic_postproc.csv" % (safe or "run"))
             try:
