@@ -61,6 +61,54 @@ footer(s, "MOT record: test2.chan 0.avi + strain.csv + test2.daq, XT-205, gauge 
 pageno(s)
 
 
+# ================================================================= 1b. why the pixel counts differ
+_L0_M, _L0_O = 2234.4, 1676.3
+_PP_UE, _S25_UE = _PP["noise_ue"], _S25["noise_ue"]
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "SAME 80 mm GAUGE, DIFFERENT PIXEL COUNTS — WHY THAT IS FINE")
+
+tb(s, 0.45, 1.12, 12.5, 0.42,
+   "On the previous slide the XT-205's gauge spans %d px and the %s's spans %d px, yet both are "
+   "80 mm of the same kind of specimen. Nothing is wrong: the two cameras magnify differently."
+   % (round(_L0_M), _RIG, round(_L0_O)),
+   fs=11, colour=BLACK)
+
+img_fit(s, "documentation/figures/motpp_pixels.png", 0.45, 1.64, 12.5, 2.72)
+
+header(s, 0.45, 4.52, 4.05, "Why the counts differ")
+tb(s, 0.45, 4.90, 4.05, 1.72,
+   "The XT-205 lays 27.9 pixels across a millimetre; we lay 21.0. Over an 80 mm gauge that is "
+   "%d px against %d px — a 33 %% difference that belongs entirely to the optics and says nothing "
+   "about the specimen, the grips or the test."
+   % (round(_L0_M), round(_L0_O)),
+   fs=10, colour=BLACK)
+
+header(s, 4.75, 4.52, 4.05, "Why it does not affect the strain")
+tb(s, 4.75, 4.90, 4.05, 1.72,
+   "Because strain is a RATIO of pixels:\n"
+   "        ε = (L_px − Px₀) / Px₀\n"
+   "px/mm appears in the numerator and the denominator and cancels exactly. Neither machine needs "
+   "the other's optics, or even a correct gauge length, for the two strains to be comparable — "
+   "which is what makes the comparison on ⟪THE TWO CALCULATIONS AGREE⟫ possible at all.",
+   fs=10, colour=BLACK)
+
+header(s, 9.05, 4.52, 3.9, "Where it DOES matter")
+tb(s, 9.05, 4.90, 3.9, 1.72,
+   "Resolution. One whole pixel is %.0f µε on their longer baseline and %.0f µε on ours — their "
+   "pixel is worth 25 %% less strain. It also matters for px/mm if an EXTENSION in millimetres is "
+   "wanted; for strain alone it is not used."
+   % (1e6 / _L0_M, 1e6 / _L0_O),
+   fs=10, colour=BLACK)
+
+banner(s, 0.4, 6.72, 12.55, 0.2, "", fill=WHITE, fg=BLACK, fs=1)
+footer(s, "Read the right-hand plot carefully: our pipeline reaches %.1f µε on their footage and "
+          "%.1f µε on S25, a 4× gap where the magnification alone accounts for only 1.3×. The rest "
+          "is the specimen, the lighting and the marker quality — not the camera."
+          % (_PP_UE, _S25_UE))
+pageno(s)
+
+
 # ================================================================= 2. the calculations agree
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "THE TWO CALCULATIONS AGREE — SAME VIDEO, SAME ANSWER")

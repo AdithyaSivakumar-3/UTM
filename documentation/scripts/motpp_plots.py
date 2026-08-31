@@ -163,6 +163,69 @@ def fig_setup(D=None):
     print("  motpp_setup.png")
 
 
+def fig_pixels(D):
+    """Same 80 mm gauge, different pixel counts — drawn so the reason is obvious.
+
+    The pixel counts differ because the two cameras magnify differently, and for a strain that is
+    irrelevant: strain is (L - Px0)/Px0, a ratio of pixels, so px/mm cancels exactly. What the
+    magnification DOES buy is the size of one pixel's worth of strain, which is the honest reason
+    to care about it.
+    """
+    L0_M, L0_O = 2234.4, 1676.3
+    PPM_M, PPM_O = L0_M / 80.0033, L0_O / 80.0
+    noise_pp = D["rows"][0]["noise_ue"]          # our pipeline on the XT-205's footage
+    noise_s25 = next(r["noise_ue"] for r in D["rows"] if r["key"] == "S25")
+
+    fig, (ax, bx) = plt.subplots(1, 2, figsize=(11.6, 3.9),
+                                 gridspec_kw={"width_ratios": [1.35, 1.0], "wspace": 0.26})
+
+    # ---- ONE MILLIMETRE on each camera, a tick per pixel
+    for row, (ppm, name, col) in enumerate(((PPM_M, "MOT XT-205", C_MOT),
+                                            (PPM_O, "%s" % RIG, C_OURS))):
+        y = 1 - row
+        ax.add_patch(plt.Rectangle((0, y - 0.17), 1.0, 0.34, fill=False, ec=col, lw=2.0))
+        n = int(round(ppm))
+        for i in range(n + 1):
+            ax.plot([i / ppm, i / ppm], [y - 0.17, y + 0.17], "-", color=col, lw=0.7, alpha=0.75)
+        ax.text(1.045, y, "%s\n%.1f px per mm" % (name, ppm), va="center", ha="left",
+                fontsize=10, color=col, fontweight="bold")
+        ax.text(0.5, y - 0.245, "%d pixels across ONE millimetre" % n, ha="center", va="top",
+                fontsize=9, color=INK)
+    ax.set_xlim(-0.03, 1.62); ax.set_ylim(-0.55, 1.45)
+    ax.set_xticks([0, 0.5, 1.0]); ax.set_xticklabels(["0", "0.5 mm", "1 mm"], fontsize=9)
+    ax.set_yticks([])
+    ax.set_title("The same millimetre, sampled two ways.\nThat is the entire reason the pixel "
+                 "counts differ.", fontsize=10.5, color=INK)
+    for sp in ("top", "right", "left"):
+        ax.spines[sp].set_visible(False)
+
+    # ---- what the magnification buys, and what it does not
+    labels = ["MOT XT-205\n%d px gauge" % round(L0_M), "%s\n%d px gauge" % (RIG, round(L0_O))]
+    per_px = [1e6 / L0_M, 1e6 / L0_O]
+    got = [noise_pp, noise_s25]
+    x = np.arange(2); w = 0.36
+    b1 = bx.bar(x - w / 2, per_px, w, color=[C_MOT, C_OURS], alpha=0.45,
+                label="one WHOLE pixel")
+    b2 = bx.bar(x + w / 2, got, w, color=[C_MOT, C_OURS],
+                label="actually achieved (sub-pixel)")
+    for r, v in list(zip(b1, per_px)) + list(zip(b2, got)):
+        bx.text(r.get_x() + r.get_width() / 2, v * 1.12, "%.0f" % v if v > 50 else "%.1f" % v,
+                ha="center", fontsize=9, color=INK, fontweight="bold")
+    bx.set_yscale("log"); bx.set_ylim(2, 5000)   # headroom so the bar labels clear the legend
+    bx.set_xticks(x); bx.set_xticklabels(labels, fontsize=9)
+    bx.set_ylabel("strain (µε)")
+    bx.set_title("What the extra magnification buys:\na finer pixel — but sub-pixel buys far more",
+                 fontsize=10.5, color=INK)
+    bx.legend(fontsize=8.4, loc="upper right", framealpha=0.95)
+    _style(bx)
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIGS, "motpp_pixels.png"), dpi=200, bbox_inches="tight",
+                facecolor="white")
+    plt.close(fig)
+    print("  motpp_pixels.png")
+
+
 def fig_share(D):
     """Where the commanded 0.1 mm/s goes, and the part that is easy to miss — the SPREAD."""
     sh = D["gauge_share"]
@@ -283,6 +346,7 @@ def all_figs():
     D = load()
     fig_setup()
     fig_share(D)
+    fig_pixels(D)
     fig_scalecheck(D)
     return D
 
