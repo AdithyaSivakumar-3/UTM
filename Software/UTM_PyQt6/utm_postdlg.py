@@ -1737,8 +1737,9 @@ class PostProcTab(QWidget):
                 # instead of drawing a straight segment across it. One NaN per gap is enough.
                 #
                 # Only when the option is off. With it on, the generator still yields the first
-                # lost row before giving up on the second, and holing that one would leave a NaN
-                # as the series' last point — which is where the "markers lost" cross is drawn.
+                # lost row before giving up on the second, so holing that one would leave a NaN as
+                # the series' LAST point — making t[-1] the instant tracking failed rather than the
+                # last instant actually measured, which is not what "where the data ends" means.
                 cur.t.append(r.t)
                 cur.e.append(float("nan")); cur.tr.append(float("nan"))
         self.status.setText(
@@ -1776,24 +1777,14 @@ class PostProcTab(QWidget):
             if self._want_true():
                 self.ax.plot(r.t, [v * 100 for v in r.tr], color=r.colour, lw=1.0, ls="--",
                              alpha=0.7, label="%s — true" % r.label)
-            # A run that ended because the markers were lost gets a cross where the data stops.
-            # The status line says so too, but this is the artefact anyone actually looks at, and
-            # a curve that simply ends is indistinguishable from one that reached the end of its
-            # video — which is exactly the confusion worth removing.
-            if getattr(r.summary, "stopped_early", False) and r.t:
-                # The last REAL point, not simply the last one: a NaN hole at the end would put
-                # the cross nowhere and silently drop the annotation.
-                j = next((k for k in range(len(r.e) - 1, -1, -1) if r.e[k] == r.e[k]), None)
-                if j is None:
-                    continue
-                self.ax.plot([r.t[j]], [r.e[j] * 100], marker="x", ms=9, mew=2.2,
-                             color=r.colour, ls="none")
-                # Below-left of the cross, not above it: the last point of a run that lost its
-                # markers is by definition the highest strain reached, so anything placed above
-                # lands outside the axes and gets clipped.
-                self.ax.annotate("markers lost", (r.t[j], r.e[j] * 100),
-                                 textcoords="offset points", xytext=(-9, -13),
-                                 ha="right", va="top", fontsize=8, color=r.colour)
+            # A lost marker is deliberately NOT annotated on the plot. It used to get a cross and a
+            # caption here; with several runs overlaid those pile up on the busiest part of the
+            # chart, and the plot is also what gets saved and pasted into a document, where an
+            # annotation aimed at the operator becomes clutter aimed at a reader.
+            #
+            # It is reported in three places that survive being saved instead: a dialog when the
+            # run ends, the "Tracking ended" and "Data ends at" rows of the results table, and the
+            # generated report.
         if any_data:
             self.ax.legend(frameon=False, fontsize=9)
         self.fig.tight_layout()
