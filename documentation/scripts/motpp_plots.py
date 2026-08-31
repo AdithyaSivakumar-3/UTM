@@ -59,41 +59,103 @@ def _first_frame(path):
     return cv2.cvtColor(fr, cv2.COLOR_BGR2GRAY) if fr.ndim == 3 else fr
 
 
-def fig_setup():
-    """What each machine filmed. Drawn to the same PIXELS-PER-MILLIMETRE, not the same width.
+def _our_preload_state():
+    """When our frame 0 sits in the test, and at what force. Read, not assumed.
 
-    Scaling both to the frame width would hide the thing that matters: the MOT resolves the same
-    80 mm gauge across 2234 px where we use 1676 px, so its pixel is worth a third less strain.
+    The capture does not start with the test — S26's begins 10.81 s in — so the frame sidecar's
+    wall-clock stamp is what places frame 0 on the load record.
+    """
+    import csv
+    import datetime
+    import glob
+    sp = glob.glob(os.path.join(MC.DATA, "Specimen_S26_*"))
+    if not sp:
+        return None
+    c = sorted(glob.glob(os.path.join(sp[0], "*.csv")))
+    idx = glob.glob(os.path.join(sp[0], "**", "index.csv"), recursive=True)
+    if not c or not idx:
+        return None
+    t0 = None
+    for ln in io.open(c[0], encoding="utf-8", errors="replace"):
+        if ln.startswith("# Test Date:"):
+            t0 = datetime.datetime.strptime(ln.split(":", 1)[1].strip(), "%Y-%m-%d %H:%M:%S")
+            break
+    if t0 is None:
+        return None
+    row0 = next(csv.DictReader(io.open(idx[0], encoding="utf-8")))
+    off = (datetime.datetime.fromisoformat(row0["pc_time_iso"]) - t0).total_seconds()
+    from utm_analysis import read_csv
+    rows = read_csv(c[0])
+    t = np.array([r["t"] for r in rows]); F = np.array([r["F"] for r in rows])
+    return off, float(np.interp(off, t, F))
+
+
+def fig_setup(D=None):
+    """What each machine filmed, at ONE COMMON millimetre scale.
+
+    A common scale is the whole point: both gauges are 80 mm, so at a true scale the two marker
+    spans must draw the same length, and any difference the eye sees is a difference in FIELD OF
+    VIEW rather than in what is being measured. Letting each subplot auto-scale — which is what
+    this did before — destroys exactly that comparison.
     """
     import glob
     mot = os.path.join(os.path.dirname(MC.MOT), "test2.chan 0.avi")
     ours = glob.glob(os.path.join(MC.DATA, "**", "Specimen_S26_*", "**", "video.avi"),
                      recursive=True)[0]
     gm, go = _first_frame(mot), _first_frame(ours)
+    if gm is None or go is None:
+        return
+    if go.shape[0] > go.shape[1]:                 # ours is filmed upright; lay it the same way
+        go = np.rot90(go)
 
-    fig, axes = plt.subplots(2, 1, figsize=(11.4, 5.4))
-    for ax, g, name, ppm, l0, col in (
-            (axes[0], gm, "MOT XT-205 — test2.chan 0.avi", 2234.4 / 80.0033, 2234.4, C_MOT),
-            (axes[1], go, "%s — S26 video.avi" % RIG, 1676.3 / 80.0, 1676.3, C_OURS)):
-        if g is None:
-            continue
-        # Our specimen is filmed upright, theirs on its side; rotate ours so the gauge runs the
-        # same way in both panels and the two can actually be compared by eye.
-        if g.shape[0] > g.shape[1]:
-            g = np.rot90(g)
-        ax.imshow(g, cmap="gray", vmin=0, vmax=255)
+    PPM_M, PPM_O = 2234.4 / 80.0033, 1676.3 / 80.0
+    st = _our_preload_state()
+
+    # Crop the XT-205 frame to a band the height of ours. Its sensor sees 73.6 mm vertically
+    # against our 19.9, and at a true common scale that panel would be four times the height for
+    # no information. The crop is stated in the title.
+    band_mm = go.shape[0] / PPM_O
+    msm = sorted(PP.find_markers(gm)[:2], key=lambda m: m[0])
+    yc = int(np.mean([m[1] for m in msm])) if len(msm) == 2 else gm.shape[0] // 2
+    half = int(round(band_mm * PPM_M / 2))
+    y0 = max(0, yc - half)
+    gm_c = gm[y0:min(gm.shape[0], yc + half), :]
+
+    fig, axes = plt.subplots(2, 1, figsize=(11.6, 4.5))
+    panels = [
+        (axes[0], gm_c, PPM_M, y0, C_MOT,
+         "MOT XT-205 — frame 0, before the pull (strain 0.0001 %%, its ramp still 15 s away)\n"
+         "%d × %d px sensor, cropped vertically to match" % (gm.shape[1], gm.shape[0])),
+        (axes[1], go, PPM_O, 0, C_OURS,
+         ("%s — frame 0, at preload (%.0f N after tare, %.1f s into the test)\n%d × %d px, "
+          "uncropped" % (RIG, st[1], st[0], go.shape[1], go.shape[0])) if st else
+         "%s — frame 0, at preload" % RIG),
+    ]
+    xmax = max(gm_c.shape[1] / PPM_M, go.shape[1] / PPM_O) + 2
+
+    for ax, g, ppm, yoff, col, ttl in panels:
+        w_mm, h_mm = g.shape[1] / ppm, g.shape[0] / ppm
+        ax.imshow(g, cmap="gray", vmin=0, vmax=255, extent=(0, w_mm, h_mm, 0))
+        ax.set_aspect("equal")                    # millimetres are millimetres, both ways
+        ax.set_xlim(0, xmax)
+        ax.set_ylim(h_mm, 0)
         ms = sorted(PP.find_markers(g)[:2], key=lambda m: m[0])
-        for m in ms:
-            ax.add_patch(Circle((m[0], m[1]), m[2] * 1.35, fill=False, ec=col, lw=1.8))
         if len(ms) == 2:
-            ax.annotate("", xy=(ms[1][0], ms[1][1]), xytext=(ms[0][0], ms[0][1]),
+            xa, ya = ms[0][0] / ppm, ms[0][1] / ppm
+            xb, yb = ms[1][0] / ppm, ms[1][1] / ppm
+            for (mx, my, mr) in ((xa, ya, ms[0][2] / ppm), (xb, yb, ms[1][2] / ppm)):
+                ax.add_patch(Circle((mx, my), mr * 1.35, fill=False, ec=col, lw=1.6))
+            ax.annotate("", xy=(xb, yb), xytext=(xa, ya),
                         arrowprops=dict(arrowstyle="<->", color=col, lw=1.6))
-            ax.text((ms[0][0] + ms[1][0]) / 2, ms[0][1] - 0.10 * g.shape[0],
-                    "Px₀ = %.0f px  ·  %.1f px/mm" % (l0, ppm),
-                    ha="center", fontsize=9.5, color=col, fontweight="bold")
-        ax.set_title("%s   —   %d × %d px" % (name, g.shape[1], g.shape[0]),
-                     fontsize=10, color=INK, loc="left")
-        ax.set_xticks([]); ax.set_yticks([])
+            ax.text((xa + xb) / 2, min(ya, yb) - 0.16 * h_mm,
+                    "80.0 mm gauge  ·  %.0f px  ·  %.1f px/mm"
+                    % (np.hypot(ms[1][0] - ms[0][0], ms[1][1] - ms[0][1]), ppm),
+                    ha="center", va="bottom", fontsize=9.5, color=col, fontweight="bold")
+        ax.set_title(ttl, fontsize=9.5, color=INK, loc="left")
+        ax.set_yticks([])
+        ax.set_xlabel("millimetres — BOTH PANELS AT THE SAME SCALE", fontsize=8.5, color=MUTED)
+        ax.tick_params(labelsize=8)
+
     fig.tight_layout()
     fig.savefig(os.path.join(FIGS, "motpp_setup.png"), dpi=170, bbox_inches="tight",
                 facecolor="white")
