@@ -568,7 +568,7 @@ class PostProcTab(QWidget):
         self._line_c = self._line_t = None
         self._last_plot = 0.0
         self._guide_dlg = None           # the guide window, built on first use and then kept
-        self._warned = False             # the status line is currently showing a marker-lost warning
+        self._losses = []                # marker losses seen during a Run-all sweep, reported at its end
         self._loading = False            # guard: writing widgets must not write back to the run
         self._build()
 
@@ -1501,7 +1501,6 @@ class PostProcTab(QWidget):
             self.log.emit("[PostProc] %s — reference frame confirmed at %d" % (r.label, now))
             self.status.setText("Reference frame confirmed at %d." % now)
         self.status.setStyleSheet("color:#c9d1d9;")
-        self._warned = False
         self._refresh_list()
 
     def _refresh_ref_label(self):
@@ -1608,7 +1607,6 @@ class PostProcTab(QWidget):
                                 "%d. Press 'Set this frame as the reference', or go back to frame "
                                 "%d and detect again." % (here, r.ref_frame, r.ref_frame))
             self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
-            self._warned = True
             self.log.emit("[PostProc] NOTE: detected on frame %d, reference is %d"
                           % (here, r.ref_frame))
 
@@ -1658,6 +1656,10 @@ class PostProcTab(QWidget):
                            stop_on_loss=self.stopLossChk.isChecked())
 
     def on_run(self, _checked=False, queued=False):
+        # Any amber left over from setup — the off-reference detect hint — stops applying the
+        # moment a run starts, and nothing else would clear it now that the marker-lost warning
+        # has moved to a dialog.
+        self.status.setStyleSheet("color:#c9d1d9;")
         r = self.run
         if r is None or not r.ready or self._busy():
             return
@@ -1725,9 +1727,6 @@ class PostProcTab(QWidget):
 
     def on_row(self, r):
         cur = self.run
-        if self._warned:                       # clear a previous run's amber warning
-            self.status.setStyleSheet("color:#c9d1d9;")
-            self._warned = False
         if cur is not None:
             if r.ok:
                 cur.t.append(r.t); cur.e.append(r.cauchy); cur.tr.append(r.true)
@@ -1826,32 +1825,28 @@ class PostProcTab(QWidget):
         msg = ("%s — %d frames, %d tracked (%.1f %%), %d re-seed(s). Px₀ %.2f px, peak strain "
                "%.3f %%." % (r.label if r else "?", summary.n, summary.tracked, summary.coverage,
                              summary.reseeds, summary.l0_px, peak))
-        # A run that ended because the markers were lost is NOT the same as one that reached the
-        # end of the video, and the difference decides how much of the plot can be believed. Say
-        # it where the operator is already looking, in a colour that is not the normal one.
+        # The status line stays factual and one line long. A lost marker is worth interrupting for,
+        # so it goes to a dialog; the durable record of it is the table, the CSV and the report,
+        # which is where anyone looks after the run rather than during it.
+        self.status.setStyleSheet("color:#c9d1d9;")
+        self.status.setText(msg)
+        self.log.emit("[PostProc] " + msg)
+        note = None
         if summary.stopped_early:
-            warn = ("MARKER LOST at %.2f s (frame %d) — tracking stopped there and the plot ends "
-                    "at %.2f s. On a fracture test this is normally the fracture itself."
+            note = ("Tracking stopped at %.2f s (frame %d), and the plot ends at %.2f s.\n\n"
+                    "On a fracture test this is normally the fracture itself. Everything plotted "
+                    "before that point tracked cleanly."
                     % (summary.lost_at_t, summary.lost_at_frame,
                        summary.data_ends_t if summary.data_ends_t is not None else 0.0))
-            self.status.setText("⚠  " + warn + "   " + msg)
-            self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
-            self._warned = True
-            self.log.emit("[PostProc] " + warn)
         elif summary.tracked < summary.n:
-            # It did not stop, because the operator asked it not to. The curve therefore has holes
-            # in it, and a hole is exactly the thing that is easy to miss on a plot.
-            gap = ("%d of %d frames had no match — 'Stop when the markers are lost' is off, so the "
-                   "run continued and the curve is BROKEN where they are."
-                   % (summary.n - summary.tracked, summary.n))
-            self.status.setText("⚠  " + gap + "   " + msg)
-            self.status.setStyleSheet("color:#ffc046; font-weight:bold;")
-            self._warned = True
-            self.log.emit("[PostProc] " + gap)
-        else:
-            self.status.setStyleSheet("color:#c9d1d9;")
-            self.status.setText(msg)
-        self.log.emit("[PostProc] " + msg)
+            note = ("%d of %d frames had no match.\n\n\"Stop when the markers are lost\" is off, "
+                    "so the run carried on to the end of the video and the curve is BROKEN where "
+                    "those frames are — it is not bridged across them."
+                    % (summary.n - summary.tracked, summary.n))
+        if note:
+            self.log.emit("[PostProc] %s — %s" % (r.label if r else "?",
+                                                  " ".join(note.split())))
+            self._report_loss(r.label if r else "?", note)
         if summary.coverage < 90:
             self.log.emit("[PostProc] coverage below 90 % — try a larger box, a wider search "
                           "window, or a lower minimum correlation.")
@@ -1860,6 +1855,37 @@ class PostProcTab(QWidget):
         # Back to back: the next queued video starts as soon as this one is drawn.
         if self._queue:
             self._next_in_queue()
+        elif self._losses:
+            # The sweep has finished; report everything it ran into, in one dialog.
+            last = self._losses.pop()
+            self._report_loss(*last)
+
+    def _report_loss(self, label, note):
+        """Tell the operator a run lost its markers — once, and never mid-sweep.
+
+        During a Run-all sweep a modal dialog between every pair of videos would turn an unattended
+        batch into a babysitting job, so losses are collected and reported together when the sweep
+        finishes.
+        """
+        if self._queue:
+            self._losses.append((label, note))
+            return
+        pending = self._losses + [(label, note)]
+        self._losses = []
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning)
+        if len(pending) == 1:
+            box.setWindowTitle("Markers lost — %s" % pending[0][0])
+            box.setText("<b>%s</b>" % pending[0][0])
+            box.setInformativeText(pending[0][1])
+        else:
+            box.setWindowTitle("Markers lost in %d of the runs" % len(pending))
+            box.setText("<b>%d runs did not reach the end of their video.</b>" % len(pending))
+            box.setInformativeText("\n\n".join("%s — %s" % (lab, " ".join(n.split()))
+                                                for lab, n in pending))
+        box.setDetailedText("The full per-run figures are in the results table, and in the CSV and "
+                            "report if you export them: look for the 'Tracking ended' row.")
+        box.exec()
 
     def on_failed(self, err):
         self._running = None

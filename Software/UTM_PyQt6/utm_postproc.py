@@ -784,6 +784,8 @@ def metrics(summary, cfg=None, label="", source_video=""):
          ("MARKER LOST at frame %d, t %.2f s — %s"
           % (summary.lost_at_frame, summary.lost_at_t or 0.0, summary.lost_reason))
          if summary.stopped_early else "end of video"),
+        ("Data ends at", "%.3f s" % (summary.data_ends_t if summary.data_ends_t is not None
+                                      else t[-1])),
         ("Frames analysed", "%d" % summary.n),
         ("Frames tracked", "%d  (%.1f %%)" % (summary.tracked, summary.coverage)),
         ("Measured by centroid", "%d" % summary.centroid_frames),
@@ -794,6 +796,8 @@ def metrics(summary, cfg=None, label="", source_video=""):
         ("Gauge", "%.2f mm" % cfg.gauge_mm),
         ("px per mm", ("%.4f" % summary.px_mm) if summary.px_mm else "-"),
         ("L at peak", "%.2f px" % L.max()),
+        ("Extension at peak", ("%.4f mm" % ((L.max() - summary.l0_px) / summary.px_mm))
+         if summary.px_mm else "-"),
         ("Peak strain (engineering)", "%.4f %%" % (e.max() * 100)),
         ("Peak strain (true/log)", "%.4f %%" % (et.max() * 100)),
         ("Mean rate over the run", "%.3e /s" % ((e[-1] - e[0]) / span) if span > 0 else "-"),
