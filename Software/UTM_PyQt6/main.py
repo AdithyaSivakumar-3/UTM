@@ -106,6 +106,10 @@ class UTMApplication(QMainWindow):
         import theme as _theme
         self.apply_theme(self._recall("ui/theme", _theme.DEFAULT), announce=False)
 
+        # Last, and only now: the console has to exist, because a restored calibration that is not
+        # announced is worse than one that is lost — it looks exactly like a preset and is not one.
+        self._restore_optics()
+
         print("UTM Application initialized")
 
     def apply_styles(self):
@@ -3242,6 +3246,86 @@ class UTMApplication(QMainWindow):
         except Exception:
             return default
 
+    # ---- the DIC camera tuning, across restarts -----------------------------------------------
+    #
+    # Auto-calibrate measures exposure and threshold against the ACTUAL LEDs, which is the whole
+    # reason it exists — and until now that measurement died with the process. What is stored is
+    # only the difference from the specimen preset (camera_manager.optics_snapshot), so improving
+    # a preset later is not silently undone by a stale copy of the old one.
+
+    def _remember_optics(self, how):
+        """Persist whatever the operator has just tuned away from the preset."""
+        try:
+            import json
+            cm = self.camera_manager
+            snap = cm.optics_snapshot()
+            if not snap:
+                # Tuned back onto the preset: drop the stored copy rather than saving an empty one,
+                # so the next start-up says nothing instead of announcing a restore of nothing.
+                self._remember("camera/optics", "")
+                self._remember("camera/optics_mode", "")
+                return
+            snap["_tuned"] = datetime.now().isoformat(timespec="minutes")
+            snap["_how"] = how
+            self._remember("camera/optics", json.dumps(snap))
+            self._remember("camera/optics_mode", cm.specimen_mode)
+            self.append_to_console("[Camera] tuning saved — it will be restored on the next start, "
+                                   "and Settings ▸ DIC camera setup ▸ Forget saved tuning puts the "
+                                   "preset back.")
+        except Exception as e:
+            self.append_to_console(f"[Camera] could not save the tuning: {e}")
+
+    def _restore_optics(self):
+        """Re-apply the saved tuning at start-up, and SAY SO.
+
+        Announced rather than applied quietly, and with its age, because exposure and threshold are
+        lighting-dependent: a tuning from three weeks and a different lamp looks exactly like a
+        preset and is not one. Same discipline as the restored infill label.
+        """
+        try:
+            import json
+            raw = self._recall("camera/optics", "")
+            if not raw:
+                return
+            snap = json.loads(raw)
+            mode = self._recall("camera/optics_mode", "") or ""
+            cm = self.camera_manager
+            # The tuning belongs to the specimen mode it was measured in — a threshold for bright
+            # dots on a dark specimen is meaningless on the opposite polarity.
+            if mode and mode != cm.specimen_mode:
+                self.append_to_console(
+                    f"[Camera] a saved tuning exists for {mode} mode but the camera is in "
+                    f"{cm.specimen_mode} — not applied. Switch mode to use it, or re-calibrate.")
+                return
+            said = cm.restore_optics({k: v for k, v in snap.items() if not k.startswith("_")})
+            if not said:
+                return
+            when, how = snap.get("_tuned", "?"), snap.get("_how", "set")
+            self.append_to_console(
+                f"[Camera] restored the tuning {how} on {when.replace('T', ' ')}: "
+                + ", ".join(said))
+            self.append_to_console(
+                "[Camera] ⚠ exposure and threshold depend on the LIGHTING they were measured "
+                "under. If the lamps or the specimen have changed since, re-run "
+                "Settings ▸ DIC camera setup ▸ Auto-calibrate before trusting it.")
+        except Exception as e:
+            self.append_to_console(f"[Camera] saved tuning could not be restored: {e}")
+
+    def on_forget_optics(self):
+        """Drop the saved tuning and go back to the specimen preset."""
+        self._remember("camera/optics", "")
+        self._remember("camera/optics_mode", "")
+        try:
+            self.camera_manager.clear_optics_overrides()
+        except Exception as e:
+            self.append_to_console(f"[Camera] could not reset the camera: {e}")
+            return
+        self.append_to_console("[Camera] saved tuning forgotten — back on the "
+                               f"{self.camera_manager.specimen_mode} preset "
+                               f"(exposure {self.camera_manager.EXPOSURE_TIME/1000:.1f} ms, "
+                               f"threshold {self.camera_manager.THRESHOLD}).")
+        self._update_camera_params()
+
     def _restore_infill(self):
         """Reinstate the last infill %, and SAY SO — a restored value that appears silently is just
         a different way to be wrong."""
@@ -5521,8 +5605,11 @@ class UTMApplication(QMainWindow):
         if at_edge:
             self.append_to_console("[Camera auto-cal] ⚠ best value was at the EDGE of the swept range — "
                                    "run auto-calibrate again to reach the true optimum.")
-        self.append_to_console("[Camera auto-cal] this session only — the preset in camera_manager.py is "
-                               "unchanged, so a restart returns to the hand-set values.")
+        # Pin it through the override setters, so set_specimen_mode — which on_start_camera calls
+        # every time — cannot quietly put the preset back over a measured calibration.
+        cm.set_optics(threshold=int(new_thr), exposure=int(new_exp),
+                      threshold_type=int(cm.THRESHOLD_TYPE))
+        self._remember_optics("by auto-calibrate")
         self._update_camera_params()
 
     def on_camera_params_manual(self):
@@ -5542,8 +5629,10 @@ class UTMApplication(QMainWindow):
                 f"{cm.EXPOSURE_TIME/1000 if cm.EXPOSURE_TIME else 0:.1f} ms, "
                 f"threshold {before[1]:.0f} → {cm.THRESHOLD:.0f}, "
                 f"area {cm.MIN_AREA}–{cm.MAX_AREA} px², circ ≥ {cm.MIN_CIRCULARITY:.2f}")
-            self.append_to_console("[Camera] this session only — the preset in camera_manager.py "
-                                   "is unchanged.")
+            cm.set_optics(threshold=int(cm.THRESHOLD), exposure=int(cm.EXPOSURE_TIME),
+                          threshold_type=int(cm.THRESHOLD_TYPE))
+            cm.set_min_circularity(cm.MIN_CIRCULARITY)
+            self._remember_optics("by hand")
         else:
             self.append_to_console("[Camera] manual setup cancelled — parameters unchanged.")
         self._update_camera_params()
@@ -5776,6 +5865,17 @@ class UTMApplication(QMainWindow):
                            "chosen by hand under one set of LEDs.")
         act_cal.triggered.connect(self.on_autocalibrate_dic)
         cam_menu.addAction(act_cal)
+
+        # A calibration is now kept across restarts, so there has to be a way to drop it. Without
+        # this the only route back to a preset would be editing camera_manager.py, which is exactly
+        # the trap a remembered setting creates.
+        act_forget = QAction("Forget saved tuning", self)
+        act_forget.setToolTip(
+            "Discard the exposure / threshold / roundness values saved by Auto-calibrate or the "
+            "manual dialog, and go back to the specimen preset.\n"
+            "Use it when the lighting has changed and the saved numbers no longer apply.")
+        act_forget.triggered.connect(self.on_forget_optics)
+        cam_menu.addAction(act_forget)
 
         # The strain-zero convention. A measurement decision, so it is set once, remembered, and
         # written into every CSV header — not a habit that lives in whoever ran the test.

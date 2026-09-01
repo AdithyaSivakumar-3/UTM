@@ -199,6 +199,11 @@ class CameraManager(QObject):
         self._circ_override = None
         self._thr_override = None
         self._exp_override = None
+        # The threshold RULE, pinned separately from its value. Auto-calibrate can decide that Otsu
+        # beats every fixed cut, and that verdict has to survive set_specimen_mode exactly as the
+        # number does — pinning the value while the rule reverted applied the cut to a field
+        # cv2.threshold ignores.
+        self._thrtype_override = None
         self.mask_x = None
         self.camera = None
         self.initial_distance = None
@@ -265,6 +270,8 @@ class CameraManager(QObject):
             self.MIN_CIRCULARITY = float(self._circ_override)
         if self._thr_override is not None:
             self.THRESHOLD = self._thr_override
+        if self._thrtype_override is not None:
+            self.THRESHOLD_TYPE = self._thrtype_override
         if self._exp_override is not None:
             self.EXPOSURE_TIME = self._exp_override
         # The pair window is deliberately NOT touched here. How far a marker pair may legitimately
@@ -350,7 +357,7 @@ class CameraManager(QObject):
         print(f"[Camera] ROI set to {roi} (OffsetX, OffsetY, Width, Height)")
         return changed and self.camera is not None and self.camera.IsOpen()
 
-    def set_optics(self, threshold=None, exposure=None):
+    def set_optics(self, threshold=None, exposure=None, threshold_type=None):
         """Pin the threshold and exposure, surviving set_specimen_mode.
 
         These decide whether the GRIPS are as bright as the markers, and the roundness gate is
@@ -364,6 +371,9 @@ class CameraManager(QObject):
         if threshold is not None:
             self._thr_override = int(threshold)
             self.THRESHOLD = int(threshold)
+        if threshold_type is not None:
+            self._thrtype_override = int(threshold_type)
+            self.THRESHOLD_TYPE = int(threshold_type)
         if exposure is not None:
             self._exp_override = int(exposure)
             self.EXPOSURE_TIME = int(exposure)
@@ -386,6 +396,67 @@ class CameraManager(QObject):
                                 self.SPECIMEN_PRESETS.get(self.specimen_mode, {})
                                 .get("min_circularity", self.MIN_CIRCULARITY))
         print(f"[Camera] Marker roundness gate: {self.MIN_CIRCULARITY:.2f}")
+
+    # ---- carrying a calibration across restarts ------------------------------------------------
+    #
+    # Only the DIFFERENCE from the specimen preset is ever stored. Storing absolute values would
+    # freeze today's preset into a settings file, so a later correction to SPECIMEN_PRESETS would
+    # be silently undone on every machine that had once been calibrated.
+
+    def optics_snapshot(self):
+        """What the operator has tuned away from the current specimen preset.
+
+        Returns {} when nothing differs, which is the signal that there is nothing worth saving.
+        """
+        preset = self.SPECIMEN_PRESETS.get(self.specimen_mode, {})
+        out = {}
+        if preset.get("exposure") != self.EXPOSURE_TIME:
+            out["exposure"] = int(self.EXPOSURE_TIME)
+        if preset.get("threshold") != self.THRESHOLD:
+            out["threshold"] = int(self.THRESHOLD)
+        if preset.get("threshold_type") != self.THRESHOLD_TYPE:
+            out["threshold_type"] = int(self.THRESHOLD_TYPE)
+        if abs(float(preset.get("min_circularity", -1)) - float(self.MIN_CIRCULARITY)) > 1e-9:
+            out["min_circularity"] = float(self.MIN_CIRCULARITY)
+        if list(preset.get("roi", [])) != list(self.ROI):
+            out["roi"] = [int(v) for v in self.ROI]
+        return out
+
+    def restore_optics(self, d):
+        """Re-apply a snapshot through the OVERRIDE setters, and describe what was applied.
+
+        Through the setters rather than by assignment on purpose: set_specimen_mode reloads every
+        one of these from the preset, and on_start_camera calls it every time, so a value written
+        directly would last until the camera was next started.
+        """
+        if not d:
+            return []
+        said = []
+        thr = d.get("threshold")
+        exp = d.get("exposure")
+        ttype = d.get("threshold_type")
+        if thr is not None or exp is not None or ttype is not None:
+            self.set_optics(threshold=thr, exposure=exp, threshold_type=ttype)
+            if exp is not None:
+                said.append("exposure %.1f ms" % (exp / 1000.0))
+            if thr is not None:
+                said.append("threshold %d" % thr)
+            if ttype is not None:
+                said.append("rule %s" % ("auto (Otsu)" if int(ttype) & cv2.THRESH_OTSU
+                                         else "fixed"))
+        if d.get("min_circularity") is not None:
+            self.set_min_circularity(d["min_circularity"])
+            said.append("roundness gate %.2f" % d["min_circularity"])
+        if d.get("roi"):
+            self.set_roi(d["roi"])
+            said.append("ROI %s" % (d["roi"],))
+        return said
+
+    def clear_optics_overrides(self):
+        """Drop every pinned value and fall back to the specimen preset."""
+        self._roi_override = self._circ_override = None
+        self._thr_override = self._exp_override = self._thrtype_override = None
+        self.set_specimen_mode(self.specimen_mode)
 
     def set_material(self, name, max_frac):
         """How far a marker pair may travel before it is called a lost marker.
