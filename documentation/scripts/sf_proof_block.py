@@ -44,6 +44,7 @@ _rows2 = [["SF", "Feature", "Where it is shown working", "Kind of evidence"],
           ["16", "Dead-DIC guard", "⟪SAFETY GUARDS & LIMITS —⟫", "the halt at 1.0 s stale"],
           ["18", "Live Px₀ overlay", "LAST OF THIS BLOCK", "overlay 1745 px = caption 1745 px"],
           ["19", "Video + image capture", "LAST TWO OF THIS BLOCK", "S26 frames and all 3 videos"],
+          ["20", "DIC post-processing", "⟪SF20 · DIC POST-PROCESSING⟫–⟪SF20 · THE PROCEDURE — MEASURING⟫", "three independent checks + the guide"],
           ["—", "Capture formats & disk", "⟪WHAT THE CAPTURE WRITES — STILL⟫ · ⟪WHAT THE CAPTURE WRITES — VIDEO⟫", "TIFF/PNG, FFV1/Y800, cost"]]
 table(s, 6.8, 1.95, 6.15, 3.9, _rows2, cw=[0.5, 2.0, 2.0, 2.1], hf=9.5, bf=8.7)
 banner(s, 0.4, 6.1, 12.55, 0.5,

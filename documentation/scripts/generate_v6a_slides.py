@@ -870,9 +870,9 @@ def pic_or_ph(sl, path, x, y, w, ph_h, note):
 # something the OPERATOR invokes or that acts on the machine during a run; a developer-only
 # simulation harness is neither, and it was the one entry that made "all rig-validated" false.
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SMART-UTM FEATURE SET — SF1 to SF19")
+title(s, "SMART-UTM FEATURE SET — SF1 to SF20")
 tb(s, 0.4, 1.15, 12.55, 0.40,
-   "17 built and RIG-VALIDATED (green) · 2 built, offline-verified only (teal) · "
+   "18 built and RIG-VALIDATED (green) · 2 built, offline-verified only (teal) · "
    "1 hardware-blocked (amber). Numeric order, so a card can be found by its SF number.",
    fs=11.5, italic=True, colour=GREY_TEXT)
 # SF numbers are append-only IDs. SF17 was carded and retired the same day — a card has to be
