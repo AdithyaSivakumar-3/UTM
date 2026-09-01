@@ -734,11 +734,14 @@ show *all* smart features and auto-preload is a real, validated one that was sim
 ## 5. Research & documentation to-dos
 - ⬜ **Chacón reference — measurement basis:** confirm whether Chacón et al. measured PLA properties on a **printed specimen** or on **raw filament / bulk material** — decides whether our (infill-corrected) values are directly comparable.
 - ⬜ **Moisture effect:** check whether specimen / ambient **moisture** shifts strength or stiffness vs literature (PLA is mildly hygroscopic) — dry / condition specimens and compare.
-- ⬜ **Camera-parameter sensitivity:** enumerate every camera parameter controlled in software (exposure, gain, threshold, ROI, px/mm, …) and study how varying each affects the DIC results and the **noise floor**.
+- 🟡 **Camera-parameter sensitivity:** enumerate every camera parameter controlled in software (exposure, gain, threshold, ROI, px/mm, …) and study how varying each affects the DIC results and the **noise floor**. **px/mm and the ROI are done** — deck p304–306 derives px/mm from the lens, the pitch and the working distance, and shows the field-of-view trade that fixes it; the estimator/noise comparison is p285–290. **Exposure, gain and threshold are not.**
 - ⬜ **Black-specimen DIC check (100% infill):** every specimen tested so far is WHITE (black dots, DIC "White" mode). Print/mark a **BLACK** specimen (white dots, DIC "Black" mode) and confirm the camera tracks strain just as reliably. **Done = ** a full pull with 2/2 markers held to fracture, tracking % and L_px jitter no worse than a white specimen, and E/UTS within the white-specimen scatter. Needs a `camera_setup.py --mode white` pre-flight (the flag names the DOT colour, not the body). Also unblocks the matte-black backdrop that multi-marker Poisson wants (§3).
-- ⬜ **Cross-validate the DIC against MOT's extensometer software** — record a fracture test and have a
-  second, established strain instrument read the same footage. Full spec in §3a; repeated here because
-  it is the one validation that comes from OUTSIDE this project.
+- ✅ **Cross-validate the DIC against MOT's extensometer software — DONE 2026-08-30.** Their XT-205
+  recorded a pull; our pipeline measured the same footage. The two calculations agree to a median
+  ratio of **1.0017** (scale factor k = 0.99991), and on their own video our estimator is **7.9× quieter**
+  than theirs. The slopes differ for a reason that is not the maths: gauge share of commanded travel
+  is 21.3 % (S25), 32.5 % (S26) and 59.4 % (MOT). Deck **p291–303**;
+  `documentation/scripts/mot_postproc_compare.py`.
 - ⬜ **UTM instruction manual (for students):** short, crisp usage guide with clear photos of the rig + UI screenshots — Connect → Calibrate → Mount → Prepare → Run → Save → Report.
 
 ---

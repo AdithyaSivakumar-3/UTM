@@ -47,6 +47,13 @@ from matplotlib.figure import Figure
 
 import utm_postproc as PP
 
+# The tab is constructed inside a try/except in main._setup_postproc_tab, and a missing theme
+# module must not be what removes the tab — so this one is optional and every use is guarded.
+try:
+    import theme as _theme
+except Exception:                                                    # pragma: no cover
+    _theme = None
+
 
 class FrameView(QLabel):
     """The video frame, the two tracking boxes, and everything needed to place them precisely.
@@ -386,9 +393,17 @@ class Run:
         return max(vals) if vals else 0.0
 
     def status(self):
+        # A lost marker is NOT announced here. It is reported in the three places that survive
+        # being saved — the dialog when the run ends, the results table, and the report — and a
+        # fourth copy in the list is just the same warning shouted again. What the row does owe
+        # the reader is that the trace is SHORT, so the alarm becomes a plain fact about where
+        # the data stops; without it a stopped run reads exactly like a complete one.
         if self.done:
             if getattr(self.summary, "stopped_early", False):
-                tail = "  ·  MARKER LOST at %.2f s" % self.summary.lost_at_t
+                _end = getattr(self.summary, "data_ends_t", None)
+                if _end is None:
+                    _end = self.summary.lost_at_t
+                tail = "  ·  ends at %.2f s" % _end
             elif self.summary.coverage < 99.95:
                 tail = "  ·  %d frame(s) not tracked" % (self.summary.n - self.summary.tracked)
             else:
@@ -572,6 +587,9 @@ class PostProcTab(QWidget):
         self._guide_dlg = None           # the guide window, built on first use and then kept
         self._losses = []                # marker losses seen during a Run-all sweep, reported at its end
         self._loading = False            # guard: writing widgets must not write back to the run
+        # Set before _build(), because the status label and the plot are coloured as they are made.
+        # main.apply_theme calls back with the real choice immediately after construction.
+        self._theme_name = _theme.DEFAULT if _theme is not None else "dark"
         self._build()
 
     # ---- the current run, and the working views onto it -------------------------------
@@ -830,7 +848,7 @@ class PostProcTab(QWidget):
         self.bar = QProgressBar(); self.bar.setValue(0)
         lv.addWidget(self.bar)
         self.status = QLabel("—"); self.status.setWordWrap(True)
-        self.status.setStyleSheet("color:#c9d1d9;")
+        self.status.setStyleSheet("color:%s;" % self._status_fg())
         lv.addWidget(self.status)
 
         # ---- RIGHT: the answer — plot above, the numbers behind it below.
@@ -849,7 +867,9 @@ class PostProcTab(QWidget):
         self.plotToolbar = NavigationToolbar(self.canvas, plotBox)
         self.plotToolbar.setFixedHeight(24)
         self.plotToolbar.setIconSize(QSize(16, 16))
-        self.plotToolbar.setStyleSheet("background-color: #f0f0f0;")
+        self.plotToolbar.setStyleSheet(
+            "background-color: %s;"
+            % (_theme.get(self._theme_name)["plot_bg"] if _theme is not None else "#f0f0f0"))
         self.plotToolbar.setToolTip("Pan, zoom to a rectangle, step back through views, or Home "
                                     "to return to the full curve.")
         rv.addWidget(self.plotToolbar)
@@ -1025,6 +1045,20 @@ class PostProcTab(QWidget):
         c = getattr(self, "showTrue", None)
         return bool(c and c.isChecked())
 
+    def _style_plot(self):
+        """Everything ax.clear() throws away: the labels, and the theme.
+
+        Both the reset and the live redraw clear the axes, so this has to run after each of them.
+        Putting it anywhere else means a theme switch lasts until the next frame arrives — which,
+        during a run, is about an eighth of a second.
+        """
+        self.ax.set_xlabel("time (s)")
+        self.ax.set_ylabel("DIC strain (%)")
+        self.ax.set_title("DIC strain vs time")
+        self.ax.grid(alpha=0.3)
+        if _theme is not None:
+            _theme.style_axes(self.fig, self.ax, self._theme_name)
+
     def _reset_plot(self):
         # Autoscale back on, and the toolbar's view history cleared. A new run means new data, and
         # a window framed around the previous one is unlikely to contain it — nor should Back walk
@@ -1037,13 +1071,39 @@ class PostProcTab(QWidget):
                 tb.update()                      # empties the pan/zoom history
             except Exception:
                 pass
-        self.ax.set_xlabel("time (s)")
-        self.ax.set_ylabel("DIC strain (%)")
-        self.ax.set_title("DIC strain vs time")
-        self.ax.grid(alpha=0.3)
+        self._style_plot()
         self._last_plot = 0.0
         self.fig.tight_layout()
         self.canvas.draw_idle()
+
+    # ---- theme -------------------------------------------------------------------------------
+    #
+    # Only the PLOT and its toolbar follow the light/dark switch. The video preview and the pixel
+    # readout beside it are deliberately dark in both themes: they show a camera frame, and a frame
+    # of a black specimen is read against a dark surround, not a white page.
+
+    def _status_fg(self):
+        """The status line's resting colour. Its amber and green states are set per-event and are
+        legible on either background, so those are left alone."""
+        if _theme is None:
+            return "#c9d1d9"
+        return _theme.get(self._theme_name)["text"]
+
+    def apply_theme(self, name):
+        """Follow the application's theme. Called by main.apply_theme, which cannot reach this
+        figure itself — it walks a fixed list of the two canvases the main window owns."""
+        if _theme is None:
+            return
+        t = _theme.get(name)
+        self._theme_name = t["name"]
+        self._style_plot()
+        self.canvas.draw_idle()
+        tb = getattr(self, "plotToolbar", None)
+        if tb is not None:
+            tb.setStyleSheet("background-color: %s;" % t["plot_bg"])
+        st = getattr(self, "status", None)
+        if st is not None:
+            st.setStyleSheet("color:%s;" % self._status_fg())
 
     # ------------------------------------------------------------------ actions
     @staticmethod
@@ -1541,7 +1601,7 @@ class PostProcTab(QWidget):
         else:
             self.log.emit("[PostProc] %s — reference frame confirmed at %d" % (r.label, now))
             self.status.setText("Reference frame confirmed at %d." % now)
-        self.status.setStyleSheet("color:#c9d1d9;")
+        self.status.setStyleSheet("color:%s;" % self._status_fg())
         self._refresh_list()
 
     def on_ref_image(self):
@@ -1791,7 +1851,7 @@ class PostProcTab(QWidget):
         # Any amber left over from setup — the off-reference detect hint — stops applying the
         # moment a run starts, and nothing else would clear it now that the marker-lost warning
         # has moved to a dialog.
-        self.status.setStyleSheet("color:#c9d1d9;")
+        self.status.setStyleSheet("color:%s;" % self._status_fg())
         # A zoom chosen for the previous run should not frame this one.
         self.ax.set_autoscale_on(True)
         r = self.run
@@ -1903,10 +1963,7 @@ class PostProcTab(QWidget):
         if not (self.ax.get_autoscalex_on() and self.ax.get_autoscaley_on()):
             keep = (self.ax.get_xlim(), self.ax.get_ylim())
         self.ax.clear()
-        self.ax.set_xlabel("time (s)")
-        self.ax.set_ylabel("DIC strain (%)")
-        self.ax.set_title("DIC strain vs time")
-        self.ax.grid(alpha=0.3)
+        self._style_plot()
         any_data = False
         for i, r in enumerate(self.runs):
             if not r.t:
@@ -1927,7 +1984,10 @@ class PostProcTab(QWidget):
             # run ends, the "Tracking ended" and "Data ends at" rows of the results table, and the
             # generated report.
         if any_data:
-            self.ax.legend(frameon=False, fontsize=9)
+            leg = self.ax.legend(frameon=False, fontsize=9)
+            if _theme is not None:
+                for txt in leg.get_texts():
+                    txt.set_color(_theme.get(self._theme_name)["plot_fg"])
         if keep:
             self.ax.set_xlim(keep[0]); self.ax.set_ylim(keep[1])
         self.fig.tight_layout()
@@ -1962,7 +2022,7 @@ class PostProcTab(QWidget):
         # The status line stays factual and one line long. A lost marker is worth interrupting for,
         # so it goes to a dialog; the durable record of it is the table, the CSV and the report,
         # which is where anyone looks after the run rather than during it.
-        self.status.setStyleSheet("color:#c9d1d9;")
+        self.status.setStyleSheet("color:%s;" % self._status_fg())
         self.status.setText(msg)
         self.log.emit("[PostProc] " + msg)
         note = None

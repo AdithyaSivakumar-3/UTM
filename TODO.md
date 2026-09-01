@@ -2,7 +2,10 @@
 
 This document outlines the tasks required to implement Digital Image Correlation (DIC) strain measurement for the UTM application (Phase 8).
 
-**Current Status:** Phase 8.1–8.5 complete. Phase 8.6 (Validation) in progress: hardware 8.6.5 + 8.6.10 + noise floor ✅ (2026-04-22), 8.6.16 ✅ (2026-05-28), optional software 8.6.11–8.6.14 ✅ (2026-04-22). Remaining: 8.6.3, 8.6.4, 8.6.15, 8.6.17, 8.6.18, cleanup.
+**Current Status:** Phase 8.1–8.5 complete. Phase 8.6 (Validation) in progress: hardware 8.6.5 + 8.6.10 + noise floor ✅ (2026-04-22), 8.6.16 ✅ (2026-05-28), optional software 8.6.11–8.6.14 ✅ (2026-04-22), cleanup ✅ (2026-09-01).
+**Remaining:** 8.6.3 and 8.6.4, both of which need a specimen gripped in the rig.
+**Dropped by decision (2026-09-01):** 8.6.15, 8.6.17, 8.6.18 — see below.
+**Suite:** 38/41 in `tests script/test_phase_8_6.py`. Three have failed since before this line was written — two blob-count edge cases and the swept-strain pipeline test. They are unrelated to any current work and are tracked as an open defect, not as passing.
 
 **App Version:** 0.5.4 | **Firmware Version:** 1.3.1
 
@@ -133,22 +136,34 @@ pip install opencv-python    # Image processing and blob detection
 
 #### Hardware Tests — No Grips Needed (deferred)
 
-- [ ] **8.6.15** Printed-marker calibration test — tare on paper with 50 mm dot spacing, swap to 55 mm paper, confirm DIC Cauchy ≈ 0.1000. Validates end-to-end DIC math independent of UTM.
+- ~~**8.6.15** Printed-marker calibration test — tare on 50 mm dot paper, swap to 55 mm, confirm DIC Cauchy ≈ 0.1000.~~ **DROPPED 2026-09-01.** The DIC maths is already exercised end to end by the synthetic-frame pipeline tests (8.6.11) and, on real footage, by the MOT cross-validation — our calculation and a commercial extensometer's agree to a median ratio of 1.0017 on the same video.
 - [x] **8.6.16** Occlusion robustness — mid-acquisition, briefly cover one marker. Verify DIC returns 0.0/None gracefully, resumes when marker reappears, no crash. **PASS (2026-05-28):** covered 1 marker → `found 1`, both → `found 0`, strain updates skipped (held, no garbage), no crash/GUI hang, clean resume to ±3×10⁻⁵ baseline on uncover. One harmless single-frame transient (ε_c≈3.4×10⁻⁴) as marker re-enters.
-- [ ] **8.6.17** Motor encoder accuracy — command motor to travel 1 / 5 / 10 mm; compare commanded value to Position_mm column. Validates Motor_Strain denominator.
-- [ ] **8.6.18** Multi-session tare consistency — disconnect/reconnect camera between sessions, tare with identical specimen setup, verify px_per_mm stays consistent across sessions.
+- ~~**8.6.17** Motor encoder accuracy — command 1 / 5 / 10 mm, compare to Position_mm.~~ **DROPPED 2026-09-01.**
+- ~~**8.6.18** Multi-session tare consistency — verify px_per_mm holds across a camera reconnect.~~ **DROPPED 2026-09-01.**
 - [ ] **8.6.19** Elastic modulus characterization (material test, not measurement validation) — slow ramp (0.05 mm/s) to ~0.5 mm compression on shaken-down specimen, hold 30 s, return. Fit σ vs DIC ε_c through loading ramp. Pass: linear with R² > 0.99, slope (E) within PLA literature range 1–4 GPa, hold drift < 5 %, returns to origin within ε_c < 5×10⁻⁵. **Why:** First three tests validate the measurement device (sign, linearity, calibration); this is the first test that characterizes the actual material. Existing Compression T2 data already suggests E ≈ 3.6 GPa for this specimen.
 
-#### Optional Software Tests — all 15 new tests pass (2026-04-22, total 41/41 in test_phase_8_6.py)
+#### Optional Software Tests — 15 tests added 2026-04-22; the file now runs 38/41 (see Current Status)
 
 - [x] **8.6.11** End-to-end DIC pipeline with synthetic frames — 4 tests (zero, ±5%, ±10%, swept 0.8×–1.2×)
 - [x] **8.6.12** GUI stress test with mock camera — 2 tests (dic_history bounded at 500 after 2000 frames, per-frame < 30 ms)
 - [x] **8.6.13** CSV round-trip with real DIC data — 3 tests (all 12 columns, 6-decimal precision, comment lines skipped)
 - [x] **8.6.14** Time-sync logic simulation — 6 tests (nearest pairing, 99/101 ms boundary, empty history, no anchor, out-of-order entries, Python stall recovery)
 
+#### Open defect — the suite is not green
+
+- [ ] **Three stale tests in `tests script/test_phase_8_6.py`** (38/41). All three predate the
+  current work and all three look like test expectations that were never updated after
+  `detect_blobs` learned to pick the best PAIR rather than return every blob it found:
+  - `test_blob_detection_three_blobs` — expects 3 back, gets 2
+  - `test_blob_detection_four_blobs` — expects >= 4 back, gets 2
+  - `test_pipeline_swept_strain_series` — gets 0 blobs at separation factor 0.8, where a guard
+    probably rejects the synthetic frame
+  Decide the intended contract for `detect_blobs` with more than two markers, then fix the tests
+  (or the code) to match. Until then nothing should describe this file as passing.
+
 #### Cleanup (after hardware validation)
 
-- [ ] Remove temporary 8.4.6 validation log from main.py after all tests pass
+- [x] **Remove the temporary 8.4.6 validation log from main.py** ✅ 2026-09-01. It printed DIC vs motor strain into the console once a second for the whole of every run. Nothing is lost: `Motor_Strain`, `DIC_Cauchy` and `DIC_True` are all CSV columns, so 8.6.3 and 8.6.4 are a subtraction on the exported file — which is the evidence those tests should rest on anyway, rather than console scrollback.
 
 ---
 

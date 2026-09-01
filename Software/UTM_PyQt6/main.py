@@ -3254,6 +3254,8 @@ class UTMApplication(QMainWindow):
             return
         if 0 <= val <= 100:
             self.infillSpinBox.setValue(val)
+            # Carried over, not typed for this specimen. Prepare test says so until it is touched.
+            self._infill_from_last_session = True
             # The console does not exist yet during widget construction, so defer the notice to the
             # first turn of the event loop.
             try:
@@ -3264,17 +3266,32 @@ class UTMApplication(QMainWindow):
             except Exception:
                 pass
 
+    def _on_infill_changed(self, v):
+        """Remember the infill, and record that a human set it for THIS specimen."""
+        self._remember("specimen/infill_pct", int(v))
+        self._infill_from_last_session = False
+
+    def _specimen_label(self):
+        """The specimen metadata, worded once and read back everywhere it is echoed.
+
+        Same four fields the CSV header carries, in the same order, so what the operator confirms
+        and what lands in the file cannot drift apart."""
+        try:
+            _mat = getattr(self.camera_manager, "material", "PLA")
+            return (f"{self.areaSpinBox.value():.1f} mm² · gauge "
+                    f"{self.gaugeLengthSpinBox.value():.1f} mm · {_mat} · "
+                    f"INFILL {self.infillSpinBox.value()} %")
+        except Exception:
+            return ""
+
     def _confirm_destructive(self, title, what):
         """Fracture protocols destroy the specimen, so make the operator confirm — same discipline as
         the Fracture test button. Returns True to proceed."""
         from PyQt6.QtWidgets import QMessageBox
         # Echo the specimen metadata back: a destructive run cannot be repeated, so a stale label
         # (e.g. Infill left at 100 % for a 50 % specimen — happened on T7.2) is only catchable here.
-        try:
-            meta = (f"Specimen: {self.areaSpinBox.value():.1f} mm² · gauge "
-                    f"{self.gaugeLengthSpinBox.value():.1f} mm · INFILL {self.infillSpinBox.value()} %")
-        except Exception:
-            meta = ""
+        lab = self._specimen_label()
+        meta = ("Specimen: " + lab) if lab else ""
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Warning)
         msg.setWindowTitle(f"{title} — destructive test")
@@ -3603,8 +3620,7 @@ class UTMApplication(QMainWindow):
         # "Infill: 100 %" on 50 % specimens while T7.3, a destructive run, came out right.
         # Fix: remember it across restarts so it is set once per SPECIMEN, not once per session.
         self._restore_infill()
-        self.infillSpinBox.valueChanged.connect(
-            lambda v: self._remember("specimen/infill_pct", int(v)))
+        self.infillSpinBox.valueChanged.connect(self._on_infill_changed)
         r1.addWidget(self.infillSpinBox)
         r2 = QHBoxLayout()
         self.prepareTestButton = QPushButton("Prepare test")
@@ -3981,6 +3997,20 @@ class UTMApplication(QMainWindow):
                     self.append_to_console(f"[Prepare] {label} tare failed: {e}")
 
         self.append_to_console(f"[Prepare] tared: {', '.join(done) if done else 'nothing'}")
+
+        # Read the specimen label back. It changes no measured value, which is precisely why a
+        # stale one is never caught downstream — it just rides into the CSV header and the report
+        # as if it had been checked. Prepare is the one step every test type performs per specimen,
+        # so it is the only place a non-destructive run can be given the same second look that the
+        # fracture confirm dialog gives a destructive one.
+        lab = self._specimen_label()
+        if lab:
+            self.append_to_console(f"[Prepare] specimen: {lab}")
+            if getattr(self, "_infill_from_last_session", False):
+                self.append_to_console(
+                    f"[Prepare] ⚠ that infill ({self.infillSpinBox.value()} %) is the value "
+                    "restored from a previous session — nobody has set it for THIS specimen. "
+                    "It is a label only, but it is written into the CSV header and the report.")
         if skipped:
             # The status line said this already, but the status line is transient and the console is
             # the record the operator scrolls back through. A pull started without Px₀ records no
@@ -6273,6 +6303,18 @@ class UTMApplication(QMainWindow):
             if tb is not None:
                 tb.setStyleSheet("background-color: %s;" % t["plot_bg"])
 
+        # --- the third canvas, which this window does not own --------------------------------
+        # The post-processing tab builds its own Figure, so the walk above cannot reach it; it is
+        # handed the name and restyles itself. Guarded twice over: the tab is optional (a missing
+        # OpenCV removes it and leaves None here), and a theme failure must not stop the switch
+        # from completing for everything else.
+        pp = getattr(self, "postProcTab", None)
+        if pp is not None and hasattr(pp, "apply_theme"):
+            try:
+                pp.apply_theme(name)
+            except Exception as e:
+                print(f"[PostProc] theme not applied: {e}")
+
         # --- colours written into call sites -------------------------------------------------
         for attr in ("dicCauchyLabel", "dicCauchyLabelLP"):
             w = getattr(self, attr, None)
@@ -7050,15 +7092,10 @@ class UTMApplication(QMainWindow):
             self.dicCauchyLabelLP.setText(f"{cauchy:.6f}")
             self.dicTrueLabelLP.setText(f"{true_strain:.6f}")
 
-        # --- 8.4.6 VALIDATION (temporary) — throttled to ~1 Hz ---
-        import time
-        now = time.monotonic()
-        if now - getattr(self, '_last_val_log', 0) >= 1.0:
-            self._last_val_log = now
-            motor_strain = self.motor_displacement_mm / self.gauge_length if self.gauge_length > 0 else 0
-            self.append_to_console(
-                f"[DIC] ε_c={cauchy:.6f} | ε_t={true_strain:.6f} | Motor={motor_strain:.6f} | Δ(ε_c−Motor)={cauchy - motor_strain:.6f}"
-            )
+        # The 8.4.6 validation log used to print DIC vs motor strain here, once a second, for the
+        # whole of every run. It is gone: Motor_Strain, DIC_Cauchy and DIC_True are all columns in
+        # the exported CSV, so the same comparison is a subtraction on the saved file — which is
+        # what 8.6.3 and 8.6.4 should be argued from anyway, rather than from console scrollback.
 
     # Blob-detection failures are emitted per FRAME, so a lighting problem writes 35 identical lines
     # a second into the camera console — which buries the one line that would tell you what changed
