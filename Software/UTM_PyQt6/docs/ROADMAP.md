@@ -435,7 +435,7 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 >    the one carrying the measurement, so this file is wrong, not `camera_manager.py`. Explicitly:
 >    better dots would clear 0.40 with MORE room, so a clean specimen is not a reason to tighten.
 >    Only evidence that 0.40 admits something it should not would reopen this.
->    ▸ **What IS still open is the specimen, and it is worth doing on its own merits** — mask around
+>    ▸ ~~**What IS still open is the specimen**~~ — **DROPPED BY DECISION 2026-09-01.** The gate at 0.40 carries these specimens as they are. Original note: — mask around
 >    each dot, spray lighter from further back, matte white rather than glossy. That earns headroom
 >    at any gate. Re-run `black_preset_check` and `petg_tracking_check` after, to record the gain.
 >
@@ -563,11 +563,10 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
   - ~~Cyclic T5/T6 → T6.3~~ ✅ SF9 (peak error 71 → 15 N; convergence 528 → 500 N shown)
   - ~~T7.2 staircase→fracture~~ ✅ SF9
   - ~~T8 progressive cyclic→fracture~~ ✅ SF9 (the crosshead-vs-DIC headline is the verdict banner on p198)
-  - **Cross-protocol result:** T7.2 21.19 vs T8 21.38 MPa = 0.9 %, stated with the different-specimen
-    caveat (that spread contains specimen scatter too; n=2 can't separate them).
+  - ✅ **Cross-protocol result — SLIDED 2026-09-01, p307.** T7.2 (S18) 21.19 vs T8 (S21) 21.38 MPa = 0.88 %, both anchor-corrected, computed from `sf9_data` rather than restated. The different-specimen caveat is a banner, not a footnote: n = 1 each, so the figure bounds the protocol effect rather than measuring it. The slide also draws the 3.9 MPa anchor correction beside the 0.19 MPa difference, because a 0.9 % agreement means nothing unless the correction behind it was applied alike — it was, to within 6 N.
   - ~~Motor torque ceiling / T7~~ ✅ SF9 p199 (dedicated failure-analysis slide)
-  - **Workflow slides:** recipes (2 starter profiles), destructive-test confirmation, speed-scaled stall guard.
-  - **Rebuild the SF grid (slide 169):** it shows only 8 cards and its banner still reads *"Engine ready to add 4 more modes: cyclic · staircase · relaxation · creep"* — those are all done now. Take it to **14 cards from §3c**, grouped built vs planned.
+  - ✅ **Workflow slides — SLIDED 2026-09-01, p308.** Recipes already had p207, so the new slide covers the other two: the destructive-test confirmation (why it reads the specimen label back, and the four non-destructive runs that had no such gate) and the speed-scaled stall guard, with the constants read out of `main.py` and the reason a flat 0.05 mm bar could not work at a tapered crawl.
+  - ✅ **Rebuild the SF grid — ALREADY DONE; this entry was stale (closed 2026-09-01).** It names "slide 169", a page number from before later insertions; the grid is now p167 and carries 20 cards with no such banner. Original note: it shows only 8 cards and its banner still reads *"Engine ready to add 4 more modes: cyclic · staircase · relaxation · creep"* — those are all done now. Take it to **14 cards from §3c**, grouped built vs planned.
 - ⬜ **BLACK-SPECIMEN DIC TEST — rig run, not just research.** Tracked in §5 below; repeated here so it is
   not lost among the reading tasks. Every specimen to date is WHITE; the "Black" DIC preset has never been
   exercised on the rig.
@@ -642,11 +641,7 @@ status-grouped layout reads correctly without renumbering anything.
 ⚠️ **SF10 (auto-preload) was not in the original SF1–SF8 set** — added here because the poster is meant to
 show *all* smart features and auto-preload is a real, validated one that was simply never carded.
 
-- ⬜ **p188 edge-tracking: track MINIMUM width, not the average.** The slide currently specifies
-  "average width over 100s of rows". Necking is **local** — averaging over the gauge measures average
-  thinning and systematically **under-corrects exactly where the correction matters** (at the neck,
-  which is where fracture happens). Change the spec to the minimum width along the gauge before
-  building it. Cheap to fix now, expensive after the rig is built. Reasoning on deck p210.
+- ✅ **Edge-tracking spec — FIXED 2026-09-01 (the slide is p187, not p188).** It said "average width over 100s of rows". Necking is **local**, so the mean under-corrects exactly where the correction matters. The spec now reads **MEAN while the width is uniform (for ν), MINIMUM band once necking starts (for area)** — the split matters because the averaging is what buys the ~10x noise reduction that makes ν measurable at 20 px/mm, and that argument only holds while the width IS uniform. A blanket switch to the minimum would have thrown it away. The design-fix banner also pointed at the wrong slide (the cyclic results) and now points at the spec it describes.
 
 - ✅ **T6.4 / T6.5 / T7.3 DONE 2026-08-11 (S22).** Cyclic near yield validated: **12.3 px strain
   excursion vs T6.3's 3.6** (p189 predicted 13.1), **6 closed loops**, area **14.2→10.9 kJ/m³** and
@@ -677,7 +672,8 @@ show *all* smart features and auto-preload is a real, validated one that was sim
     DIC 100 % frames. **Bonus:** fixed-grip relaxation tail 598 → 582 N over 300 s (−2.8 %).
   - Open: creep/instantaneous 16.8 % is an **upper bound** (ε_inst tared at preload); n = 1 specimen at
     one stress level — a compliance CURVE needs 3-4 levels.
-- ⬜ **T6.6 — the clean damage curve.** Fresh 50 % specimen, 400→1100 N, **12 cycles**, sine, 0.100 mm/s,
+- ~~⬜ **T6.6 — the clean damage curve.**~~ **DROPPED BY DECISION 2026-09-01.** Kept below for the reasoning, since it records why D is not computable from the T6.4/T6.5 pair.
+- ~~T6.6, original entry:~~ Fresh 50 % specimen, 400→1100 N, **12 cycles**, sine, 0.100 mm/s,
   ONE continuous run (no pause — E recovers across a rest). Baseline E on **cycle 2**, never cycle 1.
   Still the only missing piece: T6.4 lost DIC, T6.5 started already damaged, and E recovered over the
   40 min between them, so **D = 1 − Eᵢ/E₀ is not computable from the T6.4/T6.5 pair**.
@@ -738,7 +734,7 @@ show *all* smart features and auto-preload is a real, validated one that was sim
     5 mm lead gives **≥12.5 kN even at a pessimistic 15 % screw efficiency = 3.4× the 3.7 kN
     needed**, yet T7 stopped at 72 %. That gap was never electrical — it was friction in a
     misaligned load path.
-  - 🟢 **Still worth doing, now for diagnostics rather than as a fix:** the drivers are **MKS
+  - ~~🟢 Still worth doing, now for diagnostics rather than as a fix:~~ **DROPPED BY DECISION 2026-09-01** — the ceiling was misalignment and is resolved; this was only ever a way to have proved it faster. Original note: the drivers are **MKS
     TMC2160_57**, SPI Trinamic parts. Wiring CS/SCK/MOSI/MISO to the ESP32 would let motor current
     be set in code (`GLOBALSCALER` + `IRUN`) and **`DRV_STATUS` (otpw/ot) + StallGuard** be logged —
     which would have distinguished binding from derating directly instead of by inference. Deck p202.
@@ -764,7 +760,7 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   than theirs. The slopes differ for a reason that is not the maths: gauge share of commanded travel
   is 21.3 % (S25), 32.5 % (S26) and 59.4 % (MOT). Deck **p291–303**;
   `documentation/scripts/mot_postproc_compare.py`.
-- ⬜ **UTM instruction manual (for students):** short, crisp usage guide with clear photos of the rig + UI screenshots — Connect → Calibrate → Mount → Prepare → Run → Save → Report.
+- ⬜ **UTM instruction manual (for users):** short, crisp usage guide with clear photos of the rig + UI screenshots — Connect → Calibrate → Mount → Prepare → Run → Save → Report.
 
 ---
 

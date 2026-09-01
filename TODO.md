@@ -3,8 +3,8 @@
 This document outlines the tasks required to implement Digital Image Correlation (DIC) strain measurement for the UTM application (Phase 8).
 
 **Current Status:** Phase 8.1–8.5 complete. Phase 8.6 (Validation) in progress: hardware 8.6.5 + 8.6.10 + noise floor ✅ (2026-04-22), 8.6.16 ✅ (2026-05-28), optional software 8.6.11–8.6.14 ✅ (2026-04-22), cleanup ✅ (2026-09-01).
-**Remaining:** 8.6.3 and 8.6.4, both of which need a specimen gripped in the rig.
-**Dropped by decision (2026-09-01):** 8.6.15, 8.6.17, 8.6.18 — see below.
+**Remaining:** none. Every hardware test is either passed or dropped by decision.
+**Dropped by decision (2026-09-01):** 8.6.3, 8.6.4, 8.6.15, 8.6.17, 8.6.18 — each struck through below with its reason.
 **Suite:** 38/41 in `tests script/test_phase_8_6.py`. Three have failed since before this line was written — two blob-count edge cases and the swept-strain pipeline test. They are unrelated to any current work and are tracked as an open defect, not as passing.
 
 **App Version:** 0.5.4 | **Firmware Version:** 1.3.1
@@ -128,8 +128,8 @@ pip install opencv-python    # Image processing and blob detection
 
 #### Hardware Tests
 
-- [ ] **8.6.3** Known displacement test — compare Motor vs DIC Cauchy strain with real specimen *(needs specimen gripped in UTM)*
-- [ ] **8.6.4** Strain sign test — verify tension (+) and compression (−) with real loading *(needs specimen gripped in UTM)*
+- ~~**8.6.3** Known displacement test — Motor vs DIC Cauchy on a real specimen.~~ **DROPPED 2026-09-01.** The comparison is available from any saved run without a dedicated test: `Motor_Strain`, `DIC_Cauchy` and `DIC_True` are all CSV columns.
+- ~~**8.6.4** Strain sign test — tension (+) / compression (−) under real loading.~~ **DROPPED 2026-09-01.** The sign convention is covered by software test 8.6.4 and has held on every recorded run.
 - [x] **8.6.5** GUI responsiveness — 2417 samples / 213 s, MCU interval 88.27±4.00 ms, 0 stalls (2026-04-22)
 - [x] **8.6.10** DIC↔load cell timestamp sync — 7/7 stall bursts recovered with unique DIC timestamps, median lag 27 ms, 99.1% fresh rows (2026-04-22)
 - [x] **Noise floor / drift** (bonus) — DIC std 7.3×10⁻⁵, drift 5.2×10⁻⁵/min, stationary markers (2026-04-22)

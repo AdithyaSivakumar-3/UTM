@@ -1359,7 +1359,8 @@ header(s, 6.6, 1.28, 6.4, "Three ways to MEASURE it (no transverse dots)")
 meth = [
     ["Route", "How it works", "Needs"],
     ["1  Edge / silhouette\n    width tracking",
-     "find the specimen's L & R edges across the gauge; average width over 100s of rows -> ε_w each frame",
+     "find the specimen's L & R edges across the gauge; MEAN width while it is uniform (for ν), "
+     "MINIMUM band once necking starts (for area) -> ε_w each frame",
      "matte-black backdrop;\nreuses THIS camera"],
     ["2  Full-field\n    speckle DIC",
      "fine random speckle + subset correlation (Ncorr / muDIC, offline) -> full axial + transverse strain field",
@@ -1370,11 +1371,17 @@ meth = [
 ]
 ovm = {(1, c): {'bg': GREEN_PASS, 'bold': c == 0} for c in range(3)}      # recommended row
 table(s, 6.6, 1.70, 6.4, 2.7, meth, cw=[1.7, 3.0, 1.7], hf=10, bf=9, ov=ovm)
-tb(s, 6.6, 4.5, 6.4, 1.0,
+tb(s, 6.6, 4.42, 6.4, 1.20,
    "Why #1 works at 20 px/mm: one edge is sub-pixel, but averaging the width along the whole gauge "
    "(100s of rows) cuts the noise ~10x to ~0.01 px — the ~0.5 px elastic width change is then well "
-   "resolved. It only needs CRISP edges = a dark background behind the specimen.",
-   fs=10.5, italic=True, colour=GREY_TEXT)
+   "resolved. It only needs CRISP edges = a dark background behind the specimen.\n"
+   "WHICH statistic depends on the regime, and this is not interchangeable. Before necking the "
+   "width is uniform, so the MEAN over the whole gauge is right and buys that noise reduction — "
+   "that is the ν measurement. Once a neck forms the deformation is LOCAL and the load is carried "
+   "by the smallest section, so the area must come from the MINIMUM, averaged over a short band "
+   "at the neck. A mean over the whole gauge would under-correct exactly where the correction "
+   "matters most.",
+   fs=10, italic=True, colour=GREY_TEXT)
 
 banner(s, 0.4, 5.65, 12.6, 0.72,
        "EDGE-WIDTH TRACKING + a matte-black backdrop = the only route that MEASURES Poisson & true Cauchy, reusing THIS camera & specimen. Keep ENGINEERING stress as the validated basis.",
@@ -2164,8 +2171,10 @@ banner(s, 0.45, 6.24, 12.45, 0.50,
        "thinning: S16 falls 47.4 → 42 MPa, and volume-conserved true stress is still only 44.5.",
        fill=GREEN_PASS, fg=DARK_GREEN, fs=11)
 banner(s, 0.45, 6.80, 12.45, 0.44,
-       "⚠ DESIGN FIX for ⟪SF9 · CYCLIC  [T5 · T6.3] — OUR RESULTS⟫: it says “average width over 100s of rows”. Necking is LOCAL — averaging "
-       "under-corrects exactly where it matters. Track the MINIMUM width along the gauge, not the mean.",
+       "✅ DESIGN FIX APPLIED on ⟪MEASURING POISSON'S RATIO & TRUE⟫ (2026-09-01): the spec said "
+       "“average width over 100s of rows”. Necking is LOCAL, so the mean under-corrects exactly "
+       "where it matters. It now reads MEAN while the width is uniform (ν), MINIMUM band once "
+       "necking starts (area). Fixed before building, which is the cheap end.",
        fill=YELLOW_WARN, fg=BLACK, fs=10.5)
 footer(s, "")
 pageno(s)
@@ -4075,6 +4084,9 @@ exec(open("documentation/scripts/sf20_guide_block.py", encoding="utf-8").read())
 
 # ---- why 20.9 px/mm, and whether more would be better
 exec(open("documentation/scripts/pxmm_slides_block.py", encoding="utf-8").read())
+
+# The last two gaps on the deck checklist: the cross-protocol result, and the workflow guards.
+exec(open("documentation/scripts/workflow_slides_block.py", encoding="utf-8").read())
 
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
