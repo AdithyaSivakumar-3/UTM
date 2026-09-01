@@ -3,9 +3,18 @@ Self-contained (same analyze() as v6a_analyze.py). Generates:
   single : V6a_load_time / stress_strain / cauchy_true / stress_position / strain_position .png
   compare: V6a_v5_load_time / stress_strain / stress_disp / strain_disp .png
 """
+import os
 import sys
 sys.stdout.reconfigure(encoding="utf-8")
 from statistics import mean, median
+
+# The CSV reader and the line fit are the app's, not private copies. They were duplicated here and
+# in v6a_analyze.py, which is three implementations of the same two functions that agree only until
+# someone fixes one of them.
+_APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "UTM_PyQt6")
+if _APP not in sys.path:
+    sys.path.insert(0, _APP)
+from utm_analysis import read_csv, linfit                             # noqa: E402
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -16,28 +25,6 @@ F_V5 = ROOT + r"\Specimen_S4_V1_Spray\UTM_Test_20260612_172333_V5_TensionFailure
 F_V6 = ROOT + r"\Specimen_S7_V2_Spray\UTM_Test_20260617_165405_V6a_TensionFailure.csv"      # pilot (batch edge)
 F_V6D = ROOT + r"\Specimen_S11_V2_Spray\UTM_Test_20260625_154219_V6d_TensionFailure.csv"    # representative (≈ n=5 mean)
 BLUE = "#1f77b4"; RED = "#d62728"; PUR = "#6a1b9a"; ORANGE = "#e08214"; GREEN = "#2e7d32"
-
-
-def read_csv(path):
-    rows = [l.strip() for l in open(path, newline="") if not l.startswith("#") and l.strip()]
-    idx = {h: i for i, h in enumerate(rows[0].split(","))}
-    out = []
-    for row in rows[1:]:
-        p = row.split(",")
-        try:
-            out.append({"t": float(p[idx["Time_s"]]), "F": float(p[idx["Force_N"]]),
-                        "pos": float(p[idx["Position_mm"]]), "ec": float(p[idx["DIC_Cauchy"]]),
-                        "et": float(p[idx["DIC_True"]]), "lpx": float(p[idx["L_px"]])})
-        except (ValueError, IndexError):
-            continue
-    return out
-
-
-def linfit(xs, ys):
-    n = len(xs); sx, sy = sum(xs), sum(ys)
-    sxx = sum(x*x for x in xs); sxy = sum(x*y for x, y in zip(xs, ys))
-    sl = (n*sxy - sx*sy)/(n*sxx - sx*sx); ic = (sy - sl*sx)/n
-    return sl, ic
 
 
 def analyze(path):
@@ -72,7 +59,7 @@ def analyze(path):
     uts = max(test, key=lambda d: d["sig"])
     last = max(test, key=lambda d: d["t"])
     win = [d for d in test if 0.0005 <= d["ecz"] <= 0.004]
-    E, c1 = linfit([d["ecz"] for d in win], [d["sig"] for d in win])
+    E, c1, _r2 = linfit([d["ecz"] for d in win], [d["sig"] for d in win])
     sy = next(d for d in test if E*(d["ecz"]-0.002)+c1 >= d["sig"])
     pl = next((d for d in test if d["ecz"] > 0.004 and d["sig"] < 0.98*(E*d["ecz"]+c1)), None)
     gauge = last["ecz"]*GAUGE; rig = last["travel"]-gauge

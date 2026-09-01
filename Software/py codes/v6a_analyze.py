@@ -3,9 +3,18 @@ Prints full parameter table, offset factors, and the V6a/V5 deltas.
 Reuses the validated anchor + load-collapse fracture logic; adds a DIC baseline
 re-zero (V6a baseline e_c ~ -0.0008 from a slightly-early tare).
 """
+import os
 import sys
 sys.stdout.reconfigure(encoding="utf-8")
 from statistics import mean, stdev, median
+
+# The CSV reader and the line fit are the app's, not private copies. They were duplicated here and
+# in v6a_analyze.py, which is three implementations of the same two functions that agree only until
+# someone fixes one of them.
+_APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "UTM_PyQt6")
+if _APP not in sys.path:
+    sys.path.insert(0, _APP)
+from utm_analysis import read_csv, linfit                             # noqa: E402
 
 AREA = 80.0; GAUGE = 80.0
 ROOT = r"Software\UTM_PyQt6\Test data\8.6.20 - Tensile test to Failure"
@@ -14,36 +23,6 @@ FILES = {
     "V6a (S7, 100%)": ROOT + r"\Specimen_S7_V2_Spray\UTM_Test_20260617_165405_V6a_TensionFailure.csv",
 }
 LIT = {"E": (3.0, 5.5), "sy": (30, 50), "uts": (32, 60)}  # Chacon (2017) FDM PLA
-
-
-def read_csv(path):
-    rows = []
-    with open(path, newline="") as f:
-        for line in f:
-            if line.startswith("#") or not line.strip():
-                continue
-            rows.append(line.strip())
-    idx = {h: i for i, h in enumerate(rows[0].split(","))}
-    out = []
-    for row in rows[1:]:
-        p = row.split(",")
-        try:
-            out.append({"t": float(p[idx["Time_s"]]), "F": float(p[idx["Force_N"]]),
-                        "pos": float(p[idx["Position_mm"]]), "ms": float(p[idx["Motor_Strain"]]),
-                        "ec": float(p[idx["DIC_Cauchy"]]), "et": float(p[idx["DIC_True"]]),
-                        "lpx": float(p[idx["L_px"]])})
-        except (ValueError, IndexError):
-            continue
-    return out
-
-
-def linfit(xs, ys):
-    n = len(xs); sx, sy = sum(xs), sum(ys)
-    sxx = sum(x*x for x in xs); sxy = sum(x*y for x, y in zip(xs, ys))
-    sl = (n*sxy - sx*sy)/(n*sxx - sx*sx); ic = (sy - sl*sx)/n
-    ym = sy/n
-    r2 = 1 - sum((y-(sl*x+ic))**2 for x, y in zip(xs, ys))/sum((y-ym)**2 for y in ys)
-    return sl, ic, r2
 
 
 def analyze(path):
