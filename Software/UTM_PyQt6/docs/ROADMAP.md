@@ -671,10 +671,21 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   ONE continuous run (no pause — E recovers across a rest). Baseline E on **cycle 2**, never cycle 1.
   Still the only missing piece: T6.4 lost DIC, T6.5 started already damaged, and E recovered over the
   40 min between them, so **D = 1 − Eᵢ/E₀ is not computable from the T6.4/T6.5 pair**.
-- ⬜ **Infill label bug.** The CSV `Infill` header writes **100 %** after an app restart regardless of the
-  setting — T6.4 / T6.5 / T9a / T9b all say 100 % on 50 % specimens (T7.3 is correct). It is a label that
-  enters no calculation (area and gauge are entered separately), so **no measured number is affected**;
-  the registry carries the true value. Fix the field's restart default in `main.py`.
+- ✅ **Infill label bug — CLOSED 2026-09-01.** The CSV `Infill` header used to write **100 %** after an
+  app restart regardless of the setting: T6.4 / T6.5 / T9a / T9b all say 100 % on 50 % specimens, while
+  T7.3 is correct. It is a label that enters no calculation (area and gauge are entered separately), so
+  **no measured number was ever affected**; the registry carries the true value. Two halves, and the box
+  stayed open after the first:
+  - **The restart default** — fixed 2026-08-12. `_restore_infill` reinstates the last value at start-up
+    and announces it, so the field is set once per SPECIMEN rather than once per session. Verified: the
+    value round-trips through `QSettings` as an int.
+  - **The stale label WITHIN a session** — fixed 2026-09-01, and the half that actually caused the four
+    wrong runs. The only gate echoing the label back was the destructive-test confirm dialog, which is
+    exactly why T7.3 (a fracture test) came out right and the four non-destructive runs did not.
+    `on_prepare_test` — the one ceremony every test type performs per specimen — now reads the specimen
+    label back, and says so explicitly when the infill is still a value carried over from a previous
+    session rather than one set for THIS specimen. The confirm dialog and Prepare share one formatter,
+    so what is confirmed and what lands in the CSV header cannot drift apart.
 
 ### 3b. Longer-range features
 - ✅ **Strain nomenclature settled (2026-08-11).** Everything user-facing now says **engineering**
