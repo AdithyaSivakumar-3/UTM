@@ -4365,6 +4365,40 @@ class UTMApplication(QMainWindow):
     # and a multi-gigabyte capture folder whose only connection to the force data was the operator
     # remembering which was which. That is the bookkeeping step this removes.
 
+    # ---- filing a saved CSV into its specimen folder ------------------------------------------
+
+    # specimen_id_from / specimen_folder_in live in utm_registry, beside parse_ids. That module
+    # already owns the folder convention — parse_ids reads the specimen OUT of a folder name and
+    # these decide which folder a file goes INTO — and two copies of that convention would be one
+    # too many, which is the same trap v6a_plots and v6a_analyze were just pulled out of.
+
+    def _save_dir_for(self, file_id):
+        """The directory the Save dialog should open on, or None to leave Qt's default."""
+        if not self.actFileBySpecimen.isChecked():
+            return None
+        import utm_registry as _reg
+        root = self._recall("sf11/data_root", "") or ""
+        spec = _reg.specimen_id_from(file_id)
+        if not root or not spec:
+            return None
+        path, existed = _reg.specimen_folder_in(root, spec)
+        if path and not existed:
+            try:
+                os.makedirs(path, exist_ok=True)
+                self.append_to_console(f"[SF11] created {os.path.basename(path)} for this specimen.")
+            except OSError as e:
+                self.append_to_console(f"[SF11] could not create the specimen folder: {e}")
+                return None
+        return path
+
+    def _choose_data_root(self):
+        """Pick the folder that holds the per-specimen folders."""
+        start = self._recall("sf11/data_root", "") or os.getcwd()
+        d = QFileDialog.getExistingDirectory(self, "Folder that holds the Specimen_* folders", start)
+        if d:
+            self._remember("sf11/data_root", d)
+            self.append_to_console(f"[SF11] test-data folder: {d}")
+
     def _capture_run_for(self, t_first, t_last):
         """The capture folder whose recording window OVERLAPS this data, or None.
 
@@ -4409,6 +4443,17 @@ class UTMApplication(QMainWindow):
         # 2. the registry. analyze() needs a detectable fracture, so a cyclic/creep/relaxation run
         # legitimately fails here — that is not an error worth alarming about, just a skip.
         if self.autoRegistryAct.isChecked():
+            # parse_ids takes the specimen from the FOLDER name, so a CSV saved outside a
+            # Specimen_S<n> folder yields a row with no specimen — the kind of gap that is only
+            # noticed months later when a row cannot be matched to a specimen. Say it now.
+            try:
+                if _reg.parse_ids(csv_path).get("specimen") is None:
+                    self.append_to_console(
+                        "[SF11] ⚠ this file is not in a Specimen_S<n> folder, so its registry row "
+                        "will have NO specimen id. Settings ▸ Where to save ▸ 'File into the "
+                        "specimen folder' proposes the right one next time.")
+            except Exception:
+                pass
             try:
                 import utm_registry
                 rec = utm_registry.add(csv_path, extra={"area": self.cross_sectional_area,
@@ -4450,11 +4495,15 @@ class UTMApplication(QMainWindow):
         else:
             default_filename = f"UTM_Test_{timestamp_str}.csv"
 
-        # Open file dialog
+        # Open the dialog on the specimen's own folder when we can work out which one that is.
+        # Only the starting directory is chosen for the operator — the dialog still opens and any
+        # destination is still accepted.
+        _dir = self._save_dir_for(file_id)
+        _start = os.path.join(_dir, default_filename) if _dir else default_filename
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Test Data",
-            default_filename,
+            _start,
             "CSV Files (*.csv);;All Files (*)"
         )
 
@@ -5924,6 +5973,23 @@ class UTMApplication(QMainWindow):
         act_set.triggered.connect(self._choose_capture_folder)
         folder.addAction(act_set)
 
+        self.actFileBySpecimen = QAction("File into the specimen folder", self, checkable=True)
+        self.actFileBySpecimen.setToolTip(
+            "Open Save on Specimen_S<n>/ under the test-data folder, working the number out from "
+            "the File ID.\n"
+            "Why it matters: the registry reads the specimen from the FOLDER name, so a CSV saved "
+            "elsewhere gets a row with no specimen id.\n"
+            "An existing folder for that specimen is always preferred to a new one.")
+        self.actFileBySpecimen.toggled.connect(
+            lambda on: self._remember("sf11/file_by_specimen", bool(on)))
+        folder.addAction(self.actFileBySpecimen)
+
+        act_root = QAction("Set test-data folder…", self)
+        act_root.setToolTip("The folder that HOLDS the Specimen_* folders — not a specimen folder "
+                            "itself.")
+        act_root.triggered.connect(self._choose_data_root)
+        folder.addAction(act_root)
+
         self.actAskFolder = QAction("Ask me before each test", self, checkable=True)
         self.actAskFolder.setToolTip("Prompt for a folder when you press Start test or Fracture "
                                      "test — BEFORE the motor moves, never during.")
@@ -5962,7 +6028,8 @@ class UTMApplication(QMainWindow):
         # Registry ON by default: it is cheap, it self-skips when there is no fracture, and a test
         # missing from the registry is the bug this feature exists to stop. Report OFF — it costs
         # seconds and the operator often wants to crop the data first.
-        for act, key, dflt in ((self.autoRegistryAct, "sf11/registry", True),
+        for act, key, dflt in ((self.actFileBySpecimen, "sf11/file_by_specimen", True),
+                               (self.autoRegistryAct, "sf11/registry", True),
                                (self.autoReportAct, "sf11/report", False)):
             act.blockSignals(True)
             act.setChecked(self._recall_bool(key, dflt))

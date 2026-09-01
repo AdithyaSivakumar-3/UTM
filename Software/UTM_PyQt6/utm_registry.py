@@ -39,6 +39,41 @@ def parse_ids(csv_path):
     return out
 
 
+def specimen_id_from(text):
+    r"""The S-number in a File ID, or None. 'S7', 's7 v2', 'V6a_S12' give S7 / S7 / S12.
+
+    Lives here rather than in the GUI because it is the other half of parse_ids: that reads the
+    specimen OUT of a folder name, this decides which folder a file should go INTO, and the two
+    have to agree about what a specimen id looks like.
+
+    Deliberately not r"S(\d+)" — an underscore is a WORD character, so a boundary refuses
+    'V6a_S12', which is the commonest File ID shape there is. The lookbehind rejects only a letter
+    or digit before the S, which is what actually separates 'S12' from the tail of a word.
+    """
+    m = re.search(r"(?<![A-Za-z0-9])S(\d+)", str(text or ""), re.IGNORECASE)
+    return ("S" + m.group(1)) if m else None
+
+
+def specimen_folder_in(root, spec):
+    """Where this specimen's CSVs belong under `root`. Returns (path, existed).
+
+    An EXISTING 'Specimen_S7_V2_Spray' beats a fresh 'Specimen_S7': splitting one specimen's runs
+    across two folders is worse than the unfiled CSV this is trying to prevent. The trailing group
+    is what stops S1 claiming Specimen_S11.
+    """
+    if not root or not spec or not os.path.isdir(root):
+        return None, False
+    pat = re.compile(r"^Specimen_%s(?:[_\W]|$)" % re.escape(spec), re.IGNORECASE)
+    try:
+        for name in sorted(os.listdir(root)):
+            p = os.path.join(root, name)
+            if os.path.isdir(p) and pat.match(name):
+                return p, True
+    except OSError:
+        return None, False
+    return os.path.join(root, "Specimen_%s" % spec), False
+
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
