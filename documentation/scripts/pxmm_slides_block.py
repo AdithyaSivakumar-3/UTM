@@ -130,7 +130,7 @@ header(s, 0.45, 4.34, 6.25, "The chain, end to end")
 table(s, 0.45, 4.72, 6.25, 1.64, [
     ["", "value", "where it comes from"],
     ["pixel pitch", "%.2f µm" % _OPT["pitch_um"], "acA2440 datasheet"],
-    ["lens", "%.0f mm" % _OPT["f_mm"], "the rig's own build notes"],
+    ["lens", "%.0f mm" % _OPT["f_mm"], "Azure-2514M f/1.4 — TODO.md, README.md"],
     ["measured px/mm", "%.2f" % _PO["ppm"], "%.0f px of gauge over %.0f mm, on S26"
      % (_PO["gauge_px"], 80.0)],
     ["so the magnification is", "%.4f×" % _OPT["ours"]["mag"], "pitch × px/mm — one pixel covers "
