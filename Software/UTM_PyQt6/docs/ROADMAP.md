@@ -427,8 +427,17 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 >    each dot so overspray cannot land touching it, spray lighter from further back, and use MATTE
 >    white — marker 2's core blows out to 255 from a specular sheen while its rim stays mid-grey. A
 >    clean dot scores **0.76** and needs none of this.
->    ▸ Revert together with the note in `camera_manager.py`, and re-run `black_preset_check` and
->    `petg_tracking_check`.
+>    ▸ **DO NOT REVERT THE GATE — resolved 2026-09-01.** This line used to say "revert together with
+>    the note in `camera_manager.py`". That note has since been rewritten and now says the opposite,
+>    with evidence: 0.40 was confirmed as the SETTLED default on 2026-08-26, it sits mid-plateau
+>    rather than on a cliff, and a sweep on the real capture shows **nothing extra is admitted
+>    anywhere between 0.50 and 0.25** (3+ blobs stays at 0.0 %). The code is the later decision and
+>    the one carrying the measurement, so this file is wrong, not `camera_manager.py`. Explicitly:
+>    better dots would clear 0.40 with MORE room, so a clean specimen is not a reason to tighten.
+>    Only evidence that 0.40 admits something it should not would reopen this.
+>    ▸ **What IS still open is the specimen, and it is worth doing on its own merits** — mask around
+>    each dot, spray lighter from further back, matte white rather than glossy. That earns headroom
+>    at any gate. Re-run `black_preset_check` and `petg_tracking_check` after, to record the gain.
 >
 > **✅ The E fit window — DECIDED AND IMPLEMENTED 2026-08-18.** `utm_analysis.analyze()` now
 >   reports the **steepest straight run** as `E`, keeping the old fixed-window value beside it as
@@ -695,7 +704,7 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   visible string, so a rename would have silently plotted the wrong array. **CSV columns
   `DIC_Cauchy`/`DIC_True` deliberately unchanged** (every past test and `utm_analysis` read them);
   the tooltip documents the mapping. See [[reference_addnorth_tds]] and deck p209.
-- ⬜ **Multi-marker Poisson** — 4-marker preset in the dropdown, `detect_blobs`/`tare_dic`/`calculate_dic_strain` for 4 markers, new CSV columns (lateral strain / ν / current area / Cauchy), live ν readout. Needs a matte-black backdrop and/or a gauge-zoomed camera.
+- ➡️ **Multi-marker Poisson — MOVED TO FUTURE WORK (§6, FW1) 2026-09-01.** Blocked on optics, not on effort: the transverse signal is sub-pixel at 20.9 px/mm. Kept as something the project names rather than something it schedules.
 - ⬜ **Phase D — UX layer:** guided Connect→Calibrate→Mount→Prepare→Recipe→Run→Save wizard; live analysis overlay (live E / predicted UTS / fracture flag); glanceable dashboard + audio cue on fracture; event-annotation hotkey.
 - ⬜ **DIC auto-calibrate (Phase C remainder):** auto-exposure/threshold sweep on Start Camera; auto-follow ROI (shift offset to keep markers centred through ductile draw).
 - ⬜ **Auto-metadata + foldering** and **one-click per-specimen deck** (extract pptx builders → `utm_slides.py`).
@@ -759,7 +768,42 @@ show *all* smart features and auto-preload is a real, validated one that was sim
 
 ---
 
-## 6. Key files
+## 6. Future work — the things to write up rather than do
+
+Not a backlog. These are the items the project should NAME as future work in a report, a paper or
+the deck: each is blocked by something outside the software, each has been carried far enough that
+the remaining obstacle is known and quantified, and each would be a genuine extension rather than a
+finishing touch. An item moves DOWN here when the blocker is real; it moves back UP to §3 only if
+the blocker is removed.
+
+### FW1 — Multi-marker Poisson's ratio and true (Cauchy) stress
+**Status: the maths is written and self-tested; the OPTICS are the blocker.**
+
+What exists: the four-marker formulation lives in `utm_dic.py` and passes its own tests. What it
+needs in the app is a 4-marker preset in the dropdown, `detect_blobs` / `tare_dic` /
+`calculate_dic_strain` extended from two markers to four, and new CSV columns — lateral strain,
+ν, current area, and true (Cauchy) stress.
+
+Why it is not merely unfinished. At the rig's **20.9 px/mm** the elastic width change across the
+mini-dogbone's narrow gauge is **sub-pixel**: there is no transverse signal to measure, so writing
+the code would produce a column of noise. The obstacle is magnification and specimen geometry, not
+effort.
+
+What it would take, now quantified (deck **p304–306**): px/mm is the optical magnification divided
+by the pixel pitch, so it is set by where the camera stands — a 25 mm lens at 371 mm gives the
+present 20.9 px/mm, and 284 mm would give 27.9. But magnification is bought with field of view, and
+our frame already runs out at **30.9 % strain** against a 37.5 % travel backstop. Buying transverse
+resolution by moving the existing camera closer would cost the axial measurement the range it needs
+to reach fracture. So the honest options are a **gauge-zoomed second camera** (transverse only,
+leaving the axial view alone), a **wider specimen**, or a dedicated transverse extensometer — plus
+a matte backdrop, which the black-specimen work would deliver anyway.
+
+Until one of those exists, **every stress this rig reports is engineering stress**, and that is
+stated on every figure rather than assumed.
+
+---
+
+## 7. Key files
 - **App:** `main.py` (control loop, live hook `on_load_cell_data`, CSV export, UI).
 - **Engine/analysis:** `utm_analysis.py`, `control_policies.py`, `control_sim.py`, `utm_dic.py`.
 - **Workflow/data:** `utm_recipes.py` + `recipes/`, `utm_registry.py` + `registry.json`, `utm_report.py`.
