@@ -629,8 +629,10 @@ this file all cite the same numbers.
 | **20** | **DIC post-processing** — a tab that measures strain from ANY recorded video with the rig's own pixel-to-strain rule, so our runs can be re-checked and another machine's footage measured on the same footing | ✅ rig-validated |
 | **21** | **Noise capture** — records the instrument AT REST for a chosen window and separates offset and drift (correctable out of a later run) from the residual sd (the measurement uncertainty, which does NOT subtract). Deck p309 | 🟦 built, verified offline, not yet run on the rig |
 
-SF1–SF10 and SF15–SF16 (**12 features**) are built and rig-validated; SF11–SF13 are planned and SF14
-is hardware-blocked. **SF17 was retired** — see the struck row above. **Group the poster by status, not by number** — the numbers are IDs, so a
+As of 2026-09-02: **19 features are carded** — SF1–SF13, SF15, SF16, SF18–SF21. Eighteen are built
+and rig-validated; **SF21** is built and verified offline but has not yet recorded a real pull.
+**Two numbers are retired and burnt, not reused: SF14 and SF17** — see the struck rows above.
+SF14's work lives on as **FW1** in §6. **Group the poster by status, not by number** — the numbers are IDs, so a
 status-grouped layout reads correctly without renumbering anything.
 
 ⚠️ **SF15–SF17 were added 2026-08-12** while building the poster — all three were built and in daily use but had never been carded. **SF17 was then retired the same day**: a card has to be something the OPERATOR uses on the rig, and a developer-only simulation harness is not that. Test for admitting a feature: *can the person running a test invoke it, or does it act on the machine during a run?* If not, it belongs in METHODS, not in the feature registry.
@@ -772,7 +774,8 @@ finishing touch. An item moves DOWN here when the blocker is real; it moves back
 the blocker is removed.
 
 ### FW1 — Multi-marker Poisson's ratio and true (Cauchy) stress
-**Status: the maths is written and self-tested; the OPTICS are the blocker.**
+**Status: the maths is written and self-tested; the OPTICS are the blocker.**  
+*Was carded as SF14 until 2026-09-02, when it was retired for the same reason as SF17: it is not something the operator can invoke. This is where the work is tracked now.*
 
 What exists: the four-marker formulation lives in `utm_dic.py` and passes its own tests. What it
 needs in the app is a 4-marker preset in the dropdown, `detect_blobs` / `tare_dic` /
