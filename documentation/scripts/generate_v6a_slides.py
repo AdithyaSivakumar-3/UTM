@@ -870,11 +870,8 @@ def pic_or_ph(sl, path, x, y, w, ph_h, note):
 # something the OPERATOR invokes or that acts on the machine during a run; a developer-only
 # simulation harness is neither, and it was the one entry that made "all rig-validated" false.
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SMART-UTM FEATURE SET — SF1 to SF20")
-tb(s, 0.4, 1.15, 12.55, 0.40,
-   "18 built and RIG-VALIDATED (green) · 2 built, offline-verified only (teal) · "
-   "1 hardware-blocked (amber). Numeric order, so a card can be found by its SF number.",
-   fs=11.5, italic=True, colour=GREY_TEXT)
+title(s, "SMART-UTM FEATURE SET — SF1 to SF21")
+
 # SF numbers are append-only IDs. SF17 was carded and retired the same day — a card has to be
 # something the OPERATOR invokes or that acts on the machine during a run, and a developer-only
 # simulation harness is neither — so 17 stays struck and the numbering continues 18, 19, 20.
@@ -901,7 +898,18 @@ _sf_cards = [
     (18, "Live Px₀ overlay", "frozen vs live pair, on the feed", "done"),
     (19, "Video + image capture", "PNG + 3 AVI styles, 0 dropped", "done"),
     (20, "DIC post-processing", "measure any recorded video", "done"),
+    (21, "Noise capture", "the instrument at rest", "built"),
 ]
+# Counted from the cards rather than typed. The hand-written version drifted every time a card was
+# added — it last read "17 + 2 + 1" against 19 cards, with only one card actually teal.
+_n_done = sum(1 for c in _sf_cards if c[3] == "done")
+_n_built = sum(1 for c in _sf_cards if c[3] == "built")
+_n_block = sum(1 for c in _sf_cards if c[3] == "block")
+tb(s, 0.4, 1.15, 12.55, 0.40,
+   "%d built and RIG-VALIDATED (green) · %d built, offline-verified only (blue) · "
+   "%d hardware-blocked (amber). Numeric order, so a card can be found by its SF number."
+   % (_n_done, _n_built, _n_block),
+   fs=11.5, italic=True, colour=GREY_TEXT)
 _fill = {"done": (GREEN_PASS, DARK_GREEN), "built": (_SF_BUILT, DARK_GREEN),
          "plan": (LIGHT_BLUE, BLACK), "block": (YELLOW_WARN, BLACK)}
 _cx = [0.40, 3.62, 6.84, 10.06]
@@ -3692,11 +3700,12 @@ pageno(s)
 
 # ---- p249: SF11-SF19, the data and the setup ----
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SMART FEATURES 11–20 — SETUP, EVIDENCE AND SAFETY")
+title(s, "SMART FEATURES 11–21 — SETUP, EVIDENCE AND SAFETY")
 tb(s, 0.4, 1.15, 12.55, 0.38,
    # No blue cards remain on this slide as of 2026-08-26, so the legend no longer explains one.
    "The features that make a run trustworthy rather than merely possible. Green = built AND "
-   "rig-validated; amber = blocked by optics, not by code.",
+   "rig-validated · blue = built and verified offline, not yet used on a real pull · "
+   "amber = blocked by optics, not by code.",
    fs=11.5, italic=True, colour=GREY_TEXT)
 sf_overview([
     (11, "Auto-metadata link",
@@ -3730,30 +3739,19 @@ sf_overview([
      "A tab that measures strain from ANY recorded video with the rig's own pixel-to-strain rule, "
      "so our runs can be re-checked and another machine's footage measured on the same footing.",
      "done"),
+    (21, "Noise capture",
+     "Records the instrument AT REST for a chosen window and separates what a later run can be "
+     "corrected for — offset and drift — from what it cannot: the residual sd, which is the "
+     "measurement uncertainty.",
+     "built"),
 ])
-# Row 5 is free on this slide (8 cards, not 10), so it carries the legend and the one sentence
-# that says what the set adds up to — better than leaving a band of white under the cards.
-for _i, (_lab, _st, _txt) in enumerate([
-        ("19", "done", "built AND rig-validated"),
-        ("1", "block", "blocked by hardware")]):
-    _x = 6.90 + _i * 2.35
-    _f, _fg = _SF_STATUS[_st]
-    _c = s.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, Inches(_x), Inches(5.92),
-                            Inches(0.48), Inches(0.34))
-    _c.fill.solid(); _c.fill.fore_color.rgb = _f
-    _c.line.color.rgb = _fg; _c.line.width = Pt(0.9); _c.shadow.inherit = False
-    _tf = _c.text_frame; _tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    _tf.margin_left = _tf.margin_right = 0
-    _p = _tf.paragraphs[0]; _p.alignment = PP_ALIGN.CENTER; _p.text = ""
-    _r = _p.add_run(); _r.text = _lab
-    _r.font.size = Pt(11); _r.font.bold = True; _r.font.color.rgb = _fg; _r.font.name = "Calibri"
-    tb(s, _x + 0.56, 5.98, 1.75, 0.26, _txt, fs=9.0, colour=GREY_TEXT)
-
-banner(s, 6.90, 6.32, 6.05, 0.52,
-       "EVERY BUILT FEATURE IS RIG-VALIDATED. SF14 is the only one outstanding, and hardware "
-       "blocks it — not code.", fill=GREEN_PASS, fg=DARK_GREEN, fs=10)
+# The grid is FULL at ten cards now, so the legend chips and the summary banner that used to sit
+# in the spare slot have gone into the subtitle and the footer. The banner also had to go on its
+# own merits: it read "EVERY BUILT FEATURE IS RIG-VALIDATED", which SF21 makes false.
 footer(s, "SF17 is absent by design: it was carded and retired the same day, because a card has to "
-          "be something the OPERATOR invokes or that acts on the machine during a run.")
+          "be something the OPERATOR invokes or that acts on the machine during a run.  "
+          "SF14 is blocked by hardware, not code; SF21 is built and verified offline but has not "
+          "yet recorded a real pull.")
 pageno(s)
 
 # ---- smart-feature PROOF slides, placed directly under the two overview cards
@@ -4087,6 +4085,9 @@ exec(open("documentation/scripts/pxmm_slides_block.py", encoding="utf-8").read()
 
 # The last two gaps on the deck checklist: the cross-protocol result, and the workflow guards.
 exec(open("documentation/scripts/workflow_slides_block.py", encoding="utf-8").read())
+
+# ---- SF21: noise capture, and the offset/drift/sd distinction it turns on
+exec(open("documentation/scripts/sf21_slides_block.py", encoding="utf-8").read())
 
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.

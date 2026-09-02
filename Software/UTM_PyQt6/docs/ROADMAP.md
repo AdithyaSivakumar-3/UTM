@@ -624,6 +624,10 @@ this file all cite the same numbers.
 | **15** | **Test registry** — every run auto-indexed with E/σ_y/UTS/ε_f/toughness **and its force anchor** | ✅ rig-validated |
 | **16** | **Dead-DIC guard + hard backstops** — freeze speed at 0.2 s of frozen strain, halt at 1.0 s; 10 kN / 30 mm caps | ✅ rig-validated |
 | ~~17~~ | ~~Simulate-first harness~~ — **RETIRED 2026-08-12, never publish it as an SF.** It is a DEVELOPER practice, not a rig feature: `control_sim` is imported 0 times by `main.py` and has no serial/camera path, so an operator can never invoke it — and it is the one entry that made "every feature validated on the rig" false, since its 9/9 checks are all against a simulated spring plant. It lives on, correctly, as a METHODS bullet on the posters ("Simulated before hardware"). The number is burnt, not reused: the next feature carded is SF18. | — retired |
+| **18** | **Live Px₀ overlay** — the frozen reference pair and the live pair drawn on the camera feed, with a caption whose Δ agrees with the strain readout | ✅ rig-validated |
+| **19** | **Video + image capture** — PNG stills plus three AVI views (raw, contrast-boosted, adaptive speckle) recorded together | ✅ rig-validated |
+| **20** | **DIC post-processing** — a tab that measures strain from ANY recorded video with the rig's own pixel-to-strain rule, so our runs can be re-checked and another machine's footage measured on the same footing | ✅ rig-validated |
+| **21** | **Noise capture** — records the instrument AT REST for a chosen window and separates offset and drift (correctable out of a later run) from the residual sd (the measurement uncertainty, which does NOT subtract). Deck p309 | 🟦 built, verified offline, not yet run on the rig |
 
 SF1–SF10 and SF15–SF16 (**12 features**) are built and rig-validated; SF11–SF13 are planned and SF14
 is hardware-blocked. **SF17 was retired** — see the struck row above. **Group the poster by status, not by number** — the numbers are IDs, so a
