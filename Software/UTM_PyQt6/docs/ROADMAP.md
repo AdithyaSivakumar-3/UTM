@@ -235,7 +235,7 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 >    ▸ **The rate ratio does NOT test our scale**, and the deck says so: MOT reads 2.21× faster
 >    (7.42 vs 2.67/4.06 ×10⁻⁴/s), which is the expected direction because only **19–29 % of our
 >    crosshead motion reaches the gauge** and that fraction belongs to the MACHINE.
->    ▸ **⬜ STILL OPEN — ask MOT for their LOAD or CROSSHEAD-DISPLACEMENT channel.** With either,
+>    ▸ ~~DROPPED BY DECISION 2026-09-02.~~ **⬜ STILL OPEN — ask MOT for their LOAD or CROSSHEAD-DISPLACEMENT channel.** With either,
 >    strain can be compared at matched force or matched displacement, which cancels the compliance
 >    term and turns this into a real scale check. Cheap to ask, and the only thing left.
 >    ▸ Side finding, and the clearest evidence yet on the seating question: **our local strain rate
@@ -244,7 +244,7 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 >    low-strain compliance is the RIG, not PLA non-linearity.
 >
 > **⬜ NEW CAMPAIGN — PETG and TPU against PLA.** IN PROGRESS.
->    ▸ **REDO S29 FIRST — it produced NO valid properties.** Two tracking faults, both now fixed:
+>    ▸ ~~DROPPED BY DECISION 2026-09-02.~~ **REDO S29 FIRST — it produced NO valid properties.** Two tracking faults, both now fixed:
 >    attempt 1 tracked at 17 % (Otsu below PETG's window → fixed threshold 149), attempt 2 tracked
 >    at 100 % and was still lost when ONE frame in 1222 read the mount holder as a marker and the
 >    bogus strain jump tripped the fracture detector AT PEAK LOAD, auto-stopping an intact
@@ -261,13 +261,11 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 >    add:north E-PLA TDS: find the TDS for the actual filament used, and compare E / σ_y / UTS /
 >    ε_f the same way, with the same infill knock-down caveat. **Log the exact brand, spool and
 >    print settings at test time** — the PLA reference only worked because the filament was known.
->    ▸ **Two things to decide before TPU, not after:** (a) ε_f in the hundreds of % will run past the
->    30 mm travel cap and probably out of the DIC field — expect the markers to leave the ROI, so
->    treat TPU as a crosshead-strain test with DIC as a bonus, or shorten the gauge; (b) the
->    load-collapse fracture detector is tuned for a brittle drop — a TPU that draws without ever
->    collapsing may never trigger it, exactly like the ductile 100 % PLA case that made
->    load-collapse the ONLY detector. Check the guard before spending a specimen.
->    ▸ Run them on the post-realignment rig (above), same 0.10 mm/s, same preload discipline, so
+>    ▸ **✅ The two TPU decisions are TAKEN and SHIPPED in `recipes/TPU.json` — closed 2026-09-02.**
+>    (a) *Markers leaving the frame.* The profile takes the **full sensor width** (ROI 2448 px, not the 2348 crop), lifts the DIC strain cap to **60 %** so the tracker does not silently reject every frame past 25 % as a lost marker, and ends the pull itself at **28 mm** of travel. On an 80 mm gauge that is 35 % strain, and the full sensor holds markers to **36.9 %** (p304) — so the stop lands just inside the frame limit by design. TPU is therefore a CROSSHEAD-strain test with DIC as a bonus, which is what the profile notes say.
+>    (b) *The fracture detector.* `auto_stop_fracture=False`. The detector watches for a brittle load collapse and a drawing elastomer never produces one, so it could only misfire. The profile note reads “STOP THE TEST BY HAND at the travel limit — TPU will not fracture”. Preload is **20 N** rather than 300, which would otherwise tare away much of the elastic range the PLA comparison needs.
+>    ▸ Nothing is left to decide; what remains is running it.
+>    ▸ ~~DROPPED BY DECISION 2026-09-02.~~ Run them on the post-realignment rig (above), same 0.10 mm/s, same preload discipline, so
 >    material is the only variable that moves.
 >
 > **⬜ Software, in the order I would take it:**
@@ -567,10 +565,7 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
   - ~~Motor torque ceiling / T7~~ ✅ SF9 p199 (dedicated failure-analysis slide)
   - ✅ **Workflow slides — SLIDED 2026-09-01, p308.** Recipes already had p207, so the new slide covers the other two: the destructive-test confirmation (why it reads the specimen label back, and the four non-destructive runs that had no such gate) and the speed-scaled stall guard, with the constants read out of `main.py` and the reason a flat 0.05 mm bar could not work at a tapered crawl.
   - ✅ **Rebuild the SF grid — ALREADY DONE; this entry was stale (closed 2026-09-01).** It names "slide 169", a page number from before later insertions; the grid is now p167 and carries 20 cards with no such banner. Original note: it shows only 8 cards and its banner still reads *"Engine ready to add 4 more modes: cyclic · staircase · relaxation · creep"* — those are all done now. Take it to **14 cards from §3c**, grouped built vs planned.
-- ⬜ **BLACK-SPECIMEN DIC TEST — rig run, not just research.** Tracked in §5 below; repeated here so it is
-  not lost among the reading tasks. Every specimen to date is WHITE; the "Black" DIC preset has never been
-  exercised on the rig.
-
+- ✅ **BLACK-SPECIMEN DIC TEST — DONE.** See §5; analysed and compared against white at deck p227–p233.
 - ✅ **RECORD THE FRACTURE TEST ON VIDEO — DONE 2026-08-30. Deck p291–303.** Their XT-205 read our footage and our pipeline read theirs; the two calculations agree to a median ratio of 1.0017. Original entry kept below for the reasoning.
 - ~~⬜ RECORD THE FRACTURE TEST ON VIDEO — for independent analysis in the extensometer software at MOT.~~
   **This is the only INDEPENDENT check of the DIC channel that exists.** Everything validated so far
@@ -753,7 +748,7 @@ show *all* smart features and auto-preload is a real, validated one that was sim
 - ⬜ **Chacón reference — measurement basis:** confirm whether Chacón et al. measured PLA properties on a **printed specimen** or on **raw filament / bulk material** — decides whether our (infill-corrected) values are directly comparable.
 - ⬜ **Moisture effect:** check whether specimen / ambient **moisture** shifts strength or stiffness vs literature (PLA is mildly hygroscopic) — dry / condition specimens and compare.
 - 🟡 **Camera-parameter sensitivity:** enumerate every camera parameter controlled in software (exposure, gain, threshold, ROI, px/mm, …) and study how varying each affects the DIC results and the **noise floor**. **px/mm and the ROI are done** — deck p304–306 derives px/mm from the lens, the pitch and the working distance, and shows the field-of-view trade that fixes it; the estimator/noise comparison is p285–290. **Exposure, gain and threshold are not.**
-- ⬜ **Black-specimen DIC check (100% infill):** every specimen tested so far is WHITE (black dots, DIC "White" mode). Print/mark a **BLACK** specimen (white dots, DIC "Black" mode) and confirm the camera tracks strain just as reliably. **Done = ** a full pull with 2/2 markers held to fracture, tracking % and L_px jitter no worse than a white specimen, and E/UTS within the white-specimen scatter. Needs a `camera_setup.py --mode white` pre-flight (the flag names the DOT colour, not the body). Also unblocks the matte-black backdrop that multi-marker Poisson wants (§3).
+- ✅ **Black-specimen DIC check — ANSWERED 2026-08-16, deck p227–p233.** Both S12 and S13 are 100 % BLACK PLA. S13 is the analysed one: markers found on **99.9 %** of frames, DIC noise **11.9 µε against 14.3** for the white pair (17 % QUIETER, measured over a common 10 s window because this rig's noise floor grows with observation time), and every mechanical property closer to the white mean than the two white runs are to each other — E 3.030 GPa between S25's 3.167 and S26's 3.549. The verdict slide states it outright: *the roadmap's black-specimen DIC check is answered.* Only caveat on record: S13 lost about half its strain rows, which cannot touch E (54 readings still inside the 0.05–0.40 % fit window) but means ε_f should be treated with care. A second black specimen would make it a repeat; nothing is blocked on it.
 - ✅ **Cross-validate the DIC against MOT's extensometer software — DONE 2026-08-30.** Their XT-205
   recorded a pull; our pipeline measured the same footage. The two calculations agree to a median
   ratio of **1.0017** (scale factor k = 0.99991), and on their own video our estimator is **7.9× quieter**
@@ -796,6 +791,31 @@ a matte backdrop, which the black-specimen work would deliver anyway.
 
 Until one of those exists, **every stress this rig reports is engineering stress**, and that is
 stated on every figure rather than assumed.
+
+### FW2 — How much of the crosshead's motion actually reaches the gauge
+**Status: measured, and the cause is identified but not isolated. Needs a dedicated experiment, not more analysis.**
+
+The MOT comparison (deck **p291–p303**) measured the gauge's share of commanded travel on three
+runs: **S25 21.3 %**, **S26 32.5 %**, **MOT XT-205 59.4 %**. The two PPD-UTM figures are the
+problem — S25 and S26 are the same rig, the same speed, the same preload discipline and the same
+specimen type, and they differ by **11 points**. A fixed machine compliance cannot do that; a
+compliance term is a property of the load path and would repeat. Something that changes between two
+mountings can, and the obvious candidate is **grip seating**.
+
+Two further measurements point the same way and are already on record. Our local strain rate
+**climbs through the ramp** while the XT-205's is flat from the moment it engages — the signature of
+a joint bedding in rather than a spring deflecting. And S25 and S26 differ by 52 % on early-strain
+rate yet agree to **1.4 % force-matched**, which says the discrepancy lives in the displacement
+path and not in the material or the strain measurement.
+
+What it would take is a repeat-seating experiment rather than more re-analysis: one specimen,
+mounted and re-mounted several times, pulled into the elastic region only, with the gauge share
+computed each time. If the spread survives re-mounting the same specimen, it is seating; if it
+collapses, it is specimen geometry. That is a cheap experiment and it is the honest way to close
+it — which is exactly why it belongs here rather than in a list of things to reason about.
+
+Until it is closed, **gauge share is reported per run and never averaged across runs**, and any
+statement about machine compliance carries the S25/S26 spread beside it.
 
 ---
 
