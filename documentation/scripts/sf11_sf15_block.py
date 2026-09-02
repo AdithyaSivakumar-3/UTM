@@ -174,3 +174,58 @@ banner(s, 0.4, 6.44, 12.55, 0.50,
 footer(s, "Thresholds read from main.py: POLICY_STALE_FREEZE_S 0.2 s, POLICY_DEAD_DIC_S 1.0 s, "
           "POLICY_MAX_FORCE_N 4.5 kN, POLICY_MAX_TRAVEL_MM 30 mm, POLICY_TIMEOUT_S 900 s.")
 pageno(s)
+
+
+# ================================================================= SF7 vs SF15
+# Straight after SF15, because the question the previous slide raises is "then what does the stall
+# guard do?" — and the answer is the thing that justifies having both.
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "SF7 vs SF15 — THE MOTOR GUARD AND THE MEASUREMENT GUARD")
+
+tb(s, 0.45, 1.12, 12.5, 0.46,
+   "Both halt a running test, so they read as one feature. They are not. They watch different "
+   "signals, they fire in OPPOSITE directions, and during the failure each one catches, the other "
+   "sees a perfectly healthy machine.",
+   fs=11, colour=BLACK)
+
+header(s, 0.45, 1.72, 12.5, "Side by side")
+table(s, 0.45, 2.10, 12.5, 2.05, [
+    ["", "SF7 · stall guard", "SF15 · dead-DIC guard"],
+    ["What it watches", "the MOTOR — is the crosshead advancing?",
+     "the MEASUREMENT — is the strain still changing?"],
+    ["Which sensor", "the position encoder", "the camera, through DIC strain"],
+    ["Fires when there is", "TOO LITTLE motion",
+     "no new strain — which would cause TOO MUCH motion"],
+    ["Threshold", "less than min(0.05 mm, 35 % of commanded) in 6 s, armed above 200 N",
+     "strain unchanged for 0.2 s (freeze) then 1.0 s (halt)"],
+    ["What it does", "Stop + E-Stop", "first FREEZES the speed, only then halts"],
+    ["Runs on", "any commanded tension pull", "DIC-steered modes only"],
+], cw=[2.20, 5.15, 5.15], hf=9.5, bf=9)
+
+header(s, 0.45, 4.32, 6.25, "The failure only SF7 catches")
+tb(s, 0.45, 4.70, 6.25, 1.62,
+   "The crosshead stops advancing while the motor is told to pull — binding, a jam, a stall. This "
+   "is what happened on T7: the pull ground to 192 µm in 118 s, 1.6 % of the commanded rate.\n\n"
+   "SF15 is blind to it. The camera is fine, so strain keeps updating — it simply reports a "
+   "specimen that has stopped stretching, which is exactly what a specimen at its yield plateau "
+   "also looks like.",
+   fs=10, colour=BLACK)
+
+header(s, 6.95, 4.32, 6.0, "The failure only SF15 catches")
+tb(s, 6.95, 4.70, 6.0, 1.62,
+   "The camera dies mid-pull. The crosshead is advancing, the load is rising, the encoder is "
+   "healthy — every signal SF7 can see says the test is going perfectly.\n\n"
+   "And it is worse than merely unmeasured: a strain-rate loop steers ON strain, so frozen strain "
+   "reads as “not deforming fast enough” and the controller ramps the speed UP, blind. That is why "
+   "SF15's first stage freezes the speed rather than halting — the danger is acceleration, not "
+   "the stop.",
+   fs=10, colour=BLACK)
+
+banner(s, 0.4, 6.44, 12.55, 0.50,
+       "WHY NEITHER CAN COVER THE OTHER: SF7 asks whether the MACHINE is doing what it was told. "
+       "SF15 asks whether the MEASUREMENT still means anything. A test can fail either way, and "
+       "the failure that is invisible to one is the one the other exists for.",
+       fill=GREEN_PASS, fg=DARK_GREEN, fs=10)
+footer(s, "SF7 from STALL_WINDOW_S / STALL_MIN_ADVANCE_MM / STALL_SHORTFALL_FRAC / "
+          "STALL_MIN_LOAD_N; SF15 from POLICY_STALE_FREEZE_S and POLICY_DEAD_DIC_S.")
+pageno(s)
