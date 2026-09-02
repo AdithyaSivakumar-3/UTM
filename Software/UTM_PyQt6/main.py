@@ -3429,43 +3429,33 @@ class UTMApplication(QMainWindow):
             return
 
         ok, why = self._preload_state()
+        # DIC is optional. The dialog says so, the load channel is recorded either way, and the
+        # strain columns are left EMPTY rather than zero so absent is never read as silent.
+        dic_live = bool(getattr(self.camera_manager, "camera", None)) and self._live_blob_count() == 2
+
+        # ONE window: the duration, the preload warning and the override all belong to the same
+        # decision, and splitting them made the operator acknowledge it twice.
+        from PyQt6.QtWidgets import QDialog
+        from utm_noisedlg import NoiseCaptureDialog
+        dlg = NoiseCaptureDialog(self,
+                                 duration_s=int(self._recall("noise/duration_s",
+                                                             self.NOISE_DEFAULT_S)
+                                                or self.NOISE_DEFAULT_S),
+                                 preload_ok=ok, preload_note=why, dic_live=dic_live,
+                                 specimen=self._specimen_label())
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            self.append_to_console("[Noise] cancelled.")
+            return
+        secs = dlg.duration()
+        self._remember("noise/duration_s", int(secs))
         if not ok:
-            # The warning is required, and the override is deliberate: there are legitimate reasons
-            # to measure with no specimen at all — a bare-machine noise floor is a useful baseline.
-            box = QMessageBox(self)
-            box.setIcon(QMessageBox.Icon.Warning)
-            box.setWindowTitle("Noise capture — preload not detected")
-            box.setText("Use Noise capture AFTER the preload is applied.")
-            box.setInformativeText(
-                "Right now %s.\n\n"
-                "It matters because the point of this measurement is the noise the machine shows "
-                "in the state the SPECIMEN will be pulled from. Unseated grips settle, and that "
-                "settling is recorded as drift that is not there during the run.\n\n"
-                "Measure anyway if you mean to — a bare-machine or unloaded baseline is a "
-                "legitimate thing to want." % why)
-            box.setStandardButtons(QMessageBox.StandardButton.Cancel)
-            go = box.addButton("Measure anyway", QMessageBox.ButtonRole.AcceptRole)
-            box.setDefaultButton(QMessageBox.StandardButton.Cancel)
-            box.exec()
-            if box.clickedButton() is not go:
-                self.append_to_console("[Noise] cancelled — apply the preload first.")
-                return
             self.append_to_console("[Noise] ⚠ running WITHOUT a detected preload, by operator "
                                    "override. This is recorded in the file.")
-
-        # DIC is optional: warn, capture the load channel anyway, and mark the file so a missing
-        # DIC column is never read as a zero-noise result.
-        dic_live = bool(getattr(self.camera_manager, "camera", None)) and self._live_blob_count() == 2
         if not dic_live:
-            QMessageBox.information(
-                self, "Noise capture — no DIC",
-                "The camera is not tracking two markers, so DIC strain noise cannot be measured.\n\n"
-                "The LOAD channel will be recorded as normal. The DIC columns will be marked "
-                "unavailable in the saved file rather than written as zero.")
             self.append_to_console("[Noise] DIC not tracking — load channel only.")
 
         self._noise_rows = []
-        self._noise_dur = float(self.noiseDurationSpin.value())
+        self._noise_dur = float(secs)
         self._noise_t0 = None                # set by the first sample, so the window is DATA-timed
         self._noise_preloaded = ok
         self._noise_preload_note = why
@@ -4029,27 +4019,12 @@ class UTMApplication(QMainWindow):
             "be corrected out of a later run, and the residual SD, which cannot — that one is the "
             "measurement uncertainty.\n\n"
             "Use it AFTER the preload, so the specimen is seated exactly as it will be during the "
-            "pull.")
-        self.noiseDurationSpin = QSpinBox()
-        self.noiseDurationSpin.setRange(5, 3600)
-        self.noiseDurationSpin.setValue(int(self._recall("noise/duration_s", self.NOISE_DEFAULT_S)
-                                            or self.NOISE_DEFAULT_S))
-        self.noiseDurationSpin.setSuffix(" s")
-        self.noiseDurationSpin.setFixedWidth(72)
-        self.noiseDurationSpin.setToolTip(
-            "How long to record. This rig's DIC noise floor GROWS with observation time — about "
-            "12 µε over 40 s against 26 µε over 900 s — so a figure measured over 30 s understates "
-            "the noise on a long test.\n"
-            "Match this to the length of the test you intend to apply it to. The window is written "
-            "into the saved file either way.")
-        self.noiseDurationSpin.valueChanged.connect(
-            lambda v: self._remember("noise/duration_s", int(v)))
-
+            "pull.\n\n"
+            "Opens a window where the recording length is set.")
         r2.addWidget(self.prepareTestButton); r2.addWidget(self.autoStopFractureCheck)
         r2.addWidget(self.fractureTestButton)
         r2.addSpacing(12)
         r2.addWidget(self.noiseCaptureButton)
-        r2.addWidget(self.noiseDurationSpin)
         r2.addStretch()
 
         # These are the two buttons an operator reaches for most often, and they were the hardest to
