@@ -4130,10 +4130,48 @@ _DECK = "documentation/decks/V6a_8_6_20_slides.pptx"
 _TEMP = "documentation/decks/_LOCKED_rebuild_me.pptx"
 _STALE = ("documentation/decks/V6a_8_6_20_slides_updated.pptx", _TEMP)
 _n = len(prs.slides.__iter__.__self__._sldIdLst)
+
+# The deck is NEVER written in place. python-pptx writes straight to whatever path it is given,
+# so a build killed mid-write truncates the destination — on 2026-09-02 that left the deck at
+# 32 KB and BadZipFile, recoverable only because it is committed. Writing beside it and then
+# renaming makes the deck either the old file or the new one, never a half-written one, and
+# costs nothing but a stray .part if the build dies.
+_PART = _DECK + ".part"
+
+
+def _verify(path):
+    """Open the freshly written package and prove it is readable BEFORE it becomes the deck.
+
+    A truncated or corrupt write does not always raise on save, and the point of the temporary
+    file is wasted if a bad one is renamed over a good deck regardless.
+    """
+    import zipfile
+    with zipfile.ZipFile(path) as _z:
+        bad = _z.testzip()
+        if bad is not None:
+            raise OSError("corrupt part in the written deck: %s" % bad)
+        slides = [x for x in _z.namelist() if x.startswith("ppt/slides/slide")]
+    if len(slides) != _n:
+        raise OSError("wrote %d slide parts but built %d slides" % (len(slides), _n))
+    return len(slides)
+
+
 try:
-    prs.save(_DECK)
+    prs.save(_PART)
+    _verify(_PART)
+    _os.replace(_PART, _DECK)                 # atomic within the volume
     print(f"Saved: {_os.path.basename(_DECK)} ({_n} slides, "
-          f"pages {FIRST_PAGE}-{FIRST_PAGE + _n - 1}, {_resolved} refs resolved by title)")
+          f"pages {FIRST_PAGE}-{FIRST_PAGE + _n - 1}, {_resolved} refs resolved by title, "
+          f"zip verified)")
+    # The path is printed in full because the deck lives in OneDrive, and opening it through the
+    # SharePoint link shows the CLOUD copy — which lags the upload and renders missing images as
+    # "the picture can't be displayed". Open this path.
+    print(f"       {_os.path.abspath(_DECK)}")
+    # Plain ASCII on purpose: this goes to a Windows console, which mangles an em-dash.
+    print("       Open THIS local file, not the SharePoint/OneDrive web link. The cloud copy")
+    print("       lags the upload and shows missing pictures until it catches up.")
+    print(f"       It is stale if PowerPoint does not show {_n} slides ending on page "
+          f"{FIRST_PAGE + _n - 1}.")
     # Tidying up the strays is a SEPARATE concern, and it gets its own guard. Folded into the
     # try above, a stale file that PowerPoint happened to be holding raised PermissionError
     # AFTER the deck had already been written, and the handler then announced that the deck had
@@ -4148,10 +4186,28 @@ try:
             print(f"NOTE: {_os.path.basename(_old)} is open in PowerPoint, so it could not be "
                   f"removed. It is NOT the deck — close it and delete it, or re-run this build.")
 except PermissionError:
-    prs.save(_TEMP)
+    # The deck is locked, so the replace failed. The .part is already written and verified, so it
+    # only needs a name the operator cannot mistake for the deck.
+    if _os.path.exists(_PART):
+        try:
+            _os.replace(_PART, _TEMP)
+        except OSError:
+            prs.save(_TEMP)
+    else:
+        prs.save(_TEMP)
     print("\n" + "!" * 78)
     print(f"THE DECK WAS NOT UPDATED. {_os.path.basename(_DECK)} is open in PowerPoint and locked.")
     print(f"This build went to {_os.path.basename(_TEMP)} ({_n} slides) so you can look at it,")
     print("but it is NOT the deck. Close PowerPoint and run this again; the next successful")
     print("build overwrites the real file and deletes that temporary one.")
     print("!" * 78)
+except OSError as _e:
+    # A corrupt write, caught while it is still a temporary file. The deck on disk is untouched.
+    if _os.path.exists(_PART):
+        _os.remove(_PART)
+    print("\n" + "!" * 78)
+    print(f"THE DECK WAS NOT UPDATED and is UNCHANGED on disk — the new build failed its check:")
+    print(f"  {_e}")
+    print("Nothing was overwritten. Re-run the build.")
+    print("!" * 78)
+    raise SystemExit(1)
