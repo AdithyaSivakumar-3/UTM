@@ -103,3 +103,8 @@ documentation/decks/*_updated.pptx
 # Throwaway copies made to export slide PNGs — PowerPoint keeps a handle on them, so the
 # rm after an export often loses the race and they turn up staged.
 documentation/decks/_*.pptx
+
+# The Weekly progress deck is Adithya's working file, not a repo deliverable. It was
+# committed by accident twice (144 MB of blobs) and git keeps those forever. Never track it:
+# it is edited in PowerPoint continuously, so a checkout could clobber unsaved work.
+documentation/decks/Weekly progress*.pptx
