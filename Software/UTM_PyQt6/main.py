@@ -2594,7 +2594,8 @@ class UTMApplication(QMainWindow):
         if self.current_load >= self.PRELOAD_TARGET_FACTOR * target:
             self._stop_preload(
                 f"reached {self.current_load:.1f} N "
-                f"(target {target:.0f} N x{self.PRELOAD_TARGET_FACTOR:.2f}, offsets relaxation)")
+                f"(target {target:.0f} N x{self.PRELOAD_TARGET_FACTOR:.2f}, offsets relaxation)",
+                reached=True)
 
     def _preload_speed(self, frac):
         """Interpolated approach speed (mm/s) for a load fraction — smooth ramps between knots."""
@@ -2606,8 +2607,16 @@ class UTMApplication(QMainWindow):
                 return s0 + (s1 - s0) * (frac - f0) / (f1 - f0) if f1 > f0 else s1
         return knots[-1][1]
 
-    def _stop_preload(self, message, warn=False):
-        """Stop the motor and end the auto-preload, with a console/status message."""
+    def _stop_preload(self, message, warn=False, reached=False):
+        """Stop the motor and end the auto-preload, with a console/status message.
+
+        `reached` is passed explicitly by the one call site that succeeded, NOT inferred from the
+        message. An earlier version tested the wording and stamped "timed out - target not reached"
+        as a success, because that string contains the word "reached".
+        """
+        if reached:
+            self._preload_reached_N = float(self.current_load)
+            self._preload_reached_t = datetime.now()
         self._reset_preload_ui()
         self.stopRadioButton.blockSignals(True)
         self.stopRadioButton.setChecked(True)
@@ -3368,6 +3377,282 @@ class UTMApplication(QMainWindow):
         except Exception:
             return ""
 
+    # ===== Noise capture — what the instrument reports when nothing is happening ==============
+    #
+    # Three numbers per channel, and the difference between them is the whole point:
+    #
+    #   offset        the mean at rest                        -> can be corrected out of a run
+    #   drift         the slope at rest (N/s, ue/s)           -> can be corrected out of a run
+    #   residual sd   what is left once that line is removed  -> CANNOT be. It is the uncertainty.
+    #
+    # Random noise does not subtract. Two independent recordings differenced give sqrt(2) times the
+    # variance, not zero, so anything that presents the sd as removable is wrong. Offset and drift
+    # are systematic and genuinely removable, which is why they are separated here.
+
+    NOISE_DEFAULT_S = 30
+    NOISE_PRELOAD_FRAC = 0.90     # "preloaded" = the live load is within 10 % of the target
+
+    def _preload_state(self):
+        """(is_preloaded, human-readable reason). Judged from the LIVE load, not from history.
+
+        The live load is the honest test: a preload that reached its target and then relaxed, or
+        one that was applied to a different specimen, should not count. The stamp is used only to
+        describe what happened, never to decide.
+        """
+        target = 0.0
+        try:
+            target = float(self.preloadTargetSpinBox.value())
+        except Exception:
+            pass
+        load = float(getattr(self, "current_load", 0.0) or 0.0)
+        if target <= 0:
+            return False, ("no preload target is set (%.1f N on the cell), so there is nothing to "
+                           "check against" % load)
+        if load >= self.NOISE_PRELOAD_FRAC * target:
+            when = getattr(self, "_preload_reached_t", None)
+            return True, ("%.1f N against a %.0f N target%s"
+                          % (load, target,
+                             when.strftime(", reached %H:%M:%S") if when else ""))
+        return False, ("the cell reads %.1f N against a %.0f N target — under %d %% of it"
+                       % (load, target, int(100 * self.NOISE_PRELOAD_FRAC)))
+
+    def on_noise_capture(self):
+        """Record the machine at rest for the chosen window."""
+        from PyQt6.QtWidgets import QMessageBox
+        if getattr(self, "_noise_active", False):
+            self._noise_abort("cancelled by the operator")
+            return
+        if not (hasattr(self, "loadCellSwitch") and self.loadCellSwitch.isChecked()):
+            QMessageBox.warning(self, "Noise capture",
+                                "The load-cell stream is off, so there is nothing to record.\n\n"
+                                "Switch the load cell on and try again.")
+            return
+
+        ok, why = self._preload_state()
+        if not ok:
+            # The warning is required, and the override is deliberate: there are legitimate reasons
+            # to measure with no specimen at all — a bare-machine noise floor is a useful baseline.
+            box = QMessageBox(self)
+            box.setIcon(QMessageBox.Icon.Warning)
+            box.setWindowTitle("Noise capture — preload not detected")
+            box.setText("Use Noise capture AFTER the preload is applied.")
+            box.setInformativeText(
+                "Right now %s.\n\n"
+                "It matters because the point of this measurement is the noise the machine shows "
+                "in the state the SPECIMEN will be pulled from. Unseated grips settle, and that "
+                "settling is recorded as drift that is not there during the run.\n\n"
+                "Measure anyway if you mean to — a bare-machine or unloaded baseline is a "
+                "legitimate thing to want." % why)
+            box.setStandardButtons(QMessageBox.StandardButton.Cancel)
+            go = box.addButton("Measure anyway", QMessageBox.ButtonRole.AcceptRole)
+            box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            box.exec()
+            if box.clickedButton() is not go:
+                self.append_to_console("[Noise] cancelled — apply the preload first.")
+                return
+            self.append_to_console("[Noise] ⚠ running WITHOUT a detected preload, by operator "
+                                   "override. This is recorded in the file.")
+
+        # DIC is optional: warn, capture the load channel anyway, and mark the file so a missing
+        # DIC column is never read as a zero-noise result.
+        dic_live = bool(getattr(self.camera_manager, "camera", None)) and self._live_blob_count() == 2
+        if not dic_live:
+            QMessageBox.information(
+                self, "Noise capture — no DIC",
+                "The camera is not tracking two markers, so DIC strain noise cannot be measured.\n\n"
+                "The LOAD channel will be recorded as normal. The DIC columns will be marked "
+                "unavailable in the saved file rather than written as zero.")
+            self.append_to_console("[Noise] DIC not tracking — load channel only.")
+
+        self._noise_rows = []
+        self._noise_dur = float(self.noiseDurationSpin.value())
+        self._noise_t0 = None                # set by the first sample, so the window is DATA-timed
+        self._noise_preloaded = ok
+        self._noise_preload_note = why
+        self._noise_dic = dic_live
+        self._noise_active = True
+        self.noiseCaptureButton.setText("Cancel noise capture")
+        self.append_to_console("[Noise] recording %.0f s at rest — do not touch the rig."
+                               % self._noise_dur)
+        self.set_status("Noise capture: recording %.0f s — do not touch the rig."
+                        % self._noise_dur)
+
+    def _noise_sample(self, force, raw_value, mcu_ms):
+        """One sample into the capture buffer. Ends the window on the DATA clock, not a timer."""
+        now = datetime.now()
+        if self._noise_t0 is None:
+            self._noise_t0 = now
+        t = (now - self._noise_t0).total_seconds()
+        c, tr, ts, lpx, dxpx = self._match_dic_to_mcu_time(mcu_ms)
+        self._noise_rows.append({"t": t, "raw": raw_value, "F": force, "mcu": mcu_ms,
+                                 "ec": c, "et": tr, "lpx": lpx, "blobs": self._live_blob_count()})
+        if t >= self._noise_dur:
+            self._noise_active = False
+            self._noise_finish()
+        elif len(self._noise_rows) % 20 == 0:
+            self.set_status("Noise capture: %.0f of %.0f s" % (t, self._noise_dur))
+
+    def _noise_abort(self, why):
+        self._noise_active = False
+        self.noiseCaptureButton.setText("Noise capture")
+        self.append_to_console("[Noise] %s — nothing saved." % why)
+        self.set_status("Noise capture %s" % why)
+
+    def _noise_stats(self, ts, ys, scale=1.0):
+        """mean, residual sd and drift for one channel, with the LINE removed before the sd.
+
+        Reported this way because the split is the useful part: the line is systematic and can be
+        corrected out of a later run, and what is left cannot. Reporting a raw sd would fold a
+        removable drift into a number presented as irreducible.
+        """
+        import math
+        from utm_analysis import linfit
+        ys = [y * scale for y in ys]
+        n = len(ys)
+        if n < 3:
+            return None
+        mean = sum(ys) / n
+        raw_sd = math.sqrt(sum((y - mean) ** 2 for y in ys) / (n - 1))
+        try:
+            slope, icept, _ = linfit(ts, ys)
+            res = [y - (slope * t + icept) for t, y in zip(ts, ys)]
+            rmean = sum(res) / n
+            sd = math.sqrt(sum((r - rmean) ** 2 for r in res) / (n - 1))
+        except Exception:
+            slope, sd = 0.0, raw_sd
+        return {"n": n, "mean": mean, "sd": sd, "raw_sd": raw_sd, "drift": slope,
+                "pk2pk": max(ys) - min(ys)}
+
+    def _noise_summary(self):
+        rows = self._noise_rows
+        ts = [r["t"] for r in rows]
+        span = (ts[-1] - ts[0]) if len(ts) > 1 else 0.0
+        out = {"span_s": span, "n": len(rows), "rate_hz": (len(rows) / span) if span > 0 else 0.0,
+               "requested_s": self._noise_dur, "preloaded": self._noise_preloaded,
+               "preload_note": self._noise_preload_note, "dic": self._noise_dic}
+        out["load"] = self._noise_stats(ts, [r["F"] for r in rows])
+        # DIC strain is dimensionless; microstrain is the unit every other noise figure in this
+        # project is quoted in, so convert once here rather than at each reader.
+        out["dic_ue"] = self._noise_stats(ts, [r["ec"] for r in rows], scale=1e6) \
+            if self._noise_dic else None
+        out["lpx"] = self._noise_stats(ts, [r["lpx"] for r in rows]) if self._noise_dic else None
+        return out
+
+    def _noise_finish(self):
+        """Window complete: summarise, show it, and offer to save."""
+        from PyQt6.QtWidgets import QMessageBox
+        self.noiseCaptureButton.setText("Noise capture")
+        rows = self._noise_rows
+        if len(rows) < 3:
+            self._noise_abort("only %d samples arrived" % len(rows))
+            return
+        S = self._noise_summary()
+        self._noise_last = S
+
+        def fmt(st, unit, dr_unit):
+            if not st:
+                return "not measured"
+            return ("sd %.4g %s   ·   drift %+.4g %s   ·   offset %.4g %s   ·   pk-pk %.4g %s"
+                    % (st["sd"], unit, st["drift"], dr_unit, st["mean"], unit, st["pk2pk"], unit))
+
+        lines = [
+            "Recorded %d samples over %.1f s  (%.1f Hz)." % (S["n"], S["span_s"], S["rate_hz"]),
+            "",
+            "LOAD        %s" % fmt(S["load"], "N", "N/s"),
+            "DIC strain  %s" % fmt(S["dic_ue"], "µε", "µε/s"),
+            "DIC L_px    %s" % fmt(S["lpx"], "px", "px/s"),
+            "",
+            "The OFFSET and the DRIFT are systematic and can be corrected out of a later run.",
+            "The SD is what remains once that straight line is removed — it does not subtract, and",
+            "it is the measurement uncertainty to quote on results from this rig.",
+            "",
+            "This figure belongs to a %.0f s window. The DIC noise floor on this rig grows with"
+            % S["span_s"],
+            "observation time, so do not apply it to a much longer test without re-measuring.",
+        ]
+        if not S["preloaded"]:
+            lines += ["", "⚠ Captured WITHOUT a detected preload (%s)." % S["preload_note"]]
+        if not S["dic"]:
+            lines += ["", "⚠ DIC was not tracking — the strain columns are unavailable, not zero."]
+
+        self.append_to_console("[Noise] %d samples over %.1f s — load sd %.4g N%s"
+                               % (S["n"], S["span_s"], S["load"]["sd"],
+                                  (", DIC sd %.1f µε" % S["dic_ue"]["sd"]) if S["dic_ue"] else ""))
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Information)
+        box.setWindowTitle("Noise capture complete")
+        box.setText("Noise capture complete — %.1f s at rest." % S["span_s"])
+        box.setInformativeText("\n".join(lines))
+        save = box.addButton("Save…", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Discard", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(save)
+        box.exec()
+        if box.clickedButton() is save:
+            self._noise_save(S)
+        else:
+            self.append_to_console("[Noise] discarded.")
+        self.set_status("Ready")
+
+    def _noise_save(self, S):
+        """Write the samples and the summary, into a folder the operator picks."""
+        from PyQt6.QtWidgets import QFileDialog, QMessageBox
+        start = self._recall("noise/last_dir", "") or os.getcwd()
+        d = QFileDialog.getExistingDirectory(self, "Where to save the noise capture", start)
+        if not d:
+            self.append_to_console("[Noise] save cancelled — the capture is still in memory; "
+                                   "press Noise capture again to re-record.")
+            return
+        self._remember("noise/last_dir", d)
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        fid = self.fileIdLineEdit.text().strip()
+        name = "%sNoise_%s_%.0fs.csv" % ((fid + "_") if fid else "", stamp, S["span_s"])
+        path = os.path.join(d, name)
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                f.write("# UTM NOISE CAPTURE — the instrument at rest\n")
+                f.write("# Recorded: %s\n" % datetime.now().isoformat(timespec="seconds"))
+                f.write("# File ID: %s\n" % (fid or "(none)"))
+                f.write("# Window: %.2f s requested %.0f s, %d samples, %.2f Hz\n"
+                        % (S["span_s"], S["requested_s"], S["n"], S["rate_hz"]))
+                f.write("# Preload: %s — %s\n"
+                        % ("APPLIED" if S["preloaded"] else "NOT DETECTED (operator override)",
+                           S["preload_note"]))
+                f.write("# DIC: %s\n" % ("tracking 2/2" if S["dic"] else
+                                          "NOT TRACKING — strain columns are unavailable, not zero"))
+                f.write("# Specimen: %s\n" % (self._specimen_label() or "(not set)"))
+                f.write("#\n")
+                f.write("# HOW TO USE THESE NUMBERS\n")
+                f.write("#   offset and drift are SYSTEMATIC and can be corrected out of a later run.\n")
+                f.write("#   sd is what remains after that straight line is removed. It does NOT\n")
+                f.write("#   subtract — differencing two independent records gives sqrt(2) times the\n")
+                f.write("#   variance. Quote it as the measurement uncertainty instead.\n")
+                f.write("#   The window matters: this rig's DIC noise floor grows with observation\n")
+                f.write("#   time, so a short capture understates the noise on a long test.\n")
+                f.write("#\n")
+                for key, lab, unit, dru in (("load", "Load", "N", "N/s"),
+                                            ("dic_ue", "DIC strain", "ue", "ue/s"),
+                                            ("lpx", "DIC L_px", "px", "px/s")):
+                    st = S.get(key)
+                    if not st:
+                        f.write("# %s: not measured\n" % lab)
+                        continue
+                    f.write("# %s: sd %.6g %s, drift %+.6g %s, offset %.6g %s, "
+                            "pk-pk %.6g %s, raw sd %.6g %s (n=%d)\n"
+                            % (lab, st["sd"], unit, st["drift"], dru, st["mean"], unit,
+                               st["pk2pk"], unit, st["raw_sd"], unit, st["n"]))
+                f.write("#\n")
+                f.write("Time_s,RawADC,Force_N,MCU_Time_s,DIC_Cauchy,DIC_True,L_px,DIC_Blobs\n")
+                for r in self._noise_rows:
+                    dic = ("%.8f,%.8f,%.3f" % (r["ec"], r["et"], r["lpx"])) if S["dic"] else ",,"
+                    f.write("%.4f,%s,%.4f,%.3f,%s,%d\n"
+                            % (r["t"], r["raw"], r["F"], (r["mcu"] or 0) / 1000.0, dic, r["blobs"]))
+            self.append_to_console("[Noise] saved %s" % path)
+            QMessageBox.information(self, "Noise capture saved",
+                                    "Saved %d samples and the summary to:\n\n%s" % (S["n"], path))
+        except Exception as e:
+            QMessageBox.critical(self, "Noise capture", "Could not save:\n\n%s" % e)
+            self.append_to_console("[Noise] save failed: %s" % e)
+
     def _confirm_destructive(self, title, what):
         """Fracture protocols destroy the specimen, so make the operator confirm — same discipline as
         the Fracture test button. Returns True to proceed."""
@@ -3732,8 +4017,40 @@ class UTMApplication(QMainWindow):
         self.fractureTestButton.setToolTip("One-click run to fracture: confirms your checklist (specimen mounted, "
                                            "preloaded, Prepare test done), then pulls in TENSION and auto-stops "
                                            "at fracture (with the force/travel backstop). Stop / E-Stop aborts.")
+        # Noise capture sits with the other per-specimen actions because that is when it is used:
+        # after Prepare test and the preload, before the pull. It is the only button here that
+        # does not move the motor.
+        self.noiseCaptureButton = QPushButton("Noise capture")
+        self.noiseCaptureButton.setObjectName("noiseCaptureButton")
+        self.noiseCaptureButton.setToolTip(
+            "Record the machine AT REST for a fixed window, to measure what the load cell and the "
+            "DIC report when nothing is happening.\n\n"
+            "Gives three numbers per channel: the mean OFFSET and the DRIFT rate, both of which can "
+            "be corrected out of a later run, and the residual SD, which cannot — that one is the "
+            "measurement uncertainty.\n\n"
+            "Use it AFTER the preload, so the specimen is seated exactly as it will be during the "
+            "pull.")
+        self.noiseDurationSpin = QSpinBox()
+        self.noiseDurationSpin.setRange(5, 3600)
+        self.noiseDurationSpin.setValue(int(self._recall("noise/duration_s", self.NOISE_DEFAULT_S)
+                                            or self.NOISE_DEFAULT_S))
+        self.noiseDurationSpin.setSuffix(" s")
+        self.noiseDurationSpin.setFixedWidth(72)
+        self.noiseDurationSpin.setToolTip(
+            "How long to record. This rig's DIC noise floor GROWS with observation time — about "
+            "12 µε over 40 s against 26 µε over 900 s — so a figure measured over 30 s understates "
+            "the noise on a long test.\n"
+            "Match this to the length of the test you intend to apply it to. The window is written "
+            "into the saved file either way.")
+        self.noiseDurationSpin.valueChanged.connect(
+            lambda v: self._remember("noise/duration_s", int(v)))
+
         r2.addWidget(self.prepareTestButton); r2.addWidget(self.autoStopFractureCheck)
-        r2.addWidget(self.fractureTestButton); r2.addStretch()
+        r2.addWidget(self.fractureTestButton)
+        r2.addSpacing(12)
+        r2.addWidget(self.noiseCaptureButton)
+        r2.addWidget(self.noiseDurationSpin)
+        r2.addStretch()
 
         # These are the two buttons an operator reaches for most often, and they were the hardest to
         # find: bare rows wedged between the advanced-mode block and Emergency STOP. Their own titled
@@ -3760,6 +4077,7 @@ class UTMApplication(QMainWindow):
         self.recipeLoadButton.clicked.connect(self.on_recipe_load)
         self.recipeSaveButton.clicked.connect(self.on_recipe_save)
         self.prepareTestButton.clicked.connect(self.on_prepare_test)
+        self.noiseCaptureButton.clicked.connect(self.on_noise_capture)
         self.fractureTestButton.clicked.connect(self.on_fracture_test)
         try:
             from utm_recipes import ensure_default
@@ -5147,6 +5465,11 @@ class UTMApplication(QMainWindow):
         self.current_load = force
         self.update_load_display()
         self._update_cross_readout()          # the numbers the OTHER plot tab cannot show
+
+        # Deliberately ABOVE the plot gating below: a noise capture records the instrument, and
+        # whether the operator happens to have plotting switched on is not part of that.
+        if getattr(self, "_noise_active", False):
+            self._noise_sample(force, raw_value, mcu_timestamp_ms)
 
         # Auto-preload: stop the motor once the target load is reached (or a safety limit trips)
         if self.preload_active:
