@@ -43,7 +43,7 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 - **Fracture test** button — checklist → arm auto-stop → tension pull → auto-stop at fracture.
 - **Auto-stop at fracture** — live load-collapse detector on a manual pull.
 - **Strain-rate fracture test** — closed-loop constant *gauge* strain rate → fracture → auto-stop.
-- **Safety net (3 layers):** load-collapse fracture detector · **stall guard** (crosshead frozen <0.05 mm/6 s under load — in BOTH the auto-stop path and the strain-rate loop) · **10 kN / 30 mm** force/travel backstop · **dead-DIC guard** (freeze speed at 0.2 s, halt at 1.0 s).
+- **Safety net (3 layers):** load-collapse fracture detector · **stall guard** (crosshead frozen <0.05 mm/6 s under load — in BOTH the auto-stop path and the strain-rate loop) · **4.5 kN / 30 mm** force/travel backstop · **dead-DIC guard** (freeze speed at 0.2 s, halt at 1.0 s).
 - **CSV richness** — `DIC_Blobs` health column + `# DIC Health` header + infill label.
 - **SF12 — DIC auto-calibration + live parameter readout** (2026-08-14). The preset's exposure and
   threshold were chosen once by hand under one set of LEDs; when the lighting drifts they quietly
@@ -621,7 +621,7 @@ this file all cite the same numbers.
 | **12** | **DIC auto-calibrate** — auto-exposure/threshold sweep · auto-follow ROI through the draw | ⬜ planned |
 | **13** | **Guided workflow + live analysis overlay** — wizard · live E / predicted UTS / fracture flag · dashboard + audio cue | ⬜ planned |
 | **14** | **Test registry** — every run auto-indexed with E/σ_y/UTS/ε_f/toughness **and its force anchor** | ✅ rig-validated |
-| **15** | **Dead-DIC guard + hard backstops** — freeze speed at 0.2 s of frozen strain, halt at 1.0 s; 10 kN / 30 mm caps | ✅ rig-validated |
+| **15** | **Dead-DIC guard + hard backstops** — freeze speed at 0.2 s of frozen strain, halt at 1.0 s; 4.5 kN / 30 mm caps | ✅ rig-validated |
 | **16** | **Live Px₀ overlay** — the frozen reference pair and the live pair drawn on the camera feed, with a caption whose Δ agrees with the strain readout | ✅ rig-validated |
 | **17** | **Video + image capture** — PNG stills plus three AVI views (raw, contrast-boosted, adaptive speckle) recorded together | ✅ rig-validated |
 | **18** | **DIC post-processing** — a tab that measures strain from ANY recorded video with the rig's own pixel-to-strain rule, so our runs can be re-checked and another machine's footage measured on the same footing | ✅ rig-validated |

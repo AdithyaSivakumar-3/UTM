@@ -140,7 +140,7 @@ METHODS = [
      "20.8 px/mm. The centroid resolves 0.1 px steps at ±0.02 px."),
     ("Simulated before hardware", "Every policy is replayed against a spring plant and recorded CSVs "
      "— 9/9 checks pass before a specimen is risked."),
-    ("Four safety layers", "Load-collapse detector · stall guard (< 0.05 mm / 6 s under load) · 10 kN "
+    ("Four safety layers", "Load-collapse detector · stall guard (< 0.05 mm / 6 s under load) · 4.5 kN "
      "and 30 mm backstops · dead-DIC guard (freeze at 0.2 s, halt at 1.0 s). Guards are phase-aware, "
      "so the stall guard stays silent through an intentional dwell."),
     ("One analysis library", "The app, the reports and every figure compute E, σ_y, UTS, ε_f and the "

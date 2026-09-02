@@ -2211,10 +2211,19 @@ class UTMApplication(QMainWindow):
     STALL_MIN_LOAD_N = 200.0      # ...only guard under load (avoids slack / start-up false trips)
 
     # Closed-loop test-mode (Phase B) safety net — independent of any policy
-    # Load cell = ANYLOAD 3 t = 29.4 kN rated. Specimens peak <= ~4.8 kN, so this protects the cell
-    # (and the 3D-printed grips) while leaving 2x headroom over a normal fracture -> never false-halts.
-    # Raise toward ~25 kN only if you test much stronger materials; MUST stay below 29.4 kN.
-    POLICY_MAX_FORCE_N = 10000    # hard Stop+EStop if load exceeds this (N)
+    # Load cell = ANYLOAD 3 t = 29.4 kN rated, so the cell was never the binding constraint. This
+    # limit now protects the 3D-PRINTED GRIPS and the load path, which give out long before the
+    # cell does, and it is set close enough to real loads that the margin has to be stated:
+    #
+    #   highest peak on record   3867 N  (S34, 100 % PLA)
+    #   100 % PLA fracture band  3586-3867 N across 12 specimens
+    #   this backstop            4500 N  -> 633 N clear of the highest, about 16 %
+    #
+    # That is a deliberate tightening. It is NOT the "2x headroom, never false-halts" setting the
+    # 10 kN value was: a specimen at the top of its scatter, or a stiffer batch, can reach it and
+    # be halted mid-pull. Raise it if a legitimate run is ever stopped by this, and never above
+    # 29.4 kN.
+    POLICY_MAX_FORCE_N = 4500     # hard Stop+EStop if load exceeds this (N)
     # End-stop backstop for the test modes ONLY (the preload has no travel limit — it stops on force /
     # overshoot / timeout). Must be ABOVE any real fracture travel (V6 fractured ~7-9 mm) yet below the
     # rig's usable stroke so a post-fracture runaway can't drive into the mechanical end-stop.
@@ -3714,7 +3723,7 @@ class UTMApplication(QMainWindow):
                      "10–2000 N · Unload to 20–2000 N · Speed 0.005–0.5 mm/s · max 40 cycles.  Keep the "
                      "unload floor ≥20 N so the specimen never goes slack.",
         }
-        backstops = ("Always-on safety net (any mode): 10 kN force · 30 mm travel · stall guard · E-Stop.  "
+        backstops = ("Always-on safety net (any mode): 4.5 kN force · 30 mm travel · stall guard · E-Stop.  "
                      "Motor delivers ~3.2–3.4 kN normally (all six 100% infill specimens fractured there); "
                      "a session that stalls nearer ~2.6 kN is thermally derated, not a hard ceiling.")
         # The three colours below were picked against a white dialog: #333 body text is all but

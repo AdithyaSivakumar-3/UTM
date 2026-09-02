@@ -780,7 +780,7 @@ tb(s, 6.75, 1.72, 6.2, 3.9,
    "•  Fracture test / Auto-stop  — halts on load collapse\n\n"
    "•  Strain-rate fracture test  — closed-loop dε/dt\n\n"
    "•  DIC health HUD  — live OK / WARN / BAD badge\n\n"
-   "•  Safety net  — 10 kN / 30 mm / stall guard / dead-DIC",
+   "•  Safety net  — 4.5 kN / 30 mm / stall guard / dead-DIC",
    fs=12, colour=BLACK)
 footer(s, "Modules committed & regression-checked against the deck numbers; the UI feature set is now "
           "snapshot-committed (main.py a3b187f) after full rig validation.")
@@ -920,7 +920,7 @@ for _i, (_n, _t, _b, _st) in enumerate(_sf_cards):
     _f, _fg = _fill[_st]
     flow(s, _cx[_i % 4], _cy[_i // 4], 3.0, 1.00,
          "SF%d  %s\n%s" % (_n, _t, _b), fill=_f, border=_fg, fs=10.0, bold=True, fg=_fg)
-footer(s, "Renumbered 2026-09-02 to a contiguous SF1–SF19 — two entries were dropped, a developer-only sim harness and optics-blocked Poisson (now FW1). Four safety layers on every driven test: load-collapse · stall guard · 10 kN / 30 mm · dead-DIC freeze.")
+footer(s, "Renumbered 2026-09-02 to a contiguous SF1–SF19 — two entries were dropped, a developer-only sim harness and optics-blocked Poisson (now FW1). Four safety layers on every driven test: load-collapse · stall guard · 4.5 kN / 30 mm · dead-DIC freeze.")
 pageno(s)
 
 # ---- Slide 170: SF 1 · DIC health HUD — modes  [content unchanged, was slide 176] ----
@@ -1051,12 +1051,12 @@ guards = [["Guard", "Trips when", "Action"],
           ["Fracture auto-stop", "load < 50% of peak (armed at 30%)", "Stop"],
           ["Stall guard", "crosshead < 0.05 mm in 6 s under load > 200 N", "Stop + E-Stop"],
           ["Dead-DIC guard", "DIC strain frozen (markers lost)", "freeze speed 0.2 s → HALT 1.0 s"],
-          ["Force backstop", "load ≥ 10 kN", "Stop + E-Stop"],
+          ["Force backstop", "load ≥ 4.5 kN", "Stop + E-Stop"],
           ["Travel backstop", "crosshead travel ≥ 30 mm", "Stop + E-Stop"],
           ["Timeout", "runtime ≥ 900 s", "Stop"]]
 table(s, 0.4, 1.72, 12.55, 3.55, guards, cw=[2.9, 6.6, 3.05], hf=11, bf=10)
 banner(s, 0.4, 5.5, 12.55, 1.0,
-       "HARD LIMITS —  force 10 kN  ·  travel 30 mm  ·  stall 0.05 mm in 6 s (>200 N)  ·  dead-DIC halt 1.0 s  ·  timeout 900 s.   "
+       "HARD LIMITS —  force 4.5 kN  ·  travel 30 mm  ·  stall 0.05 mm in 6 s (>200 N)  ·  dead-DIC halt 1.0 s  ·  timeout 900 s.   "
        "Any breach → Stop + E-Stop.",
        fill=YELLOW_WARN, fg=BLACK, fs=12)
 footer(s, "Layered so a driven test (preload · fracture · strain-rate) can't run away — protects the motor, the printed grips and the 3 t load cell.")
@@ -1263,8 +1263,8 @@ banner(s, 0.4, 6.32, 12.55, 0.55,
        "SUPERSEDES ⟪MOTOR TORQUE CEILING — THE⟫ and ⟪MOTOR JITTER = STALL WARNING⟫ — the 50 %%-specimen workaround is no longer needed. 100 %% "
        "full-area specimens fracture normally at ~%.1f kN." % (_tq["mean"] / 1000.0),
        fill=GREEN_PASS, fg=DARK_GREEN, fs=12.5)
-footer(s, "Not a hardware purchase and not a software change — a fastener. The stall guard and the "
-          "10 kN / 30 mm backstops stay exactly as they are; they were never the problem.")
+footer(s, "Not a hardware purchase and not a software change — a fastener. The stall guard and "
+          "the force and travel backstops were never the problem, and were not touched to fix it.")
 pageno(s)
 
 # ---- The post-fix register: which runs carry a known-good load path ----
@@ -1410,7 +1410,7 @@ pageno(s)
 # =============================================================================================
 from sf9_data import M as SF9                                                      # noqa: E402
 
-SF9_BACKSTOP = ("Always-on, every mode: 10 kN force · 30 mm travel · 900 s timeout · stall guard "
+SF9_BACKSTOP = ("Always-on, every mode: 4.5 kN force · 30 mm travel · 900 s timeout · stall guard "
                 "(6 s window, min(0.05 mm, 35 % of commanded travel), armed above 200 N) · "
                 "dead-DIC freeze 0.2 s / halt 1.0 s · E-Stop.")
 
@@ -3728,7 +3728,7 @@ sf_overview([
      "anchor. Killed the hard-coded CSV paths that caused two detector bugs.", "done"),
     (15, "Dead-DIC guard + backstops",
      "Freezes commanded speed if strain goes stale for 0.2 s and halts at 1.0 s, behind an "
-     "always-on 10 kN / 30 mm / 900 s backstop.", "done"),
+     "always-on 4.5 kN / 30 mm / 900 s backstop.", "done"),
     (16, "Live Px₀ overlay",
      "Draws the frozen reference pair and the live pair straight on the camera feed, with a "
      "caption whose Δ agrees with the strain readout. Screenshot on the rig: 1745 px frozen, "

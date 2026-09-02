@@ -114,3 +114,63 @@ banner(s, 0.4, 6.48, 12.55, 0.44,
 footer(s, "Auto-populated on save (SF11) and by utm_registry.py scan. Properties are re-analysed "
           "from the CSVs, never copied from a previous result.")
 pageno(s)
+
+
+# ================================================================= SF15 — the dead-DIC guard
+# Its own slide at last: it was sharing SF7's safety page, and the thing that makes it worth
+# separating is that it guards a failure the stall guard is blind to.
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "SF15 · DEAD-DIC GUARD — WHEN THE CAMERA STOPS, NOT THE RIG")
+
+tb(s, 0.45, 1.12, 12.5, 0.46,
+   "The stall guard watches the MOTOR and the backstops watch force, travel and time. None of them "
+   "can see a dead camera: the crosshead is advancing, the load is rising, and every mechanical "
+   "signal looks healthy. Only the strain has stopped changing — and in a strain-steered test, that "
+   "is the signal doing the steering.",
+   fs=11, colour=BLACK)
+
+header(s, 0.45, 1.72, 6.25, "Why it fires in TWO stages, not one")
+tb(s, 0.45, 2.10, 6.25, 2.15,
+   "A strain-rate loop holds dε/dt by comparing measured strain against the target. If strain stops "
+   "updating, the loop reads it as “not deforming fast enough” and ramps the speed UP — blind, and "
+   "at exactly the moment it has no idea what the specimen is doing.\n\n"
+   "So the first stage does not halt; it FREEZES the commanded speed at the last good value after "
+   "%.1f s, about two DIC frames. The run continues at a speed that was correct when strain was "
+   "last real, and it cannot accelerate into the dark.\n\n"
+   "Only if strain is still frozen at %.1f s does it hard-halt: by then the camera is gone, not "
+   "merely late."
+   % (0.2, 1.0),
+   fs=10, colour=BLACK)
+
+header(s, 6.95, 1.72, 6.0, "What it does NOT do")
+tb(s, 6.95, 2.10, 6.0, 2.15,
+   "It does not run on force-steered modes. Cyclic, staircase, creep and relaxation steer on the "
+   "LOAD CELL, which never goes stale — a frozen camera there costs the DIC column in the CSV and "
+   "nothing else, so halting the test would be an over-reaction.\n\n"
+   "It does not fire on a dropped frame either. A single miss is normal; 0.2 s is two frames, and "
+   "the freeze is harmless if strain resumes.\n\n"
+   "And it is not the same guard as the DIC↔load matching window (100 ms), which decides whether a "
+   "strain reading is fresh enough to PAIR with a load sample. That one drops a row; this one stops "
+   "the machine.",
+   fs=10, colour=BLACK)
+
+header(s, 0.45, 4.42, 12.5, "The layers, and which failure each one catches")
+table(s, 0.45, 4.80, 12.5, 1.45, [
+    ["Guard", "Threshold", "The failure it is the only one to catch"],
+    ["Dead-DIC freeze", "0.2 s of frozen strain",
+     "the controller ramping up blind because its feedback stopped"],
+    ["Dead-DIC halt", "1.0 s of frozen strain",
+     "a camera that has stopped while the motor keeps pulling normally"],
+    ["Force backstop", "4.5 kN", "a runaway that the specimen cannot stop"],
+    ["Travel backstop", "30 mm", "a post-fracture runaway driving into the end-stop"],
+    ["Timeout backstop", "900 s", "a long hold that never reaches its exit condition"],
+], cw=[2.30, 2.30, 7.90], hf=9.5, bf=9)
+
+banner(s, 0.4, 6.44, 12.55, 0.50,
+       "THE POINT IN ONE LINE: every other guard watches the machine, and the machine is fine. "
+       "This is the only one watching the MEASUREMENT — which in a strain-steered test is the one "
+       "thing that must not be trusted blindly.",
+       fill=GREEN_PASS, fg=DARK_GREEN, fs=10)
+footer(s, "Thresholds read from main.py: POLICY_STALE_FREEZE_S 0.2 s, POLICY_DEAD_DIC_S 1.0 s, "
+          "POLICY_MAX_FORCE_N 4.5 kN, POLICY_MAX_TRAVEL_MM 30 mm, POLICY_TIMEOUT_S 900 s.")
+pageno(s)
