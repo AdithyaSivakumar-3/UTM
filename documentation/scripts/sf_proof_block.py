@@ -39,7 +39,6 @@ _rows2 = [["SF", "Feature", "Where it is shown working", "Kind of evidence"],
           ["11", "Auto-metadata link", "⟪SF11 · AUTO-METADATA LINK⟫", "both halves round-trip, 14/14"],
           ["12", "DIC auto-calibration", "NEXT SLIDE", "the sweep dialog, real numbers"],
           ["13", "Guided wizard", "NEXT SLIDE + 1", "9 of 9 done, on the rig"],
-          ["14", "Poisson / true Cauchy", "⟪PLANNED NEXT — MEASURED POISSON⟫ · ⟪MEASURING POISSON'S RATIO & TRUE⟫", "why the optics block it"],
           ["15", "Test registry", "⟪SF15 · TEST REGISTRY⟫", "the CLI listing, 34 runs"],
           ["16", "Dead-DIC guard", "⟪SAFETY GUARDS & LIMITS —⟫", "the halt at 1.0 s stale"],
           ["18", "Live Px₀ overlay", "LAST OF THIS BLOCK", "overlay 1745 px = caption 1745 px"],
@@ -190,8 +189,8 @@ tb(s, 6.85, 4.98, 6.1, 1.85,
    fs=9.6, colour=BLACK)
 
 banner(s, 0.4, 6.50, 12.55, 0.50,
-       "STATUS CHANGED: SF18 WAS THE LAST CARD WAITING ON A SCREENSHOT. WITH THIS, EVERY BUILT "
-       "SMART FEATURE IS RIG-VALIDATED — ONLY SF14 REMAINS, AND HARDWARE BLOCKS IT.",
+       "STATUS CHANGED: SF18 WAS THE LAST CARD WAITING ON A SCREENSHOT. WITH THIS, EVERY CARDED "
+       "SMART FEATURE HAS BEEN SHOWN WORKING — SF21 OFFLINE, THE REST ON THE RIG.",
        fill=GREEN_PASS, fg=DARK_GREEN, fs=10.5)
 footer(s, "Operator screenshot on the rig, unloaded at 0 N (ε −2.9×10⁻⁵ — the noise floor). "
           "White specimen mode, exposure 50 ms, threshold 150, 20 fps.")

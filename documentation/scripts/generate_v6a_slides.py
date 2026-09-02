@@ -892,7 +892,6 @@ _sf_cards = [
     (11, "Auto-metadata link", "capture ↔ CSV, by overlap", "done"),
     (12, "DIC auto-calibrate", "sweeps exposure × threshold", "built"),
     (13, "Guided wizard", "12 steps, optional, off by default", "done"),
-    (14, "Poisson / true Cauchy", "optics-blocked, not code", "block"),
     (15, "Test registry", "every run + force anchor", "done"),
     (16, "Dead-DIC guard + backstops", "0.2 s freeze / 1.0 s halt", "done"),
     (18, "Live Px₀ overlay", "frozen vs live pair, on the feed", "done"),
@@ -905,10 +904,13 @@ _sf_cards = [
 _n_done = sum(1 for c in _sf_cards if c[3] == "done")
 _n_built = sum(1 for c in _sf_cards if c[3] == "built")
 _n_block = sum(1 for c in _sf_cards if c[3] == "block")
+# The amber clause is emitted only if an amber card exists. SF14 was the last one, and a legend
+# for a colour that is no longer on the slide is worse than no legend.
+_sub = "%d built and RIG-VALIDATED (green) · %d built, offline-verified only (blue)" % (_n_done, _n_built)
+if _n_block:
+    _sub += " · %d hardware-blocked (amber)" % _n_block
 tb(s, 0.4, 1.15, 12.55, 0.40,
-   "%d built and RIG-VALIDATED (green) · %d built, offline-verified only (blue) · "
-   "%d hardware-blocked (amber). Numeric order, so a card can be found by its SF number."
-   % (_n_done, _n_built, _n_block),
+   _sub + ". Numeric order, so a card can be found by its SF number.",
    fs=11.5, italic=True, colour=GREY_TEXT)
 _fill = {"done": (GREEN_PASS, DARK_GREEN), "built": (_SF_BUILT, DARK_GREEN),
          "plan": (LIGHT_BLUE, BLACK), "block": (YELLOW_WARN, BLACK)}
@@ -3707,8 +3709,7 @@ title(s, "SMART FEATURES 11–21 — SETUP, EVIDENCE AND SAFETY")
 tb(s, 0.4, 1.15, 12.55, 0.38,
    # No blue cards remain on this slide as of 2026-08-26, so the legend no longer explains one.
    "The features that make a run trustworthy rather than merely possible. Green = built AND "
-   "rig-validated · blue = built and verified offline, not yet used on a real pull · "
-   "amber = blocked by optics, not by code.",
+   "rig-validated · blue = built and verified offline, not yet used on a real pull.",
    fs=11.5, italic=True, colour=GREY_TEXT)
 sf_overview([
     (11, "Auto-metadata link",
@@ -3722,9 +3723,6 @@ sf_overview([
     (13, "Guided wizard",
      "Twelve steps in the order they must be done, read from flags the app already had. Optional "
      "and off by default — a checklist that cannot be dismissed is just a wider warning.", "done"),
-    (14, "Poisson / true Cauchy",
-     "Blocked by OPTICS, not code: the gauge is too narrow for a transverse pair, and the elastic "
-     "width change is sub-pixel at ~20 px/mm.", "block"),
     (15, "Test registry",
      "One queryable index of every run with its computed E, σ_y, UTS, ε_f, toughness and force "
      "anchor. Killed the hard-coded CSV paths that caused two detector bugs.", "done"),
@@ -3751,10 +3749,9 @@ sf_overview([
 # The grid is FULL at ten cards now, so the legend chips and the summary banner that used to sit
 # in the spare slot have gone into the subtitle and the footer. The banner also had to go on its
 # own merits: it read "EVERY BUILT FEATURE IS RIG-VALIDATED", which SF21 makes false.
-footer(s, "SF17 is absent by design: it was carded and retired the same day, because a card has to "
-          "be something the OPERATOR invokes or that acts on the machine during a run.  "
-          "SF14 is blocked by hardware, not code; SF21 is built and verified offline but has not "
-          "yet recorded a real pull.")
+footer(s, "SF14 and SF17 are absent by design: a card has to be something the OPERATOR invokes, "
+          "and neither is. SF14's work is future work (FW1), not a feature. SF21 is built and "
+          "verified offline but has not yet recorded a real pull.")
 pageno(s)
 
 # ---- smart-feature PROOF slides, placed directly under the two overview cards
