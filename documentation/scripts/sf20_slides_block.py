@@ -1,5 +1,5 @@
 # ===================================================================================
-#  SF20 · DIC post-processing — what the tab does, and the evidence that it works.
+#  SF18 · DIC post-processing — what the tab does, and the evidence that it works.
 #
 #  Appended to generate_v6a_slides.py. The measured figures come from the estimator
 #  and MOT caches, so a claim here cannot drift from the analysis that produced it.
@@ -14,9 +14,9 @@ _S20_PP = next(r for r in _S20_MOT["rows"] if r["key"] == "pp")
 _S20_XT = next(r for r in _S20_MOT["rows"] if r["key"] == "mot")
 
 
-# ================================================================= SF20 · what it is
+# ================================================================= SF18 · what it is
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF20 · DIC POST-PROCESSING — MEASURE ANY RECORDED VIDEO")
+title(s, "SF18 · DIC POST-PROCESSING — MEASURE ANY RECORDED VIDEO")
 pic_or_ph(s, "documentation/figures/UTM_DIC Post.png", 0.4, 1.22, 8.55, 0.8,
           "[ drop UTM_DIC Post.png here ]")
 
@@ -50,9 +50,9 @@ footer(s, "Software/UTM_PyQt6/utm_postproc.py (engine, no Qt) + utm_postdlg.py (
 pageno(s)
 
 
-# ================================================================= SF20 · does it work
+# ================================================================= SF18 · does it work
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF20 · DOES IT ACTUALLY MEASURE? — THREE INDEPENDENT CHECKS")
+title(s, "SF18 · DOES IT ACTUALLY MEASURE? — THREE INDEPENDENT CHECKS")
 
 header(s, 0.45, 1.16, 4.05, "1 · Against our own live DIC")
 tb(s, 0.45, 1.54, 4.05, 1.42,

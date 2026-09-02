@@ -1,5 +1,5 @@
 # ===================================================================================
-#  SF20 · the built-in guide, and the procedure it walks through.
+#  SF18 · the built-in guide, and the procedure it walks through.
 #
 #  Appended to generate_v6a_slides.py. The steps are READ FROM THE APP —
 #  PostProcTab.GUIDE_STEPS — rather than retyped, so the deck and the tool cannot
@@ -22,7 +22,7 @@ def _gplain(html):
 
 # ================================================================= 1. the guide itself
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF20 · THE BUILT-IN GUIDE — THE PROCEDURE, IN THE TOOL")
+title(s, "SF18 · THE BUILT-IN GUIDE — THE PROCEDURE, IN THE TOOL")
 img_fit(s, "documentation/figures/sf20_guide.png", 0.4, 1.20, 7.35, 3.55)
 
 header(s, 8.0, 1.16, 4.95, "Why the tool carries its own instructions")
@@ -59,7 +59,7 @@ pageno(s)
 for _half, (_lo, _hi, _sub) in enumerate((
         (0, 4, "SETTING IT UP"), (4, len(_GSTEPS), "MEASURING, AND TAKING THE RESULTS"))):
     s = prs.slides.add_slide(BLANK); ju(s)
-    title(s, "SF20 · THE PROCEDURE — %s" % _sub)
+    title(s, "SF18 · THE PROCEDURE — %s" % _sub)
     tb(s, 0.45, 1.12, 12.5, 0.34,
        "Steps %d–%d of %d, as the tool states them. The right-hand column is the part that is easy "
        "to get wrong." % (_lo + 1, _hi, len(_GSTEPS)),

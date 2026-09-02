@@ -1,5 +1,5 @@
 # ===================================================================================
-#  SF11 (auto-metadata link) and SF15 (test registry) — the two features that were
+#  SF11 (auto-metadata link) and SF14 (test registry) — the two features that were
 #  built and working but had no slide of their own, so the proof table could only
 #  point at their cards.
 #
@@ -63,9 +63,9 @@ footer(s, "One capture is honestly unrecoverable: S29's folder was not kept, so 
           "left pointing where it pointed rather than at an invented path.")
 pageno(s)
 
-# ---------------------------------------------------------------- SF15
+# ---------------------------------------------------------------- SF14
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF15 · TEST REGISTRY — ONE QUERYABLE INDEX OF EVERY RUN")
+title(s, "SF14 · TEST REGISTRY — ONE QUERYABLE INDEX OF EVERY RUN")
 tb(s, 0.4, 1.13, 12.55, 0.46,
    "%d runs, each with its computed properties and its force anchor, addressable by specimen, "
    "material or test label instead of by a path typed into a script."

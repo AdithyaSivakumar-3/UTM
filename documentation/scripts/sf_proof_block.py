@@ -39,19 +39,19 @@ _rows2 = [["SF", "Feature", "Where it is shown working", "Kind of evidence"],
           ["11", "Auto-metadata link", "⟪SF11 · AUTO-METADATA LINK⟫", "both halves round-trip, 14/14"],
           ["12", "DIC auto-calibration", "NEXT SLIDE", "the sweep dialog, real numbers"],
           ["13", "Guided wizard", "NEXT SLIDE + 1", "9 of 9 done, on the rig"],
-          ["15", "Test registry", "⟪SF15 · TEST REGISTRY⟫", "the CLI listing, 34 runs"],
-          ["16", "Dead-DIC guard", "⟪SAFETY GUARDS & LIMITS —⟫", "the halt at 1.0 s stale"],
-          ["18", "Live Px₀ overlay", "LAST OF THIS BLOCK", "overlay 1745 px = caption 1745 px"],
-          ["19", "Video + image capture", "LAST TWO OF THIS BLOCK", "S26 frames and all 3 videos"],
-          ["20", "DIC post-processing", "⟪SF20 · DIC POST-PROCESSING⟫–⟪SF20 · THE PROCEDURE — MEASURING⟫", "three independent checks + the guide"],
-          ["21", "Noise capture", "⟪SF21 · NOISE CAPTURE⟫", "offset / drift / sd, separated"],
+          ["14", "Test registry", "⟪SF14 · TEST REGISTRY⟫", "the CLI listing, 34 runs"],
+          ["15", "Dead-DIC guard", "⟪SAFETY GUARDS & LIMITS —⟫", "the halt at 1.0 s stale"],
+          ["16", "Live Px₀ overlay", "LAST OF THIS BLOCK", "overlay 1745 px = caption 1745 px"],
+          ["17", "Video + image capture", "LAST TWO OF THIS BLOCK", "S26 frames and all 3 videos"],
+          ["18", "DIC post-processing", "⟪SF18 · DIC POST-PROCESSING⟫–⟪SF18 · THE PROCEDURE — MEASURING⟫", "three independent checks + the guide"],
+          ["19", "Noise capture", "⟪SF19 · NOISE CAPTURE⟫", "offset / drift / sd, separated"],
           ["—", "Capture formats & disk", "⟪WHAT THE CAPTURE WRITES — STILL⟫ · ⟪WHAT THE CAPTURE WRITES — VIDEO⟫", "TIFF/PNG, FFV1/Y800, cost"]]
 table(s, 6.8, 1.95, 6.15, 3.9, _rows2, cw=[0.5, 2.0, 2.0, 2.1], hf=9.5, bf=8.7)
 banner(s, 0.4, 6.1, 12.55, 0.5,
        "THE FOUR FEATURES WITH NO SCREENSHOT UNTIL NOW — AUTO-CALIBRATION, THE WIZARD, CAPTURE "
        "AND THE Px₀ OVERLAY — ARE PROVEN ON THE NEXT FIVE SLIDES.",
        fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
-footer(s, "SF17 is absent by design (see the previous slide). Page numbers are this deck's own, "
+footer(s, "The list runs SF1–SF19 with no gaps (renumbered 2026-09-02). Page numbers are this deck's own, "
           "and were read back off the built deck rather than written by hand.")
 pageno(s)
 
@@ -121,9 +121,9 @@ footer(s, "Operator screenshot, 2026-08-22 — the wizard at the end of a comple
           "(UTM_Test_20260822_180547.csv). Optional and off by default.")
 pageno(s)
 
-# ---------------------------------------------------------------- D. SF19 capture, the controls
+# ---------------------------------------------------------------- D. SF17 capture, the controls
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF19 · VIDEO + IMAGE CAPTURE — WHAT THE OPERATOR CHOOSES")
+title(s, "SF17 · VIDEO + IMAGE CAPTURE — WHAT THE OPERATOR CHOOSES")
 img_fit(s, "documentation/figures/UTM_capture_setup.png", 0.45, 1.35, 7.5, 4.6)
 header(s, 8.25, 1.35, 4.7, "Three decisions, all costed live")
 tb(s, 8.25, 1.75, 4.7, 4.3,
@@ -142,9 +142,9 @@ footer(s, "Operator screenshot, 2026-08-22. Every option carries a ? help button
           "trade-off — added after the formats went in.")
 pageno(s)
 
-# ---------------------------------------------------------------- E. SF19 capture, the evidence
+# ---------------------------------------------------------------- E. SF17 capture, the evidence
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF19 · WHAT IT ACTUALLY RECORDED — S26, START TO FRACTURE")
+title(s, "SF17 · WHAT IT ACTUALLY RECORDED — S26, START TO FRACTURE")
 img_fit(s, "documentation/figures/sf_capture_strip.png", 0.4, 1.28, 5.9, 5.0)
 img_fit(s, "documentation/figures/sf_capture_views.png", 6.6, 1.28, 6.25, 3.31)
 header(s, 6.6, 4.8, 6.25, "Why this is evidence and not an illustration")
@@ -161,12 +161,12 @@ footer(s, "Specimen S26, run %s — %.1f GB of stills beside %.0f + %.0f + %.0f 
           % (_CF["run"], _CF["still_mb"] / 1000.0, _RAW[1], _BST[1], _SPK[1]))
 pageno(s)
 
-# ---------------------------------------------------------------- F. SF18 live Px₀ overlay
+# ---------------------------------------------------------------- F. SF16 live Px₀ overlay
 # The last card that was waiting on a screenshot. The point of the feature is that the number
 # drawn ON the feed and the number in the status bar come from different code paths, so seeing
 # them agree is the check that the strain readout measures the pair the overlay is drawing.
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF18 · LIVE Px₀ OVERLAY — FROZEN PAIR vs LIVE PAIR")
+title(s, "SF16 · LIVE Px₀ OVERLAY — FROZEN PAIR vs LIVE PAIR")
 img_fit(s, "images/features/CalibratePxo_live marker.png", 0.4, 1.30, 12.55, 3.05)
 
 header(s, 0.45, 4.60, 6.15, "What is drawn, and what it is for")
@@ -189,8 +189,8 @@ tb(s, 6.85, 4.98, 6.1, 1.85,
    fs=9.6, colour=BLACK)
 
 banner(s, 0.4, 6.50, 12.55, 0.50,
-       "STATUS CHANGED: SF18 WAS THE LAST CARD WAITING ON A SCREENSHOT. WITH THIS, EVERY CARDED "
-       "SMART FEATURE HAS BEEN SHOWN WORKING — SF21 OFFLINE, THE REST ON THE RIG.",
+       "STATUS CHANGED: SF16 WAS THE LAST CARD WAITING ON A SCREENSHOT. WITH THIS, EVERY CARDED "
+       "SMART FEATURE HAS BEEN SHOWN WORKING — SF19 OFFLINE, THE REST ON THE RIG.",
        fill=GREEN_PASS, fg=DARK_GREEN, fs=10.5)
 footer(s, "Operator screenshot on the rig, unloaded at 0 N (ε −2.9×10⁻⁵ — the noise floor). "
           "White specimen mode, exposure 50 ms, threshold 150, 20 fps.")

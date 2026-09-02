@@ -992,7 +992,7 @@ def build(fmt):
             add("evidence", blk_evidence(F, e))
         add("section", blk_section(F, "Limitations"))
         add("defs", blk_defs(F, LIMITS))
-        bands = [band(F, W, "The smart features, SF1 to SF16", CARDS, 3, blk_card, legend=True)]
+        bands = [band(F, W, "The smart features, SF1 to SF15", CARDS, 3, blk_card, legend=True)]
     else:
         # ---- A4 handout: a condensation, not a shrunken A0. Methods and limitations stay — they
         # are the whole point of the Generation-2 critique; evidence narrows to one figure.
@@ -1005,7 +1005,7 @@ def build(fmt):
         add("evidence", blk_evidence(F, EVIDENCE[1]))
         add("section", blk_section(F, "Limitations"))
         add("defs", blk_defs(F, LIMITS, gap=0.18))
-        bands = [band(F, W, "The smart features, SF1 to SF16", CARDS, 2, blk_cardrow, legend=True)]
+        bands = [band(F, W, "The smart features, SF1 to SF15", CARDS, 2, blk_cardrow, legend=True)]
 
     # Full-width bands are drawn UNDER the column flow so their contents read left-to-right, in
     # order — which is the whole point of numbering the features. Their height is reserved before

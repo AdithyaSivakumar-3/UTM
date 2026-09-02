@@ -1,12 +1,12 @@
 # ===================================================================================
-#  SF21 — noise capture. One slide: what it records, and the distinction that
+#  SF19 — noise capture. One slide: what it records, and the distinction that
 #  decides what the numbers may be used for.
 #
 #  Appended to generate_v6a_slides.py.
 # ===================================================================================
 
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SF21 · NOISE CAPTURE — MEASURING THE INSTRUMENT ALONE")
+title(s, "SF19 · NOISE CAPTURE — MEASURING THE INSTRUMENT ALONE")
 
 tb(s, 0.45, 1.12, 12.5, 0.46,
    "Every number this rig reports is specimen plus instrument. This records the instrument ALONE "

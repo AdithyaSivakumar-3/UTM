@@ -1,4 +1,4 @@
-"""Evidence figures for SF19 (capture) — real frames and real video, from S26.
+"""Evidence figures for SF17 (capture) — real frames and real video, from S26.
 
   sf_capture_strip.png   five stills across the pull, each labelled with the load and strain
                          that the LOAD CSV holds at that same instant

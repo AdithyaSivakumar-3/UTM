@@ -1,4 +1,4 @@
-"""Evidence for the SF11 (auto-metadata link) and SF15 (test registry) proof slides.
+"""Evidence for the SF11 (auto-metadata link) and SF14 (test registry) proof slides.
 
 Everything is read from the files at build time — the CSV headers, the run.json manifests and
 registry.json — so the slides cannot drift from what is on disk.

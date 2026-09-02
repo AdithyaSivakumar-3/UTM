@@ -863,16 +863,16 @@ def pic_or_ph(sl, path, x, y, w, ph_h, note):
     else:
         flow(sl, x, y, w, ph_h, note, fill=LIGHT_GREY, border=FLOW_NEUTRAL, fs=11, bold=True, fg=GREY_TEXT)
 
-# ---- Slide 169: SMART-UTM feature set (SF1-SF16) — proof slides FOLLOW in this order ----
+# ---- Slide 169: SMART-UTM feature set (SF1-SF15) — proof slides FOLLOW in this order ----
 # Rebuilt 2026-08-12: it showed only the original 8 cards and a banner promising "4 more modes"
-# that shipped on 2026-08-09. SF numbers are append-only IDs, so the grid runs SF1..SF16 in NUMERIC
-# order with status carried by colour. SF17 was carded and retired the same day — a card has to be
+# that shipped on 2026-08-09. SF numbers are append-only IDs, so the grid runs SF1..SF15 in NUMERIC
+# order with status carried by colour. Two entries have been dropped over time — a card has to be
 # something the OPERATOR invokes or that acts on the machine during a run; a developer-only
 # simulation harness is neither, and it was the one entry that made "all rig-validated" false.
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SMART-UTM FEATURE SET — SF1 to SF21")
+title(s, "SMART-UTM FEATURE SET — SF1 to SF19")
 
-# SF numbers are append-only IDs. SF17 was carded and retired the same day — a card has to be
+# The list was renumbered contiguous on 2026-09-02. Two entries were dropped — a card has to be
 # something the OPERATOR invokes or that acts on the machine during a run, and a developer-only
 # simulation harness is neither — so 17 stays struck and the numbering continues 18, 19, 20.
 _SF_BUILT = RGBColor(0xCF, 0xE2, 0xF3)      # built, not yet seen on the rig. BLUE, not a
@@ -892,12 +892,12 @@ _sf_cards = [
     (11, "Auto-metadata link", "capture ↔ CSV, by overlap", "done"),
     (12, "DIC auto-calibrate", "sweeps exposure × threshold", "built"),
     (13, "Guided wizard", "12 steps, optional, off by default", "done"),
-    (15, "Test registry", "every run + force anchor", "done"),
-    (16, "Dead-DIC guard + backstops", "0.2 s freeze / 1.0 s halt", "done"),
-    (18, "Live Px₀ overlay", "frozen vs live pair, on the feed", "done"),
-    (19, "Video + image capture", "PNG + 3 AVI styles, 0 dropped", "done"),
-    (20, "DIC post-processing", "measure any recorded video", "done"),
-    (21, "Noise capture", "the instrument at rest", "built"),
+    (14, "Test registry", "every run + force anchor", "done"),
+    (15, "Dead-DIC guard + backstops", "0.2 s freeze / 1.0 s halt", "done"),
+    (16, "Live Px₀ overlay", "frozen vs live pair, on the feed", "done"),
+    (17, "Video + image capture", "PNG + 3 AVI styles, 0 dropped", "done"),
+    (18, "DIC post-processing", "measure any recorded video", "done"),
+    (19, "Noise capture", "the instrument at rest", "built"),
 ]
 # Counted from the cards rather than typed. The hand-written version drifted every time a card was
 # added — it last read "17 + 2 + 1" against 19 cards, with only one card actually teal.
@@ -920,7 +920,7 @@ for _i, (_n, _t, _b, _st) in enumerate(_sf_cards):
     _f, _fg = _fill[_st]
     flow(s, _cx[_i % 4], _cy[_i // 4], 3.0, 1.00,
          "SF%d  %s\n%s" % (_n, _t, _b), fill=_f, border=_fg, fs=10.0, bold=True, fg=_fg)
-footer(s, "SF17 retired the day it was carded — a developer-only sim harness is not operator-facing. Four safety layers on every driven test: load-collapse · stall guard · 10 kN / 30 mm · dead-DIC freeze.")
+footer(s, "Renumbered 2026-09-02 to a contiguous SF1–SF19 — two entries were dropped, a developer-only sim harness and optics-blocked Poisson (now FW1). Four safety layers on every driven test: load-collapse · stall guard · 10 kN / 30 mm · dead-DIC freeze.")
 pageno(s)
 
 # ---- Slide 170: SF 1 · DIC health HUD — modes  [content unchanged, was slide 176] ----
@@ -3602,7 +3602,7 @@ pageno(s)
 # =====================================================================================
 # SEGMENT: SMART-FEATURE OVERVIEW — p248-249
 #
-# The SF1-SF19 grid on p167 is a dense index: findable, but not walkable. These two slides carry
+# The SF1-SF17 grid on p167 is a dense index: findable, but not walkable. These two slides carry
 # the same set at a size you can actually present from — one sentence per feature saying what it
 # does and, where it matters, WHY it was built that way.
 # =====================================================================================
@@ -3699,13 +3699,13 @@ sf_overview([
      "Creeps in tension on a 0.2 → 0.1 → 0.02 mm/s schedule and stops at 1.03× target, offsetting "
      "the ~2 % PLA relaxation that follows.", "done"),
 ])
-footer(s, "Green = built and rig-validated. The dense index of all 20 is on ⟪SMART-UTM FEATURE SET — SF1⟫; SF11–SF19 "
+footer(s, "Green = built and rig-validated. The dense index of all 20 is on ⟪SMART-UTM FEATURE SET — SF1⟫; SF11–SF17 "
           "continue on the next slide.")
 pageno(s)
 
-# ---- p249: SF11-SF19, the data and the setup ----
+# ---- p249: SF11-SF17, the data and the setup ----
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SMART FEATURES 11–21 — SETUP, EVIDENCE AND SAFETY")
+title(s, "SMART FEATURES 11–19 — SETUP, EVIDENCE AND SAFETY")
 tb(s, 0.4, 1.15, 12.55, 0.38,
    # No blue cards remain on this slide as of 2026-08-26, so the legend no longer explains one.
    "The features that make a run trustworthy rather than merely possible. Green = built AND "
@@ -3723,24 +3723,24 @@ sf_overview([
     (13, "Guided wizard",
      "Twelve steps in the order they must be done, read from flags the app already had. Optional "
      "and off by default — a checklist that cannot be dismissed is just a wider warning.", "done"),
-    (15, "Test registry",
+    (14, "Test registry",
      "One queryable index of every run with its computed E, σ_y, UTS, ε_f, toughness and force "
      "anchor. Killed the hard-coded CSV paths that caused two detector bugs.", "done"),
-    (16, "Dead-DIC guard + backstops",
+    (15, "Dead-DIC guard + backstops",
      "Freezes commanded speed if strain goes stale for 0.2 s and halts at 1.0 s, behind an "
      "always-on 10 kN / 30 mm / 900 s backstop.", "done"),
-    (18, "Live Px₀ overlay",
+    (16, "Live Px₀ overlay",
      "Draws the frozen reference pair and the live pair straight on the camera feed, with a "
      "caption whose Δ agrees with the strain readout. Screenshot on the rig: 1745 px frozen, "
      "1745 px live, Δ 0 — overlay and caption agree.", "done"),
-    (19, "Video + image capture",
+    (17, "Video + image capture",
      "PNG stills plus three AVI views — raw, contrast-boosted and adaptive speckle — recorded "
      "together. S25/S26: 3 127 stills and 3 × 3 127 frames, 0 dropped, 19.9 fps.", "done"),
-    (20, "DIC post-processing",
+    (18, "DIC post-processing",
      "A tab that measures strain from ANY recorded video with the rig's own pixel-to-strain rule, "
      "so our runs can be re-checked and another machine's footage measured on the same footing.",
      "done"),
-    (21, "Noise capture",
+    (19, "Noise capture",
      "Records the instrument AT REST for a chosen window and separates what a later run can be "
      "corrected for — offset and drift — from what it cannot: the residual sd, which is the "
      "measurement uncertainty.",
@@ -3748,16 +3748,17 @@ sf_overview([
 ])
 # The grid is FULL at ten cards now, so the legend chips and the summary banner that used to sit
 # in the spare slot have gone into the subtitle and the footer. The banner also had to go on its
-# own merits: it read "EVERY BUILT FEATURE IS RIG-VALIDATED", which SF21 makes false.
-footer(s, "SF14 and SF17 are absent by design: a card has to be something the OPERATOR invokes, "
-          "and neither is. SF14's work is future work (FW1), not a feature. SF21 is built and "
-          "verified offline but has not yet recorded a real pull.")
+# own merits: it read "EVERY BUILT FEATURE IS RIG-VALIDATED", which SF19 makes false.
+footer(s, "Renumbered 2026-09-02 to a contiguous SF1–SF19: two entries were dropped because a "
+          "card has to be something the OPERATOR invokes — measured Poisson (optics-blocked, now "
+          "future work FW1) and a developer-only simulation harness. SF19 is built and verified "
+          "offline but has not yet recorded a real pull.")
 pageno(s)
 
 # ---- smart-feature PROOF slides, placed directly under the two overview cards
 exec(open("documentation/scripts/sf_proof_block.py", encoding="utf-8").read())
 
-# ---- SF11 and SF15: the two features that were working but had no slide of their own
+# ---- SF11 and SF14: the two features that were working but had no slide of their own
 exec(open("documentation/scripts/sf11_sf15_block.py", encoding="utf-8").read())
 
 
@@ -4074,10 +4075,10 @@ exec(open("documentation/scripts/estimator_slides_block.py", encoding="utf-8").r
 # ---- MOT XT-205 vs the PPD-UTM, with the extensometer's own video through our DIC
 exec(open("documentation/scripts/motpp_slides_block.py", encoding="utf-8").read())
 
-# ---- SF20: the post-processing tab itself, and the evidence that it measures
+# ---- SF18: the post-processing tab itself, and the evidence that it measures
 exec(open("documentation/scripts/sf20_slides_block.py", encoding="utf-8").read())
 
-# ---- SF20: its built-in guide, and the seven steps read from the app itself
+# ---- SF18: its built-in guide, and the seven steps read from the app itself
 exec(open("documentation/scripts/sf20_guide_block.py", encoding="utf-8").read())
 
 # ---- why 20.9 px/mm, and whether more would be better
@@ -4086,7 +4087,7 @@ exec(open("documentation/scripts/pxmm_slides_block.py", encoding="utf-8").read()
 # The last two gaps on the deck checklist: the cross-protocol result, and the workflow guards.
 exec(open("documentation/scripts/workflow_slides_block.py", encoding="utf-8").read())
 
-# ---- SF21: noise capture, and the offset/drift/sd distinction it turns on
+# ---- SF19: noise capture, and the offset/drift/sd distinction it turns on
 exec(open("documentation/scripts/sf21_slides_block.py", encoding="utf-8").read())
 
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
