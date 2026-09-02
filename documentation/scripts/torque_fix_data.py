@@ -46,6 +46,23 @@ ROLES = {
     "S28": ("50 % white PLA", "50 % video pair VC5"),
     "S12": ("100 % BLACK PLA", "Black attempt VC6 — capture not filed"),
     "S13": ("100 % BLACK PLA", "Black preset VALIDATED VC7"),
+    # ---- the three-material campaign, 2026-08-22 onward ------------------------------------
+    # S29 is deliberately absent: it produced no valid properties (auto-stopped intact at peak by
+    # a bogus strain jump) and its folder is named _IGNORE. It has no UTS, so it never reaches
+    # this table anyway — but it must not be given a role that implies it counted.
+    "S30": ("100 % PETG", "PETG 1 of 3 VC9 — the representative run"),
+    "S31": ("100 % PETG", "PETG 2 of 3 VC10 — strength only, 57 % tracked"),
+    # S32 has no UTS (its force anchor failed), so post_fix() filters it out. Carded anyway so the
+    # role is already right if the anchor is ever recovered.
+    "S32": ("100 % PETG", "PETG 3 of 3 VC11 — peak sound, anchor failed"),
+    # The marker-SPACING test: the same PLA and the same rig as S25/S26, with the marker pair
+    # moved from 80 mm apart to 45 mm. Not a material test — the material is held constant so the
+    # spacing is the only thing that moves. It is what made S37 possible.
+    "S33": ("white PLA", "Marker spacing 45 mm VC12 — against S25"),
+    "S34": ("white PLA", "Marker spacing 45 mm VC13 — against S26"),
+    "S35": ("TPU 95A", "TPU pair VC14 — marker lost at ~15 mm travel"),
+    "S36": ("TPU 95A", "TPU pair — marker lost at ~15 mm travel"),
+    "S37": ("TPU 95A", "TPU at 45 mm markers VC15 — the fix"),
 }
 
 

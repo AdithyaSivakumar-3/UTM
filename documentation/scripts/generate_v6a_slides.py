@@ -1267,7 +1267,11 @@ pageno(s)
 
 # ---- The post-fix register: which runs carry a known-good load path ----
 _pf = TFX.post_fix()
-_pf100 = [x for x in _pf if "100 %" in x[2]]
+# 100 % INFILL PLA, which is the claim this KPI supports: those are the runs that had to clear the
+# supposed 2.6 kN ceiling. Matching on "100 %" alone in the material string was fine while every
+# entry was PLA, and silently wrong the moment "100 % PETG" was carded — PETG peaks near 3.2 kN and
+# dragged the quoted range down with it.
+_pf100 = [x for x in _pf if "100 %" in x[2] and "PLA" in x[2]]
 _pf100_pk = [x[4] for x in _pf100]
 
 s = prs.slides.add_slide(BLANK); ju(s)
@@ -1283,22 +1287,21 @@ tb(s, 0.5, 1.14, 12.4, 0.66,
    % TFX.FIX_DATE,
    fs=11.5, italic=True, colour=GREY_TEXT)
 
-table(s, 0.4, 1.88, 12.55, 3.15,
+table(s, 0.4, 1.84, 12.55, 3.66,
       [["Specimen", "Date", "Material", "What it was for", "Peak", "UTS", "E", "Outcome"]] +
       [[spec, date, mat, role, "%.0f N" % pk, "%.1f MPa" % uts,
         ("%.2f GPa" % E) if E else "—", "fractured"]
        for spec, date, mat, role, pk, uts, E in _pf],
-      cw=[1.05, 1.25, 1.75, 3.85, 1.05, 1.15, 1.15, 1.30], hf=10, bf=9.5)
+      cw=[1.05, 1.25, 1.75, 3.85, 1.05, 1.15, 1.15, 1.30], hf=9, bf=8.5)
 
-kpi(s, 0.4, 5.18, 3.05, "RUNS SINCE THE FIX", "%d" % len(_pf), vfs=17, fill=GREEN_PASS)
-kpi(s, 3.62, 5.18, 3.05, "STALLS SINCE THE FIX", "0", vfs=17, fill=GREEN_PASS)
-kpi(s, 6.84, 5.18, 3.05, "100 % RUNS, PEAK RANGE",
-    "%.0f–%.0f N" % (min(_pf100_pk), max(_pf100_pk)), vfs=14)
-kpi(s, 10.06, 5.18, 2.89, "STALLS BEFORE IT", "%d" % len(TFX.STALLS), vfs=17, fill=RED_FAIL)
+kpi(s, 0.4, 5.56, 3.05, "RUNS SINCE THE FIX", "%d" % len(_pf), vfs=16, h=0.62, fill=GREEN_PASS)
+kpi(s, 3.62, 5.56, 3.05, "STALLS SINCE THE FIX", "0", vfs=16, h=0.62, fill=GREEN_PASS)
+kpi(s, 6.84, 5.56, 3.05, "100 % PLA RUNS, PEAK RANGE",
+    "%.0f–%.0f N" % (min(_pf100_pk), max(_pf100_pk)), vfs=13, h=0.62)
+kpi(s, 10.06, 5.56, 2.89, "STALLS BEFORE IT", "%d" % len(TFX.STALLS), vfs=16, h=0.62, fill=RED_FAIL)
 
-header(s, 0.4, 6.26, 12.55, "Why this set is the one to quote")
-tb(s, 0.4, 6.60, 12.55, 0.48,
-   "All %d ran to fracture with no stutter, and the %d at 100 %% infill peaked %.0f–%.0f N — every "
+tb(s, 0.4, 6.30, 12.55, 0.62,
+   "All %d ran to fracture with no stutter, and the %d at 100 %% infill PLA peaked %.0f–%.0f N — every "
    "one ABOVE the %.1f kN carried as a hardware ceiling. Earlier results are not wrong (S15 and T7 "
    "were caught by the stall guard and excluded, never silently averaged in), but only this set is "
    "free of a load path that could bind."
