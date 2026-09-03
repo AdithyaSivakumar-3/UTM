@@ -721,6 +721,30 @@ show *all* smart features and auto-preload is a real, validated one that was sim
     session rather than one set for THIS specimen. The confirm dialog and Prepare share one formatter,
     so what is confirmed and what lands in the CSV header cannot drift apart.
 
+### 3a-bis. Two app fixes the MOT session-2 post-processing run exposed (2026-09-03)
+
+Both were found by running someone else's video through our own post-processing dialog, which is
+the first time it has been given footage the rig did not record. Neither corrupted a result — the
+analysis recovered from both — but a user without the .daq beside them would not have noticed.
+
+- ⬜ **Do not trust the container's frame rate.** The XT-205's AVI reports **1000 fps**; the true
+  rate is **19.864 fps**, from 3351 frames over 168.643 s of the acquisition clock. The dialog took
+  1000 at face value, so "Data ends at 3.350 s" and "mean rate 1.284e-02 /s" are both wrong by
+  **50.34×**. Strain is untouched — it is a pixel ratio — but every time-derived output is not.
+  *Fix:* when the container fps is a round number ≥ 100, or the implied duration disagrees with a
+  companion CSV's time span, say so in the dialog and offer to take the rate from the companion
+  file or from a typed duration. Silently believing the metadata is the bug; see
+  [[video-metadata-lies-verify-independently]] — this is the same trap that has now bitten fps,
+  frame count and seeking.
+
+- ⬜ **Take the noise window AFTER the preload, not from the raw strain zero.** The dialog reports
+  "Noise, 0.05–0.35 %" = **57.0 µε** for this record. Re-measured from the preload instant on the
+  same data it is **24.1 µε**. The raw window (t = 7.9–19.0 s) straddles the preload ramp at
+  8.85 s, so it is measuring the specimen SEATING, not the instrument. The figure is not wrong so
+  much as measured in the wrong place — and it is the number a reader will quote.
+  *Fix:* anchor the window at the preload instant when a load channel is available, and label it
+  when it is not.
+
 ### 3b. Longer-range features
 - ✅ **Strain nomenclature settled (2026-08-11).** Everything user-facing now says **engineering**
   (ΔL/L₀): report axes, live plot legend, the strain-source dropdown and the `Eng ε:` readout. The
@@ -788,6 +812,34 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   than theirs. The slopes differ for a reason that is not the maths: gauge share of commanded travel
   is 21.3 % (S25), 32.5 % (S26) and 59.4 % (MOT). Deck **p291–303**;
   `documentation/scripts/mot_postproc_compare.py`.
+
+  **REPEATED 2026-09-03 on session 2, a different gauge and a different specimen — deck p320–p325.**
+  Their 45 mm video through the same pipeline, paired frame-for-frame against their own
+  extensometer (3351 .daq rows and 3351 video frames, so frame *i* IS row *i* — no interpolation):
+
+  | | session 1 (80 mm) | session 2 (45 mm) |
+  |---|---|---|
+  | scale agreement | k = 0.99991 | **0.999283** (0.072 %) |
+  | constant offset | — | **−54.8 µε = −0.069 px** on a 1255 px span |
+  | R² of ours on theirs | — | **0.9999964** |
+  | σ_y / ε_f / E offsets | — | **+0.00 / +0.08 / +0.29 %** |
+
+  A repeat on different footage is what turns the first result from a coincidence into a
+  measurement. The pixel-to-strain step is settled.
+
+  **Two corrections this leg forced, both worth keeping:**
+  - *The noise reversal was over-read.* The 45 mm slide-set said we had "lost the lead" (MOT 26.7 µε
+    vs S34 44.0 µε). True — but that is two RIGS, not two estimators. On identical footage ours is
+    the quieter: **24.1 µε against their 28.6 µε**, the same direction session 1 found. Their
+    IMAGES are better than ours; our MATHS is not worse than theirs.
+  - *Their optics never changed.* Px₀ = 1254.93 px over 45.0034 mm is **27.885 px/mm**, the same
+    27.9 they used at 80 mm. That closes the "their session-2 optics are unknown" item.
+
+  **The new, quantified target:** 1/Px₀ predicts 32.9 µε for our pipeline on their 1255 px span; we
+  reach 24.1 µε — **1.4× better than the pixel count alone allows**. Their footage carries ~1.4×
+  less measurement noise per pixel than ours. That is lighting, focus and marker quality — not
+  optics, not software — and it is the first numeric target for improving our own noise floor
+  without touching the camera.
 - ⬜ **One pull at 2 mm/min — separate the rate effect from specimen scatter.** ⭐ *The cheapest open
   question in the project: one specimen, one run, no new hardware and no new code.*
 
