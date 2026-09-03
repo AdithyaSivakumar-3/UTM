@@ -37,6 +37,9 @@ def _frame(ax):
 _LABEL_OFFSET = {
     ("S25", "yield"): (-64, -34), ("S25", "UTS"): (2, -50), ("S25", "fracture"): (14, -44),
     ("S26", "yield"): (-72, 34), ("S26", "UTS"): (16, 30), ("S26", "fracture"): (-30, 32),
+    # the 45 mm pair, placed the same way: lower curve labels below, upper curve above
+    ("S33", "yield"): (-64, -34), ("S33", "UTS"): (2, -50), ("S33", "fracture"): (14, -44),
+    ("S34", "yield"): (-72, 34), ("S34", "UTS"): (16, 30), ("S34", "fracture"): (-30, 32),
 }
 
 

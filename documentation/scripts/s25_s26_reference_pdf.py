@@ -1,4 +1,5 @@
-"""The full-resolution S25 / S26 stress-strain reference document (PDF).
+"""The full-resolution stress-strain reference document (PDF), for whichever pair D.ORDER
+names — S25/S26 at 80 mm, S33/S34 at 45 mm.
 
 The deck can only carry the 64-row resampled comparison — 1 671 raw samples is 66 slides nobody
 would page through. This is where the raw samples live: every point the instrument recorded, in
@@ -52,14 +53,19 @@ def _canvas(pdf_title, subtitle=None):
     ax.text(PAGE[0] - MARGIN_R, PAGE[1] - 0.28, str(_page_no[0]), fontsize=8,
             color=MUTED, ha="right", va="baseline")
     ax.text(MARGIN_L, PAGE[1] - 0.28,
-            "UTM DIC · 8.6.20 tensile-to-failure · S25 / S26 frame-capture runs · "
-            "engineering stress on 80 mm², DIC gauge strain on 80 mm",
+            "UTM DIC · 8.6.20 tensile-to-failure · %s frame-capture runs · "
+            "engineering stress on %.0f mm², DIC gauge strain on %s"
+            # dict.fromkeys keeps order while collapsing a repeat: both runs of a pair normally
+            # share a gauge, and "45 mm / 45 mm" reads like a mistake rather than a fact
+            % (" / ".join(D.ORDER), D.AREA_MM2,
+               " / ".join(dict.fromkeys(
+                   "%.0f mm" % D.RUNS[t].get("gauge", D.GAUGE_MM) for t in D.ORDER))),
             fontsize=7, color=MUTED, va="baseline")
     return fig, ax
 
 
 def _fill_for(mark):
-    """The landmark colours for a row label like 'S25 yield' or 'S25 UTS + S26 yield'."""
+    """The landmark colours for a row label like 'S33 yield' or 'S33 UTS + S34 yield'."""
     for word in mark.split():
         if word in D.MARKS:
             return D.MARKS[word]
@@ -139,18 +145,19 @@ def _legend_strip(ax, y):
 # ---------------------------------------------------------------- pages
 
 def page_cover(pdf):
-    fig, ax = _canvas("S25 vs S26 — STRESS-STRAIN REFERENCE",
+    fig, ax = _canvas("%s vs %s — STRESS-STRAIN REFERENCE" % D.ORDER,
                       "Every recorded data point of both frame-capture fracture runs, for "
                       "line-by-line comparison against extensometer software")
 
-    img = P.overlay(os.path.join(HERE, "s25_s26_overlay.png"))
+    img = P.overlay(os.path.join(HERE, "%s_%s_overlay.png"
+                                 % (D.ORDER[0].lower(), D.ORDER[1].lower())))
     ax.imshow(plt.imread(img), extent=(MARGIN_L, 7.55, 5.35, 1.15), aspect="auto",
               interpolation="antialiased")
 
     x0 = 7.75
     ax.text(x0, 1.32, "HEADLINE NUMBERS", fontsize=9, color=MUTED, weight="bold")
     rows = []
-    a, b = D.summary("S25"), D.summary("S26")
+    a, b = (D.summary(t) for t in D.ORDER)
     for lbl, ka, fmt in (("UTS", "UTS", "{:.2f} MPa"), ("at strain", "UTS_e", "{:.2f} %"),
                          ("σ_y (0.2 %)", "sy", "{:.2f} MPa"), ("at strain", "sy_e", "{:.2f} %"),
                          ("E (fixed window)", "E", "{:.3f} GPa"), ("ε_f", "ef", "{:.2f} %"),
@@ -160,7 +167,8 @@ def page_cover(pdf):
                          ("Load samples", "n", "{:.0f}"),
                          ("Captured frames", "frames", "{:.0f}")):
         rows.append(([lbl, fmt.format(a[ka]), fmt.format(b[ka])], ""))
-    _block(ax, x0, 1.45, 3.5, rows, ["", "S25 · VC2", "S26 · VC3"], [1.5, 1.0, 1.0], rowh=0.185,
+    _block(ax, x0, 1.45, 3.5, rows, [""] + [D.RUNS[t]["label"] for t in D.ORDER],
+           [1.5, 1.0, 1.0], rowh=0.185,
            fs=7.6, hfs=7.6)
 
     L = _layout()
@@ -170,16 +178,18 @@ def page_cover(pdf):
             f"follows it\n"
             f"•  {_span(L['grid'], L['grid_n'])}   COMPARISON TABLE — both runs resampled onto one "
             f"common strain axis ({D.STEP_PCT:.2f} % steps), the form to read across\n"
-            f"•  {_span(L['S25'], L['S25_n'])}   FULL RESOLUTION · S25 — all "
-            f"{len(D.full_rows('S25'))} raw samples in acquisition order\n"
-            f"•  {_span(L['S26'], L['S26_n'])}   FULL RESOLUTION · S26 — all "
-            f"{len(D.full_rows('S26'))} raw samples in acquisition order\n\n"
-            "Stress is ENGINEERING stress (force ÷ 80 mm² nominal), anchor-corrected: the preload "
-            "tared away at the start of the test is\n"
-            "added back, which is why these values exceed the tared reading in the CSV header. "
-            "Strain is DIC gauge strain over an 80 mm\n"
-            "gauge, zeroed at Px₀. Both are exactly what the app's own report button computes — "
-            "utm_analysis.analyze(), no separate maths.",
+            # listed from ORDER, so a different pair needs no edit here
+            + "".join(
+                f"•  {_span(L[t], L[t + '_n'])}   FULL RESOLUTION · {t} — all "
+                f"{len(D.full_rows(t))} raw samples in acquisition order\n" for t in D.ORDER)
+            + "\n"
+            + f"Stress is ENGINEERING stress (force ÷ {D.AREA_MM2:.0f} mm² nominal), "
+              "anchor-corrected: the preload tared away at the start of the test is\n"
+              "added back, which is why these values exceed the tared reading in the CSV header. "
+              "Strain is DIC gauge strain over the\n"
+            + " / ".join("%.0f mm" % D.RUNS[t].get("gauge", D.GAUGE_MM) for t in D.ORDER)
+            + " marker spacing, zeroed at Px₀. Both are exactly what the app's own report button "
+              "computes — utm_analysis.analyze(), no separate maths.",
             fontsize=8.3, color=INK, va="top", linespacing=1.5)
     _legend_strip(ax, 7.55)
     pdf.savefig(fig)
@@ -194,19 +204,20 @@ def page_elastic(pdf):
               interpolation="antialiased")
 
     a, b = D.summary("S25"), D.summary("S26")
-    ba, bb = D.best_elastic_fit("S25"), D.best_elastic_fit("S26")
+    ba, bb = (D.best_elastic_fit(t) for t in D.ORDER)
     ax.text(MARGIN_L, 5.05,
             f"analyze() fits E over a FIXED 0.05–0.40 % strain window. A specimen that seats more "
             f"slowly has a longer toe, so that window lands further down the curve\n"
             f"and returns a softer modulus. Searching instead for each specimen's own straightest "
             f"run:\n\n"
-            f"     S25   fixed window {a['E']:.3f} GPa   →   straightest run "
+            f"     {D.ORDER[0]}   fixed window {a['E']:.3f} GPa   →   straightest run "
             f"{ba[0]:.3f} GPa over {ba[1]:.2f}–{ba[2]:.2f} %   (R² {ba[3]:.4f})\n"
-            f"     S26   fixed window {b['E']:.3f} GPa   →   straightest run "
+            f"     {D.ORDER[1]}   fixed window {b['E']:.3f} GPa   →   straightest run "
             f"{bb[0]:.3f} GPa over {bb[1]:.2f}–{bb[2]:.2f} %   (R² {bb[3]:.4f})\n\n"
             f"σ_y is a CONSEQUENCE of this. The 0.2 % offset line has slope E, so a softer E tilts "
             f"it down, meets the curve later, and pushes σ_y toward UTS:\n"
-            f"S25 reports σ_y at {100 * a['sy'] / a['UTS']:.1f} % of its UTS, S26 at "
+            f"{D.ORDER[0]} reports σ_y at {100 * a['sy'] / a['UTS']:.1f} % of its UTS, "
+            f"{D.ORDER[1]} at "
             f"{100 * b['sy'] / b['UTS']:.1f} %. The σ_y spread ({a['sy']:.1f} vs {b['sy']:.1f} MPa) "
             f"is largely the E spread re-expressed.\n\n"
             f"UTS needs no fit at all and agrees to "
@@ -239,10 +250,11 @@ def pages_grid(pdf, per_block=GRID_PER_BLOCK, blocks=GRID_BLOCKS):
             if not part:
                 break
             _block(ax, MARGIN_L + bi * (width + 0.5), 1.20, width, part,
-                   ["ε (%)", "S25 σ", "S26 σ", "Δ", "landmark"],
+                   ["ε (%)", "%s σ" % D.ORDER[0], "%s σ" % D.ORDER[1], "Δ", "landmark"],
                    [0.85, 0.95, 0.95, 0.85, 1.7], rowh=0.185, fs=7.4, hfs=7.4)
         ax.text(MARGIN_L, 6.75,
-                "σ in MPa. Δ = S26 − S25. “—” means that strain is past that specimen's fracture, "
+                "σ in MPa. Δ = %s − %s. “—” means that strain is past that specimen's fracture, "
+                % (D.ORDER[1], D.ORDER[0]) +
                 "so it has no stress there.",
                 fontsize=7.8, color=MUTED, va="baseline")
         _legend_strip(ax, 7.15)
@@ -288,7 +300,8 @@ def build(out=OUT):
         for tag in D.ORDER:
             pages_full(pdf, tag)
         info = pdf.infodict()
-        info["Title"] = "S25 vs S26 — stress-strain reference (8.6.20 tensile to failure)"
+        info["Title"] = ("%s vs %s — stress-strain reference "
+                         "(8.6.20 tensile to failure)" % D.ORDER)
         info["Subject"] = ("Full-resolution stress-strain data for the two frame-capture fracture "
                            "runs, for extensometer cross-validation")
         info["Author"] = "UTM DIC rig · Jönköping University"

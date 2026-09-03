@@ -45,15 +45,32 @@ _page = [0]
 TDS = {"UTS": 58.0, "E": 2.87, "ef": 0.08, "Tg": "55-60 degC"}
 FIX_DATE = "2026-08-12"                   # rig realignment; runs after it are the reliable set
 
+# ---- which session this pack is for -----------------------------------------------------------
+# The pack is written once and issued per session. PAIR is the two runs whose FRAMES exist, so
+# their software can re-process our actual pixels instead of testing a new specimen; GAUGE_MM is
+# the marker spacing those runs were measured at, which is the thing that changes between sessions.
+PAIR = ("S25", "S26")
+GAUGE_MM = 80.0
+REF_PDF = "S25_S26_stress_strain_reference.pdf"
+
+
+def set_session(pair, gauge_mm, ref_pdf):
+    global PAIR, GAUGE_MM, REF_PDF
+    PAIR, GAUGE_MM, REF_PDF = tuple(pair), float(gauge_mm), ref_pdf
+
 
 def pla100():
     """The clean 100 % PLA set, straight from the registry. Fracture-derived rows only."""
     with open(os.path.join(REPO, "Software", "UTM_PyQt6", "registry.json"), encoding="utf-8") as fh:
         R = json.load(fh)
     rows = R if isinstance(R, list) else R.get("tests", R.get("rows", []))
+    # 99 is accepted alongside 100: S33/S34 carry the label 99 because that is what was typed at
+    # the bench, and infill is a LABEL that enters no calculation. Their material and section are
+    # identical to the rest of the set, so excluding them on a typed digit would drop the two runs
+    # a 45 mm session is actually about.
     sel = [r for r in rows
            if (r.get("material") or "PLA") == "PLA"
-           and float(r.get("infill_pct") or 0) == 100.0
+           and float(r.get("infill_pct") or 0) >= 99.0
            and r.get("UTS_MPa")]
     return sorted(sel, key=lambda r: str(r.get("date")))
 
@@ -162,7 +179,7 @@ def page_cover(pdf, sel):
     u, e = stats(sel, "UTS_MPa"), stats(sel, "E_GPa")
     y = para(ax, ML, 1.35, 6.6,
              "WHAT WE ARE VALIDATING. Our strain comes from two spray dots tracked in a Basler "
-             "frame, 80 mm apart, at about 20.9 px/mm. Everything the campaign claims about PLA "
+             "frame, %.0f mm apart, at about 20.9 px/mm. Everything the campaign claims about PLA " % GAUGE_MM +
              "rests on that measurement being right. A video extensometer is an independent optical "
              "measurement of the same quantity, so agreement is the strongest evidence available "
              "without a contact extensometer.", fs=9)
@@ -194,7 +211,7 @@ def page_cover(pdf, sel):
     ax.text(x2, 3.35, "START WITH OUR OWN FRAMES",
             fontsize=10, color=HEAD, weight="bold")
     para(ax, x2, 3.66, 4.2,
-         "We have every frame of S25 and S26 as PNG stills plus AVI - 1445 and 1682 frames, 0 "
+         "We have every frame of %s and %s as PNG stills plus AVI - " % PAIR +
          "dropped, 19.9 fps, 100 % DIC coverage. Running OUR frames through THEIR software is the "
          "cleanest validation there is: identical pixels, two independent algorithms, no specimen, "
          "no machine and no operator in the difference. Bring them on a stick and ask before "
@@ -208,7 +225,7 @@ def page_cover(pdf, sel):
     # otherwise white. S25/S26 are the two runs captured expressly for this comparison.
     img = os.path.join(HERE, "s25_s26_overlay.png")
     if os.path.exists(img):
-        ax.text(ML, 4.55, "THE TWO RUNS CAPTURED FOR THIS COMPARISON - S25 AND S26",
+        ax.text(ML, 4.55, "THE TWO RUNS CAPTURED FOR THIS COMPARISON - %s AND %s" % PAIR,
                 fontsize=9.5, color=HEAD, weight="bold")
         im = plt.imread(img)
         h_in = 3.10
@@ -261,7 +278,7 @@ def page_reference(pdf, sel):
                      "From registry.json at build time. Every row is a specimen that fractured.")
     # S25 and S26 are THE comparison pair: both were run with frame capture expressly for
     # extensometer cross-validation, so every frame exists and can be re-processed.
-    REF = {"S25", "S26"}
+    REF = set(PAIR)
     rows = []
     for r in sel:
         post = str(r["date"])[:10] >= FIX_DATE
@@ -308,10 +325,10 @@ def page_reference(pdf, sel):
          "what an independent extensometer is being asked to confirm or refute.", fs=8.2)
 
     y = banner(ax, ML, y + 0.24, 7.4,
-               "AMBER ROWS - S25 and S26 - ARE THE COMPARISON PAIR. Both were run with frame "
-               "capture expressly for extensometer cross-validation: 1445 and 1682 frames, 0 "
-               "dropped, 100 % DIC coverage. Every frame still exists, so their software can "
-               "re-process our pixels. Quote these two first.", fill=WARN, fs=8.4)
+               ("AMBER ROWS - %s and %s - ARE THE COMPARISON PAIR. Both were run with frame "
+                "capture expressly for extensometer cross-validation. Every frame still exists, "
+                "so their software can re-process our pixels rather than test a new specimen. "
+                "Quote these two first." % PAIR), fill=WARN, fs=8.4)
     y = para(ax, ML, y + 0.34, 7.4,
              f"GREEN ROWS are PPD-UTM Mk II — after the {FIX_DATE} realignment. Prefer them if a wider "
              "subset has to be quoted: same rig, same DIC, and a load path known to be free of the "
@@ -407,14 +424,14 @@ def page_bring(pdf, sel):
     groups = [
         ("PRINTED", [
             "This pack (all 6 pages)",
-            "S25_S26_stress_strain_reference.pdf - stress at every 0.10 % strain step, so a "
+            REF_PDF + " - stress at every 0.10 % strain step, so a " +
             "number read off their software can be looked up rather than eyeballed off a curve",
-            "Per-specimen report PDFs for S25 and S26",
+            "Per-specimen report PDFs for %s and %s" % PAIR,
             "add:north E-PLA technical data sheet rev 2.1",
             "E_modulus_explained.pdf - why our fit window is what it is",
         ]),
         ("ON A USB STICK", [
-            "S25 and S26 frame folders - 1445 and 1682 PNGs plus the AVIs. The single most "
+            "%s and %s frame folders - PNGs plus the AVIs. The single most " % PAIR +
             "valuable item here if their software can ingest video",
             "Both raw CSVs, unfiltered",
             "registry.json - the whole specimen register",

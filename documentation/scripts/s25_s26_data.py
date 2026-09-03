@@ -26,7 +26,8 @@ sys.path.insert(0, os.path.abspath(_APP))
 from utm_analysis import analyze, read_csv  # noqa: E402
 
 BASE = os.path.abspath(os.path.join(_APP, "Test data", "8.6.20 - Tensile test to Failure"))
-AREA_MM2 = GAUGE_MM = 80.0
+AREA_MM2 = 80.0
+GAUGE_MM = 80.0                    # default; each run may override it (see RUNS[tag]["gauge"])
 STEP_PCT = 0.10                    # strain step of the common grid, in %
 ROWS_PER_SLIDE = 22
 
@@ -42,7 +43,30 @@ RUNS = {
                 csv="UTM_Test_20260817_111700_100%infill_Videocapture3.csv",
                 label="S26 · VC3", colour="#D95F02", frames=1682,
                 replay_distinct=1.000, replay_two_markers=0.999),
+
+    # ---- the 45 mm marker-spacing pair -------------------------------------------------------
+    # Same PLA, same rig, same capture feature; the ONLY variable moved is how far apart the two
+    # markers sit. That is what makes them the reference for a 45 mm session rather than a second
+    # material test. Frame counts are the PNG stills actually on disk.
+    "S33": dict(folder="Specimen_S33_V4_Spray_Video12", capture="20260824_111820",
+                csv="UTM_Test_20260824_111931.csv", gauge=45.0,
+                label="S33 · VC12 · 45 mm", colour="#1F6FB4", frames=2371,
+                replay_distinct=None, replay_two_markers=None),
+    "S34": dict(folder="Specimen_S34_V4_Spray_Video13", capture="20260824_113221",
+                csv="UTM_Test_20260824_113342.csv", gauge=45.0,
+                label="S34 · VC13 · 45 mm", colour="#D95F02", frames=2200,
+                replay_distinct=None, replay_two_markers=None),
 }
+
+PAIRS = {"80mm": ("S25", "S26"), "45mm": ("S33", "S34")}
+
+
+def use_pair(name):
+    """Point the whole module — and everything that iterates ORDER — at one of the pairs."""
+    global ORDER
+    ORDER = PAIRS[name]
+    _cache.clear()
+    return ORDER
 ORDER = ("S25", "S26")
 
 # The three landmarks, and the fill each one wears wherever it appears (deck table, PDF table,
@@ -67,7 +91,7 @@ def capture_dir(tag):
 def result(tag):
     """analyze() output for one run, computed once."""
     if tag not in _cache:
-        _cache[tag] = analyze(csv_path(tag), AREA_MM2, GAUGE_MM)
+        _cache[tag] = analyze(csv_path(tag), AREA_MM2, RUNS[tag].get("gauge", GAUGE_MM))
     return _cache[tag]
 
 
