@@ -1,5 +1,5 @@
 # ===================================================================================
-#  MOT session 2 against our own 45 mm runs — the comparison Test 1 could not make.
+#  MOT Test 2 against the PPD-UTM's own 45 mm runs — the comparison Test 1 could not make.
 #
 #  Six slides: how the comparison is made fair, the two curves, the strain records
 #  and the compliance question Test 1 left open, the elastic slope, the noise, and
@@ -25,11 +25,11 @@ _OURS_MM_MIN = _Rp["res"]["rate"] * 60.0
 
 # ================================================================= 1. making it fair
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "MOT SESSION 2 vs OUR 45 mm RUNS — MAKING THE COMPARISON FAIR")
+title(s, "MOT TEST 2 vs PPD-UTM 45 mm RUNS — MAKING IT FAIR")
 
 tb(s, 0.45, 1.08, 12.5, 0.40,
-   f"Session 1 could compare only strain RATE: that export carried no load and stopped at 0.40 % "
-   f"strain. Session 2 has a load channel and runs to fracture, so every landmark is now "
+   f"MOT Test 1 could compare only strain RATE: that export carried no load and stopped at 0.40 % "
+   f"strain. MOT Test 2 has a load channel and runs to fracture, so every landmark is now "
    f"comparable — provided three things are held fixed first.",
    fs=11, colour=BLACK)
 
@@ -47,7 +47,7 @@ table(s, 0.45, 1.92, 6.15, 1.64, [
 
 header(s, 6.85, 1.54, 6.1, "The three records")
 table(s, 6.85, 1.92, 6.1, 1.64, [
-    ["", "XT-205 (MOT)", f"{_P} · ours", f"{_S} · ours"],
+    ["", "MOT XT-205", f"{_P} · PPD-UTM", f"{_S} · PPD-UTM"],
     ["crosshead", f"{_RM['res']['speed_mm_min']:.0f} mm/min",
      f"{_OURS_MM_MIN:.1f} mm/min", f"{_Rs['res']['rate'] * 60.0:.1f} mm/min"],
     ["preload", f"{_RM['res']['preload']:.0f} N",
@@ -95,7 +95,7 @@ pageno(s)
 
 # ================================================================= 2. the two curves
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "THE TWO CURVES — YIELD AND FAILURE STRAIN AGREE, UTS DOES NOT")
+title(s, "MOT TEST 2 — YIELD AND ε_f AGREE, UTS DOES NOT")
 
 img_fit(s, "documentation/figures/mot2cmp_stress.png", 0.35, 1.10, 6.55, 3.70)
 
@@ -152,20 +152,20 @@ pageno(s)
 
 # ================================================================= 3. strain records + compliance
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "THE DIC STRAIN RECORDS — AND TEST 1'S OPEN QUESTION, CLOSED")
+title(s, "MOT TEST 2 — TEST 1'S OPEN QUESTION, CLOSED")
 
 img_fit(s, "documentation/figures/mot2cmp_strain.png", 0.45, 1.08, 12.5, 3.32)
 
 header(s, 0.45, 4.48, 4.05, "What Test 1 was left saying")
 tb(s, 0.45, 4.86, 4.05, 1.62,
-   f"Session 1 found the XT-205 reading strain 2.21× faster than us at the same commanded speed, "
-   f"and could not say why. The verdict then was explicit: a stiffer frame delivers a larger share "
-   f"of its crosshead travel to the gauge, so this is what a stiffer frame LOOKS like — \"but our "
-   f"calibration is not contradicted, nor is it confirmed. That needs their load or "
-   f"crosshead-displacement channel.\"",
+   f"MOT Test 1 found the XT-205 reading strain 2.21× faster than the PPD-UTM at the same "
+   f"commanded speed, and could not say why. The verdict then was explicit: a stiffer frame "
+   f"delivers a larger share of its crosshead travel to the gauge, so this is what a stiffer "
+   f"frame LOOKS like — \"but our calibration is not contradicted, nor is it confirmed. That "
+   f"needs their load or crosshead-displacement channel.\"",
    fs=9.5, colour=BLACK)
 
-header(s, 4.75, 4.48, 4.05, "Session 2 supplies it")
+header(s, 4.75, 4.48, 4.05, "MOT Test 2 supplies it")
 tb(s, 4.75, 4.86, 4.05, 1.62,
    f"With load on both sides the share can be measured instead of hypothesised, and it is "
    f"{_B['share']['MOT']['pct']:.0f} % for them against {_B['share'][_P]['pct']:.0f} % for {_P} and "
@@ -195,7 +195,7 @@ pageno(s)
 s = prs.slides.add_slide(BLANK); ju(s)
 # Kept under ~55 characters: at 30 pt the title box holds one line, and the first draft wrapped
 # "MACHINE" onto a second line that landed on top of the figure.
-title(s, "THE ELASTIC SLOPE — WHERE YOU FIT CHANGES WHAT YOU GET")
+title(s, "MOT TEST 2 — WHERE YOU FIT CHANGES WHAT YOU GET")
 
 img_fit(s, "documentation/figures/mot2cmp_elastic.png", 0.45, 1.08, 12.5, 3.32)
 
@@ -215,7 +215,7 @@ table(s, 0.45, 4.86, 6.15, 1.55, [
      f"{_off(_M['E_steep']['E'], _p['E_steep']['E']):+.1f} %", "—", "—"],
 ], cw=[1.5, 1.35, 1.5, 1.05, 0.8], hf=8.5, bf=8.5)
 
-header(s, 6.85, 4.48, 3.0, "Their curve has no toe")
+header(s, 6.85, 4.48, 3.0, "The XT-205 curve has no toe")
 tb(s, 6.85, 4.86, 3.0, 1.55,
    f"Their steepest straight run is {_M['E_steep']['lo']:.2f}–{_M['E_steep']['hi']:.2f} % — the "
    f"fixed window, near enough. Their two methods differ by "
@@ -223,7 +223,7 @@ tb(s, 6.85, 4.86, 3.0, 1.55,
    f"simply straight from the origin.",
    fs=9.5, colour=BLACK)
 
-header(s, 10.05, 4.48, 2.9, "Ours does")
+header(s, 10.05, 4.48, 2.9, "The PPD-UTM curve does")
 tb(s, 10.05, 4.86, 2.9, 1.55,
    f"Ours dips to 2.7 GPa near 0.15 % and is steepest only at "
    f"{_p['E_steep']['lo']:.2f}–{_p['E_steep']['hi']:.2f} %. That is grip seating still working "
@@ -247,7 +247,7 @@ _ns_M, _ns_P = _B["noise_s"]["MOT"], _B["noise_s"][_P]
 _nd_M, _nd_P = _B["noise_d"]["MOT"], _B["noise_d"][_P]
 
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "NOISE — WE LOST THE LEAD, AND THE REASON IS ARITHMETIC")
+title(s, "MOT TEST 2 — NOISE, AND WHY THE LEAD CHANGED HANDS")
 
 img_fit(s, "documentation/figures/mot2cmp_noise.png", 0.45, 1.08, 12.5, 3.32)
 
@@ -270,8 +270,8 @@ table(s, 0.45, 4.86, 6.15, 1.42, [
 
 header(s, 6.85, 4.48, 3.0, "A reversal, stated plainly")
 tb(s, 6.85, 4.86, 3.0, 1.42,
-   f"Session 1 reported OUR floor as the quieter, at {_G['mot1']['rms']:.0f} µε for them against "
-   f"~{_G['n80']:.0f} µε for us. Session 2 reverses it: {_ns_M['rms']:.0f} against "
+   f"MOT Test 1 reported the PPD-UTM floor as the quieter, at {_G['mot1']['rms']:.0f} µε for the "
+   f"XT-205 against ~{_G['n80']:.0f} µε for us. MOT Test 2 reverses it: {_ns_M['rms']:.0f} against "
    f"{_ns_P['rms']:.0f} µε. Both windows agree on the reversal, so it is not a windowing artefact.",
    fs=9.5, colour=BLACK)
 
@@ -289,13 +289,13 @@ banner(s, 0.40, 6.42, 12.55, 0.48,
        f"({_G['mot_ratio']:.2f}×), so theirs is limited by something else.",
        fill=YELLOW_WARN, fg=BLACK, fs=10.5)
 footer(s, f"All six records on one window ({_G['win'][0]:.2f}–{_G['win'][1]:.2f} %), which is the "
-          f"window session 1 used. Residual scatter about a straight fit, in microstrain.")
+          f"window MOT Test 1 used. Residual scatter about a straight fit, in microstrain.")
 pageno(s)
 
 
 # ================================================================= 6. what it settles
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "WHAT THE 45 mm COMPARISON SETTLES, AND WHAT IT DOES NOT")
+title(s, "MOT TEST 2 — WHAT THE COMPARISON SETTLES")
 
 tb(s, 0.45, 1.06, 12.5, 0.40,
    "An independent commercial extensometer, on its own machine, with its own optics and its own "
@@ -329,7 +329,7 @@ tb(s, 4.75, 1.90, 4.05, 2.84,
    f"plausibly carries half of the gap and specimen scatter the rest. Neither term is separable "
    f"from the other with n = 1 on each side.\n\n"
    f"Also explained: the {_G['measured']:.2f}× rise in our noise floor, which is 1/Px₀ and nothing "
-   f"else, and the strain-rate gap session 1 could not account for, which is the load train.",
+   f"else, and the strain-rate gap MOT Test 1 could not account for, which is the load train.",
    fs=9.5, colour=BLACK)
 
 header(s, 9.05, 1.52, 3.9, "STILL OPEN")
@@ -337,9 +337,9 @@ tb(s, 9.05, 1.90, 3.9, 2.84,
    f"1.  IS THE UTS GAP RATE OR SPECIMEN? One pull of ours at "
    f"{_RM['res']['speed_mm_min']:.0f} mm/min separates them. It is a single test on a specimen we "
    f"already print, and it is the cheapest open question in this deck.\n\n"
-   f"2.  WHY DID THEIR NOISE IMPROVE between sessions? Their session-2 optics are unknown, so their "
-   f"pixel span cannot be computed. Running their video through our pipeline gives us their px/mm "
-   f"directly ({ref('THE TWO CALCULATIONS AGREE')} did this for session 1).\n\n"
+   f"2.  WHY DID THE XT-205'S NOISE IMPROVE between the two tests? Its Test 2 optics are unknown, "
+   f"so its pixel span cannot be computed. Running MOT footage through the PPD-UTM pipeline gives "
+   f"that px/mm directly ({ref('THE TWO CALCULATIONS AGREE')} did it for MOT Test 1).\n\n"
    f"3.  THEIR GAUGE SHARE IS NOMINAL. A crosshead channel from them would turn "
    f"{_B['share']['MOT']['pct']:.0f} % from a bound into a measurement.",
    fs=9.5, colour=BLACK)

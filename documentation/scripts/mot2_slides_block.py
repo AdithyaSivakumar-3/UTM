@@ -1,5 +1,5 @@
 # ===================================================================================
-#  MOT session 2 — the XT-205 pulling a 45 mm gauge specimen, read from its own two
+#  MOT Test 2 — the XT-205 pulling a 45 mm gauge specimen, read from its own two
 #  channels. This is the INDEPENDENT record: their instrument, their maths, their
 #  machine. Nothing of ours is in it, which is what makes it worth having.
 #
@@ -28,7 +28,7 @@ _SPEED_RATIO = _OUR_MM_MIN / _D["speed_mm_min"]
 
 # ================================================================= 1. the record as it stands
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "MOT SESSION 2 — A 45 mm GAUGE PULL, AS THE XT-205 RECORDED IT")
+title(s, "MOT TEST 2 — A 45 mm GAUGE PULL, AS THE XT-205 RECORDED IT")
 
 img_fit(s, "documentation/figures/mot2_strain.png", 0.40, 1.14, 6.40, 3.49)
 
@@ -72,8 +72,8 @@ tb(s, 7.05, 5.30, 5.90, 1.17,
    fs=9.5, colour=BLACK)
 
 banner(s, 0.40, 6.55, 12.55, 0.40,
-       f"Everything above is THEIR instrument and THEIR maths on THEIR machine — no part of our "
-       f"pipeline touches it. That is what makes it usable as an independent check.",
+       f"Everything above is the MOT XT-205's own instrument, maths and machine — no part of the "
+       f"PPD-UTM pipeline touches it. That is what makes it usable as an independent check.",
        fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
 footer(s, "Source: Validation docs\\MOT Test 2\\Videoextesometer MOT\\strain-sample3.csv + "
           "sample3.daq. Parsed by documentation/scripts/mot2_data.py; nothing is retyped.")
@@ -84,13 +84,13 @@ pageno(s)
 s = prs.slides.add_slide(BLANK); ju(s)
 # 30 pt across the 12.5 in title box holds about 55 characters. The first draft ran to 59 and
 # PowerPoint clipped the overflow line, so the slide read "...QUESTION" and simply stopped.
-title(s, "MOT SESSION 2 — STRESS–STRAIN, AND WHAT THE ZERO COSTS")
+title(s, "MOT TEST 2 — STRESS–STRAIN, AND WHAT THE ZERO COSTS")
 
 img_fit(s, "documentation/figures/mot2_stress.png", 0.40, 1.14, 6.40, 3.49)
 
-header(s, 0.40, 4.72, 6.40, "Their speed is a third of ours, and that is not a defect")
+header(s, 0.40, 4.72, 6.40, "MOT pulls a third as fast — and that is not a defect")
 tb(s, 0.40, 5.10, 6.40, 1.38,
-   f"They pulled at {_D['speed_mm_min']:.0f} mm/min; we pull at {_OUR_MM_MIN:.1f} mm/min — "
+   f"MOT pulled at {_D['speed_mm_min']:.0f} mm/min; the PPD-UTM pulls at {_OUR_MM_MIN:.1f} — "
    f"{_SPEED_RATIO:.0f}× faster. PLA is rate-sensitive and a slower pull gives a LOWER strength, "
    f"so their {_D['uts']:.2f} MPa sitting below our {_S33['UTS']:.2f} / {_S34['UTS']:.2f} MPa is "
    f"the direction the physics predicts. It is carried into every comparison rather than averaged "
@@ -121,10 +121,10 @@ tb(s, 7.05, 3.64, 5.90, 1.40,
    f"moves E by {abs(_D['E'] - _D['E_rz']) / _D['E'] * 100:.0f} % — there is almost no toe to remove.",
    fs=9.5, colour=BLACK)
 
-header(s, 7.05, 5.12, 5.90, "Where their modulus lands")
+header(s, 7.05, 5.12, 5.90, "Where the XT-205 modulus lands")
 tb(s, 7.05, 5.50, 5.90, 0.97,
    f"Both values fall INSIDE our own 45 mm bracket, {_E_LO:.3f}–{_E_HI:.3f} GPa (S33 / S34). The "
-   f"full like-for-like comparison — and their footage through our pipeline, as in "
+   f"full like-for-like comparison — and MOT footage through the PPD-UTM pipeline, as in "
    f"{ref('THE TWO CALCULATIONS AGREE')} — follows.",
    fs=9.5, colour=BLACK)
 

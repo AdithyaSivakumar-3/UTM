@@ -1,5 +1,5 @@
 # ===================================================================================
-#  MOT session 2's video through OUR DIC post-processing — the third leg.
+#  MOT Test 2's video through the PPD-UTM DIC pipeline — the third leg.
 #
 #  Six slides: what was run and the two wrong inputs, the two strain records plotted
 #  separately, the agreement quantified, the stress-strain, the two slopes plotted
@@ -22,12 +22,14 @@ _pp, _mo, _s34 = _L["PP"], _L["MOT"], _L["S34"]
 
 # ================================================================= 1. what was run
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "THEIR VIDEO THROUGH OUR PIPELINE — THE THIRD LEG")
+title(s, "MOT TEST 2 — MOT FOOTAGE THROUGH THE PPD-UTM PIPELINE")
 
 tb(s, 0.45, 1.06, 12.5, 0.62,
-   f"Session 2 has now been measured three ways, and each pair differs in exactly ONE thing. Their "
-   f"extensometer and our pipeline read the SAME footage, so the only difference between them is "
-   f"the CALCULATION. Our pipeline on their footage and on our own {_P} differ only in the MACHINE. "
+   f"MOT Test 2 has now been measured three ways, and each pair differs in exactly ONE thing. The "
+   f"XT-205's "
+   f"extensometer and the PPD-UTM pipeline read the SAME footage, so the only difference between "
+   f"them is the CALCULATION. The PPD-UTM pipeline on MOT footage and on {_P} differs only in "
+   f"the MACHINE. "
    f"That is what makes a disagreement attributable instead of merely observed.",
    fs=11, colour=BLACK)
 
@@ -62,10 +64,10 @@ tb(s, 6.85, 2.14, 6.1, 1.35,
 
 header(s, 6.85, 3.56, 6.1, "And it answers a question we left open")
 tb(s, 6.85, 3.94, 6.1, 1.64,
-   f"The previous slide-set said their session-2 optics were unknown, so their pixel span could not "
-   f"be computed and their noise could not be explained. It can now: Px₀ = {_D['px0']:.1f} px over "
+   f"The previous slide-set said the XT-205's Test 2 optics were unknown, so its pixel span could "
+   f"not be computed and its noise could not be explained. It can now: Px₀ = {_D['px0']:.1f} px over "
    f"{_D['gauge_true']:.4f} mm is {_D['pxmm_true']:.3f} px/mm — the SAME 27.9 px/mm they used in "
-   f"session 1. Their optics did not change between sessions; only the gauge did.",
+   f"MOT Test 1. The XT-205's optics did not change between the two tests; only the gauge did.",
    fs=9.5, colour=BLACK)
 
 banner(s, 0.40, 5.76, 12.55, 0.52,
@@ -80,7 +82,7 @@ pageno(s)
 
 # ================================================================= 2. the two strain records
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "THE TWO STRAIN RECORDS FROM ONE VIDEO, PLOTTED SEPARATELY")
+title(s, "MOT TEST 2 — TWO STRAIN RECORDS FROM ONE VIDEO")
 
 img_fit(s, "documentation/figures/mot2pp_strain_pp.png", 0.35, 1.08, 6.35, 3.46)
 img_fit(s, "documentation/figures/mot2pp_strain_mot.png", 6.75, 1.08, 6.35, 3.46)
@@ -121,10 +123,10 @@ pageno(s)
 
 # ================================================================= 3. the agreement
 s = prs.slides.add_slide(BLANK); ju(s)
-# Deliberately NOT titled "THE TWO CALCULATIONS AGREE ...": the session-1 slide already carries
+# Deliberately NOT titled "THE TWO CALCULATIONS AGREE ...": the MOT Test 1 slide already carries
 # that phrase and another block refs it by exactly those words. A second slide containing it would
 # make that key ambiguous, which resolve_refs treats as a build failure — correctly.
-title(s, "SAME PIXELS, TWO CALCULATIONS — AND THEY AGREE AGAIN")
+title(s, "MOT TEST 2 — SAME PIXELS, TWO CALCULATIONS, ONE ANSWER")
 
 img_fit(s, "documentation/figures/mot2pp_agree.png", 0.45, 1.08, 12.5, 3.28)
 
@@ -144,10 +146,10 @@ tb(s, 6.85, 4.82, 3.0, 1.42,
    f"drifting scale. Regressing separates them.",
    fs=9.5, colour=BLACK)
 
-header(s, 10.05, 4.44, 2.9, "Session 1 said the same")
+header(s, 10.05, 4.44, 2.9, "MOT Test 1 said the same")
 tb(s, 10.05, 4.82, 2.9, 1.42,
    f"On the 80 mm footage the two calculations agreed to a median ratio of 1.0017 and k = 0.99991 "
-   f"({ref('THE TWO CALCULATIONS AGREE — SAME VIDEO')}). Different gauge, different specimen, same "
+   f"({ref('THE TWO CALCULATIONS AGREE')}). Different gauge, different specimen, same "
    f"answer — which is what makes it a repeat rather than a coincidence.",
    fs=9.5, colour=BLACK)
 
@@ -165,13 +167,13 @@ pageno(s)
 
 # ================================================================= 4. stress-strain
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "ONE LOAD CHANNEL, THREE STRAIN MEASUREMENTS")
+title(s, "MOT TEST 2 — ONE LOAD CHANNEL, THREE STRAIN READINGS")
 
 img_fit(s, "documentation/figures/mot2pp_stress.png", 0.35, 1.10, 6.55, 3.70)
 
-header(s, 7.10, 1.06, 5.85, "Every landmark, and the offset from THEIR reading")
+header(s, 7.10, 1.06, 5.85, "Every landmark, and the offset from the XT-205")
 table(s, 7.10, 1.44, 5.85, 2.10, [
-    ["", "ours ·\ntheir video", "XT-205 ·\ntheir maths", "offset", f"{_P} ·\nour rig"],
+    ["", "MOT footage ·\nPPD-UTM DIC", "MOT footage ·\nXT-205", "offset", f"{_P} ·\nPPD-UTM"],
     ["σ_y (0.2 % offset, MPa)", f"{_pp['sy_steep']:.2f}", f"{_mo['sy_steep']:.2f}",
      f"{_off(_pp['sy_steep'], _mo['sy_steep']):+.2f} %", f"{_s34['sy_steep']:.2f}"],
     ["UTS (MPa)", f"{_pp['uts']:.2f}", f"{_mo['uts']:.2f}",
@@ -209,7 +211,7 @@ tb(s, 0.35, 4.94, 6.55, 1.28,
    fs=9.5, colour=BLACK)
 
 banner(s, 0.40, 6.34, 12.55, 0.44,
-       f"The blue dashed curve is our maths and the red is theirs, on one specimen — they are "
+       f"The blue dashed curve is the PPD-UTM DIC and the red is the XT-205, on one specimen — they are "
        f"drawn on top of each other because they are the same measurement.",
        fill=GREEN_PASS, fg=BLACK, fs=11)
 footer(s, f"All three re-zeroed at the 300 N preload so they share our convention. Stress is the "
@@ -220,7 +222,7 @@ pageno(s)
 
 # ================================================================= 5. the two slopes
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "THE ELASTIC SLOPE, MEASURED TWICE ON THE SAME FOOTAGE")
+title(s, "MOT TEST 2 — THE ELASTIC SLOPE, MEASURED TWICE")
 
 img_fit(s, "documentation/figures/mot2pp_slope_pp.png", 0.35, 1.08, 6.35, 3.46)
 img_fit(s, "documentation/figures/mot2pp_slope_mot.png", 6.75, 1.08, 6.35, 3.46)
@@ -228,16 +230,16 @@ img_fit(s, "documentation/figures/mot2pp_slope_mot.png", 6.75, 1.08, 6.35, 3.46)
 header(s, 0.45, 4.62, 6.15, "The modulus, both methods, all three records")
 table(s, 0.45, 5.00, 6.15, 1.42, [
     ["", f"fixed {CMP.FIX_WIN[0]:.2f}–{CMP.FIX_WIN[1]:.2f} %", "steepest run", "window", "spread"],
-    ["ours · their video", f"{_pp['E_fix']['E']:.3f} GPa", f"{_pp['E_steep']['E']:.3f} GPa",
+    ["MOT footage · PPD-UTM DIC", f"{_pp['E_fix']['E']:.3f} GPa", f"{_pp['E_steep']['E']:.3f} GPa",
      f"{_pp['E_steep']['lo']:.2f}–{_pp['E_steep']['hi']:.2f} %",
      f"{abs(_pp['E_steep']['E'] - _pp['E_fix']['E']) / _pp['E_fix']['E'] * 100:.1f} %"],
-    ["XT-205 · their maths", f"{_mo['E_fix']['E']:.3f} GPa", f"{_mo['E_steep']['E']:.3f} GPa",
+    ["MOT footage · XT-205", f"{_mo['E_fix']['E']:.3f} GPa", f"{_mo['E_steep']['E']:.3f} GPa",
      f"{_mo['E_steep']['lo']:.2f}–{_mo['E_steep']['hi']:.2f} %",
      f"{abs(_mo['E_steep']['E'] - _mo['E_fix']['E']) / _mo['E_fix']['E'] * 100:.1f} %"],
-    [f"{_P} · our rig", f"{_s34['E_fix']['E']:.3f} GPa", f"{_s34['E_steep']['E']:.3f} GPa",
+    [f"{_P} · PPD-UTM", f"{_s34['E_fix']['E']:.3f} GPa", f"{_s34['E_steep']['E']:.3f} GPa",
      f"{_s34['E_steep']['lo']:.2f}–{_s34['E_steep']['hi']:.2f} %",
      f"{abs(_s34['E_steep']['E'] - _s34['E_fix']['E']) / _s34['E_fix']['E'] * 100:.1f} %"],
-    ["ours vs theirs, same video", f"{_off(_pp['E_fix']['E'], _mo['E_fix']['E']):+.2f} %",
+    ["PPD-UTM vs XT-205, same footage", f"{_off(_pp['E_fix']['E'], _mo['E_fix']['E']):+.2f} %",
      f"{_off(_pp['E_steep']['E'], _mo['E_steep']['E']):+.2f} %", "—", "—"],
 ], cw=[1.75, 1.3, 1.15, 1.1, 0.75], hf=8.5, bf=8.5)
 
@@ -252,7 +254,7 @@ header(s, 10.05, 4.62, 2.9, "And it isolates the toe")
 tb(s, 10.05, 5.00, 2.9, 1.42,
    f"{_P}'s trace dips to 2.7 GPa near 0.15 % and only reaches its steepest at "
    f"{_s34['E_steep']['lo']:.2f}–{_s34['E_steep']['hi']:.2f} %. Neither of these two does. So the "
-   f"toe is in OUR LOAD TRAIN, not in our maths — the grip-seating item, narrowed.",
+   f"toe is in the PPD-UTM LOAD TRAIN, not in its maths — the grip-seating item, narrowed.",
    fs=9.5, colour=BLACK)
 
 banner(s, 0.40, 6.56, 12.55, 0.44,
@@ -272,7 +274,7 @@ pageno(s)
 _pred = _N["S34"]["rms"] * _S["B"]["recs"][_P]["px0"] / _D["px0"]
 
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "WHAT THE THIRD LEG SETTLES — AND ONE CORRECTION")
+title(s, "MOT TEST 2 — WHAT THE THIRD LEG SETTLES")
 
 tb(s, 0.45, 1.06, 12.5, 0.40,
    "Three records, one specimen for two of them, one load channel for all three. Each pair differs "
@@ -281,7 +283,7 @@ tb(s, 0.45, 1.06, 12.5, 0.40,
 
 header(s, 0.45, 1.52, 4.05, "SETTLED — the calculation")
 table(s, 0.45, 1.90, 4.05, 1.42, [
-    ["same video, ours vs theirs", "offset"],
+    ["same footage, PPD-UTM vs XT-205", "offset"],
     ["scale", f"{abs(_D['scale_pct']):.3f} %"],
     ["σ_y", f"{_off(_pp['sy_steep'], _mo['sy_steep']):+.2f} %"],
     ["failure strain", f"{_off(_pp['ef'], _mo['ef']):+.2f} %"],
@@ -289,7 +291,7 @@ table(s, 0.45, 1.90, 4.05, 1.42, [
 ], cw=[2.6, 1.45], hf=9, bf=9)
 tb(s, 0.45, 3.44, 4.05, 1.42,
    f"Two independent calculations on identical pixels, agreeing to better than a tenth of a pixel. "
-   f"Whatever else is uncertain in this project, the pixel-to-strain step is not — and session 1 "
+   f"Whatever else is uncertain in this project, the pixel-to-strain step is not — and MOT Test 1 "
    f"said the same on a different gauge and a different specimen.",
    fs=9.5, colour=BLACK)
 
@@ -299,7 +301,7 @@ tb(s, 4.75, 1.90, 4.05, 2.96,
    f"for them against {_N['S34']['rms']:.1f} µε for {_P}. That comparison stands, but it is between "
    f"two RIGS, not two estimators, and it was read too broadly.\n\n"
    f"On identical footage our estimator is the quieter one: {_N['PP']['rms']:.1f} µε against their "
-   f"{_N['MOT']['rms']:.1f} µε, the same direction session 1 found. The rig comparison and the "
+   f"{_N['MOT']['rms']:.1f} µε, the same direction MOT Test 1 found. The rig comparison and the "
    f"estimator comparison are different questions and this leg is what separates them.\n\n"
    f"The honest reading: their IMAGES are better than ours, our MATHS is not worse than theirs.",
    fs=9.5, colour=BLACK)
@@ -309,7 +311,7 @@ tb(s, 9.05, 1.90, 3.9, 2.96,
    f"1/Px₀ predicted our floor exactly across our own two gauges. Applied here it predicts "
    f"{_pred:.1f} µε on their {_D['px0']:.0f} px span; we actually reach {_N['PP']['rms']:.1f} µε — "
    f"{_pred / _N['PP']['rms']:.2f}× BETTER than the pixel count alone allows.\n\n"
-   f"So their footage carries roughly {_pred / _N['PP']['rms']:.1f}× less measurement noise per "
+   f"So MOT footage carries roughly {_pred / _N['PP']['rms']:.1f}× less measurement noise per "
    f"pixel than ours does. That is lighting, focus and marker quality, not optics and not "
    f"software — and it is the first quantified target for improving our own noise floor without "
    f"touching the camera.",
@@ -325,7 +327,7 @@ banner(s, 0.40, 4.58, 12.55, 0.68,
 
 tb(s, 0.45, 5.42, 12.5, 1.00,
    f"STILL OPEN, AND NARROWED: the {abs(_off(_mo['uts'], _s34['uts'])):.1f} % UTS gap to {_P} is "
-   f"now definitively not the DIC — the same maths on their video reproduces their number to "
+   f"now definitively not the DIC — the PPD-UTM maths on MOT footage reproduces the XT-205 to "
    f"{abs(_off(_pp['uts'], _mo['uts'])):.2f} %. It is the pull speed or the specimen, and one run "
    f"of ours at {_S['B']['recs']['MOT']['res']['speed_mm_min']:.0f} mm/min separates those two. "
    f"What this leg removed is the third candidate.",

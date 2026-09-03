@@ -1,4 +1,4 @@
-"""Figures for MOT session 2 — the XT-205's own 45 mm gauge pull.
+"""Figures for MOT Test 2 — the XT-205's own 45 mm gauge pull.
 
   mot2_strain.png    strain against time, the instrument's raw output
   mot2_stress.png    engineering stress against that strain, with the landmarks
@@ -137,7 +137,7 @@ def fig_stress(D=None):
 
 
 def all_figs():
-    print("MOT session 2 figures:")
+    print("MOT Test 2 figures:")
     D = M.load()
     fig_strain(D)
     fig_stress(D)

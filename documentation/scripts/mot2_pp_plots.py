@@ -1,11 +1,11 @@
-"""Figures for MOT session 2's video through our DIC post-processing.
+"""Figures for MOT Test 2's video through the PPD-UTM DIC pipeline.
 
 Separate plots, deliberately, so each record can be read on its own terms before the overlay:
 
-  mot2pp_strain_pp.png    full strain record — OUR pipeline on their video
-  mot2pp_strain_mot.png   full strain record — THEIR extensometer on the same video
-  mot2pp_slope_pp.png     elastic slope — ours
-  mot2pp_slope_mot.png    elastic slope — theirs
+  mot2pp_strain_pp.png    full strain record — PPD-UTM DIC on XT-205 footage
+  mot2pp_strain_mot.png   full strain record — the XT-205's own extensometer
+  mot2pp_slope_pp.png     elastic slope — PPD-UTM DIC
+  mot2pp_slope_mot.png    elastic slope — XT-205
   mot2pp_agree.png        the two against each other, and the difference
   mot2pp_stress.png       stress-strain from both strains against the one shared load
 """
@@ -25,7 +25,7 @@ import mot2_pp as PP                                                  # noqa: E4
 import mot2_compare as CMP                                            # noqa: E402
 
 INK, GRID, MUTED = "#212529", "#DDDDDD", "#666666"
-# OURS keeps the blue it wears throughout the comparison block; THEIRS keeps the XT-205's red.
+# PPD-UTM keeps the blue it wears through this block; the XT-205 keeps its red.
 C_PP, C_MOT, C_S34 = "#1F6FB4", "#d62728", "#7FAF3F"
 GOOD, BAD = "#2e7d32", "#c0392b"
 
@@ -79,7 +79,7 @@ def fig_strain_pp(S=None):
     D = S["D"]
     _strain_panel(
         D["t"], D["e"], C_PP,
-        "OUR DIC pipeline on the XT-205's video — full record",
+        "PPD-UTM DIC on the XT-205's footage — full record",
         "Px₀     %.1f px\nframes  %d, %.0f %% tracked\nto fracture %d"
         % (D["px0"], D["n_frames"], 100.0 * D["tracked"] / D["n"], D["n"]),
         "mot2pp_strain_pp.png",
@@ -93,7 +93,7 @@ def fig_strain_mot(S=None):
     D = S["D"]
     _strain_panel(
         D["t_mot"], D["e_mot"], C_MOT,
-        "The XT-205's own extensometer on the SAME video — full record",
+        "The XT-205's own extensometer on the SAME footage — full record",
         "gauge   %.4f mm\nrows    %d of %d frames\n(the rest read \"Invalid\")"
         % (D["gauge_true"], len(D["t_mot"]), D["n_frames"]),
         "mot2pp_strain_mot.png",
@@ -139,14 +139,14 @@ def _slope_panel(e, sig, colour, who, L, fname):
 def fig_slope_pp(S=None):
     S = S or PP.build()
     _slope_panel(S["ours"]["e"], S["ours"]["sig"], C_PP,
-                 "Elastic slope — OUR DIC on their video", S["L"]["PP"],
+                 "Elastic slope — PPD-UTM DIC on XT-205 footage", S["L"]["PP"],
                  "mot2pp_slope_pp.png")
 
 
 def fig_slope_mot(S=None):
     S = S or PP.build()
     _slope_panel(S["mot"]["e"], S["mot"]["sig"], C_MOT,
-                 "Elastic slope — THEIR extensometer, same video", S["L"]["MOT"],
+                 "Elastic slope — the XT-205's own extensometer", S["L"]["MOT"],
                  "mot2pp_slope_mot.png")
 
 
@@ -162,8 +162,8 @@ def fig_agree(S=None):
 
     a1.plot([0, 5.6], [0, 5.6], "-", color="#BBBBBB", lw=1.6, zorder=1)
     a1.plot(x, y, ".", ms=2.2, color=C_PP, alpha=0.55, zorder=3)
-    a1.set_xlabel("their extensometer, strain (%)", fontsize=9)
-    a1.set_ylabel("our DIC, strain (%)", fontsize=9)
+    a1.set_xlabel("XT-205 extensometer, strain (%)", fontsize=9)
+    a1.set_ylabel("PPD-UTM DIC, strain (%)", fontsize=9)
     a1.set_title("(a) %d matched instants on one video" % D["live_n"], fontsize=9.5, color=INK)
     a1.text(0.05, 0.95,
             "ours = %.6f × theirs\n           %+.1f µε\nR² = %.7f"
@@ -187,7 +187,7 @@ def fig_agree(S=None):
                 xy=(5.05, np.median(d[x > 4.6])), xytext=(1.15, -232), fontsize=8.0, color=MUTED,
                 arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.0))
     a2.set_xlabel("their extensometer, strain (%)", fontsize=9)
-    a2.set_ylabel("ours − theirs (µε)", fontsize=9)
+    a2.set_ylabel("PPD-UTM − XT-205 (µε)", fontsize=9)
     a2.set_title("(b) the difference, and what it is made of", fontsize=9.5, color=INK)
     a2.set_xlim(-0.2, 5.7)
     a2.set_ylim(-260, 130)
@@ -206,11 +206,11 @@ def fig_stress(S=None):
     fig, ax = plt.subplots(figsize=(6.30, 3.55))
 
     ax.plot(S["s34"]["e"], S["s34"]["sig"], "-", color=C_S34, lw=1.5, alpha=0.85,
-            label="%s · our rig, our video" % S["primary"])
+            label="%s · PPD-UTM" % S["primary"])
     ax.plot(S["mot"]["e"], S["mot"]["sig"], "-", color=C_MOT, lw=2.0,
-            label="XT-205 · their maths")
+            label="XT-205 · own extensometer")
     ax.plot(S["ours"]["e"], S["ours"]["sig"], "--", color=C_PP, lw=1.9,
-            label="OUR maths, their video")
+            label="XT-205 footage · PPD-UTM DIC")
 
     for k, col in (("MOT", C_MOT), ("PP", C_PP)):
         l = S["L"][k]
@@ -229,7 +229,7 @@ def fig_stress(S=None):
 
     ax.set_xlabel("strain (%)  —  all three on the preload-frozen zero", fontsize=9)
     ax.set_ylabel("engineering stress (MPa)", fontsize=9)
-    ax.set_title("Two readings of one specimen, and our own rig beside them",
+    ax.set_title("One specimen read twice, with the PPD-UTM run beside it",
                  fontsize=10, color=INK)
     ax.legend(fontsize=8.2, loc="upper left", frameon=False)
     ax.tick_params(labelsize=8.5)
@@ -242,8 +242,91 @@ def fig_stress(S=None):
     print("  mot2pp_stress.png")
 
 
+# --------------------------------------------------------------------------- strain rate, Test 2
+#
+# Deliberately the same two panels, colours and titles as MOT Test 1's figure
+# (mot_postproc_compare.figure) so the two tests can be read against each other without the reader
+# having to re-learn a layout. Only the records and the window change.
+# Test 1's exact four colours, so the two figures can be laid side by side and read as one series
+# of results: purple is always "PPD-UTM DIC on XT-205 footage", red is always the XT-205's own
+# extensometer, and our own runs keep blue and orange.
+C_RATE_PP, C_RATE_MOT, C_S33, C_S34 = "#7048e8", "#d62728", "#1f77b4", "#e8590c"
+RATE_LO, RATE_HI = 0.05, 0.35            # % strain, on the preload-zeroed axis
+
+
+def _rate_over(t, e, lo=RATE_LO, hi=RATE_HI):
+    t, e = np.asarray(t, float), np.asarray(e, float)
+    m = (e >= lo) & (e <= hi)
+    if m.sum() < 10:
+        return None
+    sl = float(np.polyfit(t[m], e[m] / 100.0, 1)[0])
+    return sl, float(np.corrcoef(t[m], e[m])[0, 1] ** 2), int(m.sum())
+
+
+def fig_rate(S=None):
+    """MOT Test 2's version of Test 1's strain-rate figure.
+
+    The window is 0.05-0.35 % of the PRELOAD-ZEROED strain rather than of the raw strain. Test 1's
+    records began at a seated specimen so the two are the same thing there; Test 2's preload lands
+    inside the recording, and a raw window would sit on the seating ramp — the same fault that made
+    the noise figure read 57 ue instead of 24.
+    """
+    S = S or PP.build()
+    B = S["B"]
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.9),
+                             gridspec_kw={"width_ratios": [1.0, 1.12], "wspace": 0.20})
+
+    ax = axes[0]
+    ax.plot(S["mot"]["t"], S["mot"]["e"], "-", color=C_RATE_MOT, lw=2.4, alpha=0.85,
+            label="XT-205 extensometer")
+    ax.plot(S["ours"]["t"], S["ours"]["e"], "--", color=C_RATE_PP, lw=1.5,
+            label="PPD-UTM DIC")
+    ax.axhspan(RATE_LO, RATE_HI, color="#1f77b4", alpha=0.10)
+    ax.set_xlim(-1, 40)
+    ax.set_ylim(-0.05, 0.90)
+    ax.set_xlabel("time from the preload (s)")
+    ax.set_ylabel("strain (%)")
+    ax.set_title("The XT-205's own footage, measured two ways\n(shaded: the fitted window)",
+                 fontsize=10.5, color=INK)
+    ax.legend(fontsize=8.4, loc="upper left", framealpha=0.95)
+    _style(ax)
+
+    rows = [("XT-205 footage · PPD-UTM DIC",
+             _rate_over(S["ours"]["t"], S["ours"]["e"]), C_RATE_PP),
+            ("XT-205 footage · XT-205 extensometer",
+             _rate_over(S["mot"]["t"], S["mot"]["e"]), C_RATE_MOT),
+            ("S33 · PPD-UTM", _rate_over(B["recs"]["S33"]["t"], B["recs"]["S33"]["e"]), C_S33),
+            ("S34 · PPD-UTM", _rate_over(B["recs"]["S34"]["t"], B["recs"]["S34"]["e"]), C_S34)]
+    rows = [r for r in rows if r[1]]
+
+    ax = axes[1]
+    from matplotlib.transforms import blended_transform_factory
+    y = np.arange(len(rows))[::-1]
+    vals = [r[1][0] for r in rows]
+    b = ax.barh(y, [v * 1e4 for v in vals], color=[r[2] for r in rows], height=0.40)
+    tr = blended_transform_factory(ax.transAxes, ax.transData)
+    for rr, v, (nm, _s, _c) in zip(b, vals, rows):
+        yc = rr.get_y() + rr.get_height() / 2
+        ax.text(0.012, yc + 0.30, nm, transform=tr, va="bottom", ha="left",
+                fontsize=8.2, color=INK)
+        ax.text(v * 1e4 + 0.04, yc, "%.2e /s" % v, va="center", fontsize=8.2,
+                color=INK, fontweight="bold")
+    ax.set_yticks([])
+    ax.set_ylim(-0.62, len(rows) - 0.32)
+    ax.set_xlim(0, max(vals) * 1e4 * 1.34)
+    ax.set_xlabel("d(ε)/dt over %.2f–%.2f %%  (×10⁻⁴ /s)" % (RATE_LO, RATE_HI))
+    ax.set_title("Strain rate on one shared window", fontsize=10.5, color=INK)
+    _style(ax)
+
+    fig.subplots_adjust(left=0.062, right=0.995, top=0.86, bottom=0.145)
+    fig.savefig(os.path.join(FIGS, "mot2pp_rate.png"), dpi=200, facecolor="white")
+    plt.close(fig)
+    print("  mot2pp_rate.png")
+    return rows
+
+
 def all_figs():
-    print("MOT session 2 post-processing figures:")
+    print("MOT Test 2 post-processing figures:")
     S = PP.build()
     fig_strain_pp(S)
     fig_strain_mot(S)
@@ -251,6 +334,7 @@ def all_figs():
     fig_slope_mot(S)
     fig_agree(S)
     fig_stress(S)
+    fig_rate(S)
     return S
 
 

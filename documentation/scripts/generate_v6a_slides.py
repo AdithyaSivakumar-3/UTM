@@ -4096,8 +4096,11 @@ exec(open("documentation/scripts/mot2_slides_block.py", encoding="utf-8").read()
 # ---- MOT session 2 against our own 45 mm pair: the comparison Test 1 could not make
 exec(open("documentation/scripts/mot2_cmp_slides_block.py", encoding="utf-8").read())
 
-# ---- MOT session 2's video through OUR pipeline: the leg that isolates the calculation
+# ---- MOT Test 2's video through the PPD-UTM pipeline: the leg that isolates the calculation
 exec(open("documentation/scripts/mot2_pp_slides_block.py", encoding="utf-8").read())
+
+# ---- the same strain-rate figure for both tests, side by side
+exec(open("documentation/scripts/mot_rate_slides_block.py", encoding="utf-8").read())
 
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.

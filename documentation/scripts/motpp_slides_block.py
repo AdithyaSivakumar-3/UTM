@@ -25,7 +25,7 @@ _S26 = _MR["S26"]
 
 # ================================================================= 1. what was tested
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "MOT XT-205 vs %s — WHAT WAS TESTED, AND HOW" % _RIG)
+title(s, "MOT TEST 1 — WHAT WAS TESTED, AND HOW")
 img_fit(s, "documentation/figures/motpp_setup.png", 0.4, 1.16, 12.5, 2.72)
 
 header(s, 0.45, 4.02, 6.15, "The design: three legs, so a disagreement can be attributed")
@@ -66,7 +66,7 @@ _L0_M, _L0_O = 2234.4, 1676.3
 _PP_UE, _S25_UE = _PP["noise_ue"], _S25["noise_ue"]
 
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "SAME 80 mm GAUGE, DIFFERENT PIXEL COUNTS — WHY THAT IS FINE")
+title(s, "MOT TEST 1 — SAME 80 mm GAUGE, DIFFERENT PIXEL COUNTS")
 
 tb(s, 0.45, 1.12, 12.5, 0.42,
    "On the previous slide the XT-205's gauge spans %d px and the %s's spans %d px, yet both are "
@@ -111,7 +111,7 @@ pageno(s)
 
 # ================================================================= 2. the calculations agree
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "THE TWO CALCULATIONS AGREE — SAME VIDEO, SAME ANSWER")
+title(s, "MOT TEST 1 — THE TWO CALCULATIONS AGREE")
 img_fit(s, "documentation/figures/mot_postproc_compare.png", 0.4, 1.14, 12.5, 2.55)
 
 header(s, 0.45, 3.84, 6.15, "Read at matched instants — no fitting at all")  # noqa
@@ -152,7 +152,7 @@ pageno(s)
 
 # ================================================================= 3. why the slopes differ
 s = prs.slides.add_slide(BLANK); ju(s)
-title(s, "WHY THE SLOPES DIFFER — WHERE THE COMMANDED MOTION GOES")
+title(s, "MOT TEST 1 — WHY THE SLOPES DIFFER")
 img_fit(s, "documentation/figures/motpp_share.png", 0.4, 1.12, 12.5, 2.44)
 
 header(s, 0.45, 3.66, 12.5,

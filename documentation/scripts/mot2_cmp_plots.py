@@ -1,4 +1,4 @@
-"""Figures for MOT session 2 against our own 45 mm runs.
+"""Figures for MOT Test 2 against the PPD-UTM's own 45 mm runs.
 
   mot2cmp_stress.png    the two stress-strain curves, with every landmark marked
   mot2cmp_strain.png    strain against time — the DIC records side by side
@@ -22,8 +22,8 @@ sys.path.insert(0, HERE)
 import mot2_compare as C                                              # noqa: E402
 
 INK, GRID, MUTED = "#212529", "#DDDDDD", "#666666"
-# MOT keeps the red it wears on the two session-2 slides that precede these; our primary run takes
-# blue and the second reference grey, so the eye reads "them vs us" before it reads any label.
+# The XT-205 keeps the red it wears on the two MOT Test 2 slides before these; the PPD-UTM
+# takes blue and the second reference grey, so MOT-vs-PPD-UTM reads at a glance.
 COL = {"MOT": "#d62728", "S34": "#1F6FB4", "S33": "#9AA5AB"}
 LW = {"MOT": 1.9, "S34": 1.9, "S33": 1.3}
 
@@ -40,7 +40,7 @@ def _order(B):
 
 
 def _name(B, k):
-    return "XT-205 (MOT)" if k == "MOT" else "%s · ours" % k
+    return "MOT XT-205" if k == "MOT" else "%s · PPD-UTM" % k
 
 
 # --------------------------------------------------------------------------- stress-strain
@@ -74,7 +74,8 @@ def fig_stress(B=None):
 
     ax.set_xlabel("strain (%)  —  both on our preload-frozen zero", fontsize=9)
     ax.set_ylabel("engineering stress (MPa)", fontsize=9)
-    ax.set_title("Stress–strain: the XT-205 against our own 45 mm runs", fontsize=10, color=INK)
+    ax.set_title("Stress–strain: MOT XT-205 against the PPD-UTM's 45 mm runs",
+                 fontsize=10, color=INK)
     ax.legend(fontsize=8.2, loc="upper left", frameon=False, ncol=1,
               title="▲ yield   ● UTS   ■ fracture", title_fontsize=7.6)
     # Both curves start at the preload stress rather than at zero, and they start at the SAME one —
@@ -298,7 +299,7 @@ def fig_noise(B=None):
 
 
 def all_figs():
-    print("MOT session 2 comparison figures:")
+    print("MOT Test 2 comparison figures:")
     B = C.build()
     fig_stress(B)
     fig_strain(B)
