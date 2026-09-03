@@ -788,6 +788,28 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   than theirs. The slopes differ for a reason that is not the maths: gauge share of commanded travel
   is 21.3 % (S25), 32.5 % (S26) and 59.4 % (MOT). Deck **p291–303**;
   `documentation/scripts/mot_postproc_compare.py`.
+- ⬜ **One pull at 2 mm/min — separate the rate effect from specimen scatter.** ⭐ *The cheapest open
+  question in the project: one specimen, one run, no new hardware and no new code.*
+
+  The 45 mm comparison (deck **p314–p319**) put the XT-205 and our S34 within **1.0 % on yield** and
+  **0.8 % on failure strain**, with both moduli inside our own run-to-run bracket. But every
+  post-yield quantity disagrees in one direction — **UTS −7.7 %**, strain at UTS −15.5 %, toughness
+  −7.9 % — and there are exactly two candidate causes that the data cannot currently separate:
+
+  1. **The pull speed.** They ran 2 mm/min; we run 6.0 mm/min. PLA is rate-sensitive and a slower
+     pull gives a lower peak reached earlier in strain, which is the direction of every one of
+     those differences. For PLA a 3× rate change is worth a few per cent — so rate plausibly
+     carries about half the gap.
+  2. **The specimen.** n = 1 on each side, and our own S33/S34 differ by 2.7 % on UTS.
+
+  **The test:** pull one 100 % infill PLA specimen at **2 mm/min**, everything else unchanged, and
+  compare it to S34 at 6.0 mm/min. If UTS drops by roughly the observed 7.7 %, the gap is rate and
+  the cross-validation is complete. If it barely moves, the gap is the specimen and we should say
+  so. Either answer closes the last open item in the MOT comparison, and the rig already supports
+  the speed — nothing is blocked.
+
+  Worth running two at each speed if specimens allow, so the result is not itself an n = 1 claim.
+
 - ⬜ **Product Carbon Footprint / LCA of the PPD-UTM development.** Not a full LCA to start with —
   a SCREENING INVENTORY, because the inventory is what decides whether a full study is worth doing.
 
@@ -938,6 +960,16 @@ Two further measurements point the same way and are already on record. Our local
 a joint bedding in rather than a spring deflecting. And S25 and S26 differ by 52 % on early-strain
 rate yet agree to **1.4 % force-matched**, which says the discrepancy lives in the displacement
 path and not in the material or the strain measurement.
+
+**2026-09-03 — THE 45 mm PAIR REPEATS THE SPLIT ALMOST EXACTLY, which is the strongest evidence yet.**
+Session 2's comparison measured gauge share on two more of our runs, three weeks later, at a
+different marker spacing: **S33 21.2 %** and **S34 32.7 %**, against S25's 21.3 % and S26's 32.5 %.
+Four runs, two gauges, two sessions, and they land in **two clusters at 21 % and 33 %** rather than
+scattering across the range. A continuous compliance term does not produce two clusters; a joint
+that is either seated or not does. It also rules out gauge length as the cause — the split is the
+same at 45 mm as at 80 mm, so it is not the specimen's free length. The XT-205's own session-2
+figure is **45.0 %** (nominal, speed × time — no crosshead channel in its .daq), so even a
+commercial frame loses over half its travel to the load path.
 
 What it would take is a repeat-seating experiment rather than more re-analysis: one specimen,
 mounted and re-mounted several times, pulled into the elastic region only, with the gauge share

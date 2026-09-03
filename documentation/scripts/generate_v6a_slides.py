@@ -4093,6 +4093,9 @@ exec(open("documentation/scripts/sf21_slides_block.py", encoding="utf-8").read()
 # ---- MOT session 2: the XT-205's own 45 mm pull, as an independent record
 exec(open("documentation/scripts/mot2_slides_block.py", encoding="utf-8").read())
 
+# ---- MOT session 2 against our own 45 mm pair: the comparison Test 1 could not make
+exec(open("documentation/scripts/mot2_cmp_slides_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)
