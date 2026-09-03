@@ -870,6 +870,15 @@ show *all* smart features and auto-preload is a real, validated one that was sim
       ->  data retained (96.9 GB)  ->  end of life
       with the excluded hardware drawn alongside, greyed, and named
 
+  **On the imagery: use OUR photographs, not stock.** Five of the seven stages can be shown with a
+  real image from this project — the printer's output, a sprayed specimen, the rig mid-pull, a real
+  capture frame with the tracking boxes on it, the capture folder itself. For a figure in a paper
+  that is strictly stronger than a stock photograph: it is evidence, it needs no licence, and it
+  shows the actual equipment the numbers came from. Only the two ends — filament production and end
+  of life — have nothing photographable here, and those are better as a simple drawn icon than as
+  someone else's copyrighted image of a factory. Internet stock in a published figure is a licensing
+  problem waiting to happen and it weakens the figure at the same time.
+
   **The one number worth chasing beyond the arithmetic** is the avoided reprint. Every capture run
   that can be re-measured from video is a specimen not printed again — S29, S32 and the black-mode
   runs are the candidates, and the registry can say how many re-analyses actually happened. That is
