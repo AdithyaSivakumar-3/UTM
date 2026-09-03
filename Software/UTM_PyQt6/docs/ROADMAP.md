@@ -788,6 +788,60 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   than theirs. The slopes differ for a reason that is not the maths: gauge share of commanded travel
   is 21.3 % (S25), 32.5 % (S26) and 59.4 % (MOT). Deck **p291–303**;
   `documentation/scripts/mot_postproc_compare.py`.
+- ⬜ **Product Carbon Footprint / LCA of the PPD-UTM development.** Not a full LCA to start with —
+  a SCREENING INVENTORY, because the inventory is what decides whether a full study is worth doing.
+
+  **What the existing data already supports, with no new measurement:**
+
+  | quantity | value on record | where it comes from |
+  |---|---|---|
+  | specimens consumed | **29 distinct**, 34 runs | `registry.json` |
+  | material split | 26 PLA · 5 PETG · 3 TPU runs | `registry.json` |
+  | infill split | 19 at 100 % · 13 at 50 % · 2 labelled 99 | `registry.json` |
+  | recorded pulling time | **2.3 h** across all 34 runs | the CSV time columns |
+  | mechanical work done on specimens | **0.4 kJ TOTAL** (≈ 0.1 Wh) | ∫F·dx from every CSV |
+  | capture data retained | **96.9 GB**, 35 014 PNG stills, 15 capture runs | the Test data tree |
+
+  **The first real finding is already in that table, and it is a negative one:** the work actually
+  done deforming specimens is 0.4 kJ across the whole campaign — a rounding error against anything
+  else. Whatever this rig's footprint is, **it is not in the pulling**. That kills the most obvious
+  hypothesis before any emission factor is looked up, and it redirects the study to (a) filament
+  and printing, (b) the embodied carbon of the hardware, (c) retained data.
+
+  **Filament mass can be bounded now and measured exactly later.** The gauge section alone is
+  80 mm² × 80 mm = 6.4 cm³; at PLA's ~1.24 g/cm³ that is ~8 g at 100 % infill, and the full dogbone
+  with its shoulders is perhaps 2–3× that. So the campaign has consumed of order **0.5–0.7 kg** of
+  filament. The slicer reports the exact figure per part — read it off rather than modelling it.
+
+  **What is NOT computable without new input, ranked by how cheaply it is closed:**
+
+  1. **Printer and rig energy — one plug-in energy meter, about an hour of work.** Print energy per
+     specimen and rig draw (motor holding torque, LEDs, camera, PC) have never been measured, and
+     they cannot be inferred from anything recorded. This is the single highest-value missing
+     measurement and the cheapest to take.
+  2. **Emission factors.** Cradle-to-gate kgCO₂e/kg for PLA, PETG and TPU, and the Swedish grid
+     intensity. The grid figure matters more than it looks: Sweden's is among the lowest in Europe
+     (tens of gCO₂e/kWh, not hundreds), so **energy is likely to be a small term and MATERIALS and
+     HARDWARE are likely to dominate**. That expectation should be stated up front and then tested,
+     not assumed at the end.
+  3. **A hardware BOM with masses.** Basler acA2440 + 25 mm lens, ANYLOAD 3 t cell, steppers and
+     TMC2160 drivers, ESP32, frame, and the 3D-printed grips and mounts. Embodied carbon of
+     electronics is dominated by the camera sensor and the PC, and neither is in the repo.
+  4. **An allocation decision, which is a judgement not a measurement.** The rig is durable capital
+     used across many campaigns: does its embodied carbon load onto this project entirely, or
+     amortise over an assumed lifetime of tests? The answer changes the result by more than any
+     measurement error here, so it has to be stated as an assumption in the open.
+
+  **Suggested functional unit:** kgCO₂e per completed tensile test to fracture — it makes the
+  specimen, its printing and its share of the rig commensurable, and it is the number another lab
+  could compare against.
+
+  **What would make this publishable rather than an exercise:** the DIC method's own contribution.
+  Optical extensometry replaces a contacting extensometer and, on this rig, replaced a stack of
+  abandoned runs with re-analysable video — 15 capture runs that can be re-measured without
+  reprinting a specimen. Whether re-analysis actually SAVED specimens is answerable from the
+  registry, and it is the one claim here that is about this project rather than about PLA.
+
 - ⬜ **UTM instruction manual (for users):** short, crisp usage guide with clear photos of the rig + UI screenshots — Connect → Calibrate → Mount → Prepare → Run → Save → Report.
 
 ---
