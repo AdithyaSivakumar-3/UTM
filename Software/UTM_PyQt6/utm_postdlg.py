@@ -366,6 +366,15 @@ class Run:
     refine: str = "auto"
     stop_on_loss: bool = True
     fps_note: str = ""
+    # The gauge belongs to the RUN, not to the tab. It used to be a single spin box shared by
+    # every video, so loading a 45 mm specimen after an 80 mm one silently kept the 80 — which is
+    # exactly what happened to MOT session 2.
+    gauge_mm: float = 80.0
+    gauge_confirmed: bool = False    # has anyone said this is right for THIS video?
+    gauge_src: str = ""              # where it came from, for the results sheet
+    fps_verified: bool = False       # measured from a sidecar or a companion, not merely declared
+    fps_override: bool = False       # the operator was warned and chose to proceed anyway
+    companion: object = None         # PP.Companion, when a data file has been attached
     t: list = None
     e: list = None
     tr: list = None
@@ -750,10 +759,25 @@ class PostProcTab(QWidget):
         gl.addWidget(self.autoBtn, 0, 0); gl.addWidget(self.clearBtn, 0, 1)
 
         self.gauge = QDoubleSpinBox(); self.gauge.setRange(0.1, 1000); self.gauge.setValue(80.0)
-        self.gauge.setSuffix(" mm"); self.gauge.setDecimals(2)
+        self.gauge.setSuffix(" mm"); self.gauge.setDecimals(4)
         self.gauge.setToolTip("Physical distance BETWEEN THE BOXES. Sets px/mm only — strain is a "
-                              "pixel ratio and does not depend on it.")
-        self.gauge.valueChanged.connect(self._refresh_l0)
+                              "pixel ratio and does not depend on it.\n\n"
+                              "Enter whichever of this and px/mm you actually know: once the boxes "
+                              "are placed they are the same number, and each one sets the other.")
+        self.gauge.valueChanged.connect(self._on_gauge_edited)
+        # px/mm as a FIRST-CLASS input rather than a derived read-out.
+        #
+        # Px0 ties the two together — px/mm = Px0 / gauge — so knowing either one fixes the other.
+        # Which one a person actually knows depends on where the video came from: for our own rig
+        # the optics are calibrated and px/mm is the known quantity, while the marker spacing is
+        # whatever it was set to that day. Forcing the gauge to be the only input made the operator
+        # convert in their head, and the default 80.00 was the number that survived when they
+        # didn't.
+        self.pxmm = QDoubleSpinBox(); self.pxmm.setRange(0.01, 10000); self.pxmm.setDecimals(4)
+        self.pxmm.setSuffix(" px/mm")
+        self.pxmm.setToolTip("The other way round. Type the calibrated scale and the gauge follows "
+                             "from Px₀, or type the gauge and this follows.")
+        self.pxmm.valueChanged.connect(self._on_pxmm_edited)
         self.boxHalf = QSpinBox(); self.boxHalf.setRange(6, 200); self.boxHalf.setValue(24)
         self.boxHalf.setSuffix(" px"); self.boxHalf.valueChanged.connect(self._refresh_boxes)
         self.boxHalf.setToolTip("Half-size of each tracked patch. Bigger is steadier but blurs "
@@ -779,14 +803,21 @@ class PostProcTab(QWidget):
         self.minCorr.setSingleStep(0.05); self.minCorr.setValue(0.55)
         self.minCorr.setToolTip("Below this peak correlation the frame is not trusted: the tracker "
                                 "re-seeds and flags it rather than reporting a confident wrong value.")
-        for r, (lab, wdg) in enumerate((("Gauge (A→B)", self.gauge), ("Box half-size", self.boxHalf),
+        for r, (lab, wdg) in enumerate((("Gauge (A→B)", self.gauge), ("…or px per mm", self.pxmm),
+                                        ("Box half-size", self.boxHalf),
                                         ("Search window", self.search),
                                         ("Min correlation", self.minCorr),
                                         ("Tracking method", self.method)), start=1):
             gl.addWidget(QLabel(lab), r, 0); gl.addWidget(wdg, r, 1)
         self.l0Lbl = QLabel("place two boxes to set Px₀")
         self.l0Lbl.setStyleSheet("color:#4dabf7; font-weight:bold;")
-        gl.addWidget(self.l0Lbl, 6, 0, 1, 2)
+        gl.addWidget(self.l0Lbl, 7, 0, 1, 2)
+        # An unconfirmed gauge is stated, not hidden. It corrupts no strain — but it does reach
+        # px/mm, the extension in mm and the results sheet, where a default is indistinguishable
+        # from a measurement.
+        self.gaugeWarn = QLabel(""); self.gaugeWarn.setWordWrap(True)
+        self.gaugeWarn.setStyleSheet("color:#f39c12;")
+        gl.addWidget(self.gaugeWarn, 8, 0, 1, 2)
         lv.addWidget(g)
 
         g2 = QGroupBox("Timebase"); g2l = QGridLayout(g2)
@@ -798,9 +829,24 @@ class PostProcTab(QWidget):
         self.step.setPrefix("every "); self.step.setSuffix(" frame(s)")
         g2l.addWidget(QLabel("Frame rate"), 0, 0); g2l.addWidget(self.fps, 0, 1)
         g2l.addWidget(QLabel("Analyse"), 1, 0); g2l.addWidget(self.step, 1, 1)
+        # ONE attachment answers three questions that are otherwise three separate guesses: the
+        # true frame rate (frames ÷ the acquisition's own duration), the gauge (if the file names
+        # one), and where the specimen was actually preloaded (if it carries a load channel).
+        self.compBtn = QPushButton("Attach data file…")
+        self.compBtn.setToolTip(
+            "The CSV or .daq recorded alongside this video.\n\n"
+            "Its duration fixes the frame rate — a container's own figure is what the writer "
+            "claimed, not what the camera did.\n"
+            "A gauge column sets the gauge.\n"
+            "A load column anchors the noise window at the preload instead of at the first frame.")
+        self.compBtn.clicked.connect(self.on_attach_companion)
+        self.compLbl = QLabel("no data file attached"); self.compLbl.setWordWrap(True)
+        self.compLbl.setStyleSheet("color:#888;")
+        g2l.addWidget(self.compBtn, 2, 0, 1, 2)
+        g2l.addWidget(self.compLbl, 3, 0, 1, 2)
         self.fpsWarn = QLabel(""); self.fpsWarn.setWordWrap(True)
         self.fpsWarn.setStyleSheet("color:#f39c12;")
-        g2l.addWidget(self.fpsWarn, 2, 0, 1, 2)
+        g2l.addWidget(self.fpsWarn, 4, 0, 1, 2)
         lv.addWidget(g2)
 
         for _w in (self.boxHalf, self.search, self.minCorr, self.step, self.fps):
@@ -937,8 +983,12 @@ class PostProcTab(QWidget):
           "stretch time by 1.76×.",
           "For our own captures the true rate is read automatically from the recording's "
           "frames/index.csv timestamps, and the note under the box says so.",
-          "A warning appears when the file's value looks implausible. If there is no sidecar, "
-          "work the rate out from the recording's duration and frame count and type it in.",
+          "For a video from anywhere else, press <b>Attach data file…</b> and pick the CSV or "
+          ".daq recorded with it. The rate is then frames ÷ that file's own duration, which is "
+          "exact — and the same file supplies the gauge and the preload if it carries them.",
+          "An unverified rate that also looks wrong — a round number over 100 fps is the usual "
+          "sign of a container default — now STOPS the run rather than colouring a label. The "
+          "XT-205's export declares 1000 fps and actually ran at 19.864.",
           "<b>Analyse every N frames</b> below it trades detail for speed and does NOT affect "
           "the time axis."]),
         ("Fix the reference frame",
@@ -970,12 +1020,21 @@ class PostProcTab(QWidget):
           "discrete dots, place the boxes by hand; snapping has nothing to snap to.",
           "<b>Search window</b> is how far a box may travel between frames. Raise it if a fast "
           "pull loses tracking; leave it alone otherwise."]),
-        ("Set the gauge",
-         "Type the real distance between the two markers, in mm, into <b>Gauge (A→B)</b>.",
-         ["This only sets px per mm. Strain itself is a ratio of PIXELS, so getting the gauge "
-          "wrong changes no strain — it changes only the reported scale.",
+        ("Confirm the gauge",
+         "Type the real distance between the two markers into <b>Gauge (A→B)</b> — or, if what "
+         "you actually know is the calibrated scale, type that into <b>…or px per mm</b> and the "
+         "gauge follows.",
+         ["The two are the SAME NUMBER once the boxes are placed: px/mm = Px₀ ÷ gauge. Enter "
+          "whichever one you measured and let the dialog do the arithmetic.",
+          "This only sets px per mm and the extension in mm. Strain itself is a ratio of PIXELS, "
+          "so getting the gauge wrong changes no strain — but it does change what the results "
+          "sheet says the scale was.",
+          "Until you set it, the value is the leftover default and the results sheet stamps it "
+          "<b>ASSUMED</b>. That is deliberate: a foreign video was once analysed at the default "
+          "80 mm when the specimen was 45 mm, and nothing on the sheet said so.",
           "Use the distance you actually measured on the specimen, not the nominal gauge length "
-          "of the specimen geometry."]),
+          "of the specimen geometry. If the attached data file names a gauge column, it is taken "
+          "from there and counts as confirmed."]),
         ("Run it",
          "Press <b>Run this video</b>, or <b>Run all pending</b> to work through every video that "
          "has its boxes placed, one after another, plotting each as it finishes.",
@@ -1013,10 +1072,10 @@ class PostProcTab(QWidget):
         r = self.run
         return [
             bool(self.runs),                            # 1 a video is loaded
-            bool(r and r.fps > 0),                      # 2 a frame rate is set
+            bool(r and r.fps > 0 and not self._fps_block_reason()),   # 2 a TRUSTED frame rate
             bool(r),                                    # 3 a reference frame exists (0 counts)
             bool(r and r.ready),                        # 4 both boxes placed
-            bool(r and self.gauge.value() > 0),         # 5 a gauge is set
+            bool(r and r.gauge_confirmed),              # 5 a gauge CONFIRMED for this video
             bool(r and r.done),                         # 6 this video has been measured
             bool(any(x.done for x in self.runs)),       # 7 there is something to take away
         ]
@@ -1130,10 +1189,10 @@ class PostProcTab(QWidget):
             except Exception as e:
                 QMessageBox.warning(self, "Cannot open video", "%s\n\n%s" % (path, e))
                 continue
-            fps, note = self._fps_for(path, info)
+            fps, note, verified = self._fps_for(path, info)
             r = Run(path=path, info=info, label=self._label_for(path),
                     colour=self.PALETTE[len(self.runs) % len(self.PALETTE)],
-                    fps=fps, fps_note=note,
+                    fps=fps, fps_note=note, fps_verified=verified,
                     box_half=self.boxHalf.value(), search=self.search.value(),
                     min_corr=self.minCorr.value(), step=self.step.value(),
                     refine=self.method.currentData())
@@ -1155,12 +1214,15 @@ class PostProcTab(QWidget):
 
     @staticmethod
     def _fps_for(path, info):
-        """The frame rate to use, and a sentence saying where it came from.
+        """(fps, sentence, verified). Verified means MEASURED, not merely declared.
 
         The container's value is only a fallback: every video this rig has produced declares 35 fps
         and none recorded at it. A capture folder beside the video records what the camera actually
         did; a video from another camera has no such record and is flagged as unverified rather
         than quietly believed.
+
+        The third return value is what makes the flag actionable — an unverified rate that also
+        looks implausible now blocks the run instead of colouring a label amber.
         """
         fps = info["fps"] if info["fps"] > 0 else 30.0
         true = PP.true_fps_from_sidecar(path)
@@ -1170,11 +1232,17 @@ class PostProcTab(QWidget):
                 return round(fps_true, 4), (
                     "Using %.4f fps measured from %s. The file itself declares %.2f fps — "
                     "believing it would scale time by %.2f×."
-                    % (fps_true, src, info["fps"], info["fps"] / fps_true))
-            return round(fps_true, 4), "Frame rate %.4f fps confirmed from %s." % (fps_true, src)
+                    % (fps_true, src, info["fps"], info["fps"] / fps_true)), True
+            return (round(fps_true, 4),
+                    "Frame rate %.4f fps confirmed from %s." % (fps_true, src), True)
+        suspect = PP.fps_is_suspect(fps, False)
+        if suspect:
+            return fps, ("This video's frame rate is UNVERIFIED and %s. Attach the data file "
+                         "recorded with it, or type the rate you know is right — the run is "
+                         "blocked until one of those happens." % suspect), False
         return fps, (PP.fps_warning(info)
                      or "No capture sidecar beside this video — the frame rate is the file's own "
-                        "claim. Check it before trusting the time axis.")
+                        "claim. Check it before trusting the time axis."), False
 
     def _refresh_list(self):
         self._refresh_guide()
@@ -1350,7 +1418,8 @@ class PostProcTab(QWidget):
             return []
         cols = []
         for r in done:
-            cfg = PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half, search=r.search,
+            cfg = PP.Settings(gauge_mm=r.gauge_mm, gauge_confirmed=r.gauge_confirmed,
+                              box_half=r.box_half, search=r.search,
                               min_corr=r.min_corr, ref_frame=r.ref_frame, ref_image=r.ref_image,
                               fps=r.fps, step=r.step, refine=r.refine)
             cols.append(PP.metrics(r.summary, cfg, label=r.label, source_video=r.path))
@@ -1431,7 +1500,8 @@ class PostProcTab(QWidget):
                 continue
             out.append({"label": r.label, "colour": r.colour, "path": r.path,
                         "t": r.t, "e": r.e, "tr": r.tr, "summary": r.summary,
-                        "cfg": PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half,
+                        "cfg": PP.Settings(gauge_mm=r.gauge_mm, gauge_confirmed=r.gauge_confirmed,
+                                            box_half=r.box_half,
                                            search=r.search, min_corr=r.min_corr,
                                            ref_frame=r.ref_frame, ref_image=r.ref_image,
                                            fps=r.fps, step=r.step,
@@ -1475,6 +1545,151 @@ class PostProcTab(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "Could not write the image", str(e))
 
+    # ------------------------------------------------------------------ gauge ⇄ px/mm
+    def _l0_now(self):
+        """Px₀ for the current run, or 0 when both boxes are not yet placed."""
+        r = self.run
+        if not (r and r.ready):
+            return 0.0
+        try:
+            (ax, ay), (bx, by) = r.boxes[0][:2], r.boxes[1][:2]
+            return float(((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5)
+        except Exception:
+            return 0.0
+
+    def _on_gauge_edited(self, val):
+        """The operator typed a gauge. Mirror it into px/mm and mark it confirmed."""
+        if self._loading:
+            return
+        r = self.run
+        if r is not None:
+            r.gauge_mm = float(val)
+            r.gauge_confirmed = True
+            r.gauge_src = "typed"
+        l0 = self._l0_now()
+        if l0 > 0 and val > 0:
+            self.pxmm.blockSignals(True)
+            self.pxmm.setValue(l0 / float(val))
+            self.pxmm.blockSignals(False)
+        self._refresh_gauge_state()
+        self._refresh_l0()
+
+    def _on_pxmm_edited(self, val):
+        """The operator typed a scale. The gauge follows from Px₀ — the same number, inverted."""
+        if self._loading:
+            return
+        l0 = self._l0_now()
+        if l0 <= 0:
+            self.gaugeWarn.setText("Place both boxes first — px/mm and the gauge are linked "
+                                   "through Px₀, so neither can set the other until Px₀ exists.")
+            return
+        if val <= 0:
+            return
+        g = l0 / float(val)
+        self.gauge.blockSignals(True)
+        self.gauge.setValue(g)
+        self.gauge.blockSignals(False)
+        r = self.run
+        if r is not None:
+            r.gauge_mm = float(g)
+            r.gauge_confirmed = True
+            r.gauge_src = "from px/mm"
+        self._refresh_gauge_state()
+        self._refresh_l0()
+
+    def _refresh_gauge_state(self):
+        """Keep px/mm in step with Px₀, and say plainly when the gauge is only a default."""
+        r = self.run
+        l0 = self._l0_now()
+        if l0 > 0 and self.gauge.value() > 0:
+            self.pxmm.blockSignals(True)
+            self.pxmm.setValue(l0 / self.gauge.value())
+            self.pxmm.blockSignals(False)
+        if r is None:
+            self.gaugeWarn.setText("")
+            return
+        if r.gauge_confirmed:
+            self.gaugeWarn.setText("")
+        else:
+            self.gaugeWarn.setText(
+                "Gauge is the default %.2f mm — nobody has confirmed it for this video. Strain is "
+                "unaffected (it is a pixel ratio), but px/mm and the extension in mm are, and the "
+                "results sheet will say ASSUMED until you set it." % r.gauge_mm)
+
+    # ------------------------------------------------------------------ companion data file
+    def on_attach_companion(self):
+        """Attach the acquisition file recorded beside this video, and use what it knows.
+
+        Written as one action rather than three separate prompts because the operator has one
+        thing to hand — the file — and the dialog is the thing that should know what to do with it.
+        """
+        r = self.run
+        if r is None:
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Data file recorded with this video", os.path.dirname(r.path),
+            "Data (*.csv *.daq *.txt *.tsv);;All files (*)")
+        if not path:
+            return
+        try:
+            comp = PP.read_companion(path)
+        except Exception as e:
+            QMessageBox.warning(self, "Cannot read that file",
+                                "%s\n\n%s\n\nIt needs a monotonic time column; everything else is "
+                                "optional." % (os.path.basename(path), e))
+            return
+
+        msgs = []
+        r.companion = comp
+
+        got = PP.fps_from_companion(r.info, comp)
+        if got:
+            fps, note = got
+            self.fps.blockSignals(True)
+            self.fps.setValue(fps)
+            self.fps.blockSignals(False)
+            r.fps, r.fps_note, r.fps_verified, r.fps_override = fps, note, True, False
+            msgs.append(note)
+        else:
+            msgs.append("The file gave no usable duration, so the frame rate is unchanged.")
+
+        if comp.gauge_mm:
+            self.gauge.blockSignals(True)
+            self.gauge.setValue(comp.gauge_mm)
+            self.gauge.blockSignals(False)
+            r.gauge_mm, r.gauge_confirmed = float(comp.gauge_mm), True
+            r.gauge_src = "from %s" % comp.source
+            msgs.append("Gauge set to %.4f mm from the file's own gauge column." % comp.gauge_mm)
+
+        if comp.load is not None:
+            msgs.append("Load channel found — the noise window will be anchored at the preload "
+                        "rather than at the first frame.")
+        else:
+            msgs.append("No named load column, so the noise window will fall back to the "
+                        "straightest part of the record.")
+
+        self.compLbl.setText("%s — %s" % (comp.source, comp.note))
+        self.compLbl.setStyleSheet("color:#2e9e4f;")
+        self.fpsWarn.setText(r.fps_note)
+        self._refresh_gauge_state()
+        self._refresh_l0()
+        self._refresh_list()
+        for m in msgs:
+            self.log.emit("[PostProc] %s" % m)
+        QMessageBox.information(self, "Data file attached", "\n\n".join(msgs))
+
+    def _fps_block_reason(self):
+        """Why this run must not start yet, or '' — the frame-rate half of the guard.
+
+        The warning existed before and was ignorable, which is how a 1000 fps container field
+        reached a published time axis. It now stops the run until the operator either fixes the
+        number, attaches the acquisition file, or says explicitly that they mean it.
+        """
+        r = self.run
+        if r is None or r.fps_verified or r.fps_override:
+            return ""
+        return PP.fps_is_suspect(r.fps, False)
+
     def _store_widgets(self):
         """Write the controls back into the selected run, so each keeps its own setup."""
         r = self.run
@@ -1484,10 +1699,15 @@ class PostProcTab(QWidget):
         r.search = self.search.value()
         r.min_corr = self.minCorr.value()
         # ref_frame is NOT taken from the slider: the slider browses, and only on_set_ref commits.
+        if abs(r.fps - self.fps.value()) > 1e-9:
+            # An operator who types a frame rate has looked at it, which is the whole point of the
+            # guard; a value that arrives from a sidecar or a companion sets fps_verified itself.
+            r.fps_override = True
         r.fps = self.fps.value()
         r.step = self.step.value()
         r.refine = self.method.currentData()
         r.stop_on_loss = self.stopLossChk.isChecked()
+        r.gauge_mm = self.gauge.value()
 
     def on_select_run(self, i):
         if self._busy():
@@ -1498,16 +1718,21 @@ class PostProcTab(QWidget):
             return
         self._loading = True
         try:
-            self.gauge.blockSignals(True)
+            self.gauge.blockSignals(True); self.pxmm.blockSignals(True)
             self.boxHalf.setValue(r.box_half); self.search.setValue(r.search)
             self.minCorr.setValue(r.min_corr); self.fps.setValue(r.fps)
             self.step.setValue(r.step)
+            self.gauge.setValue(r.gauge_mm)
             k = self.method.findData(r.refine)
             if k >= 0:
                 self.method.setCurrentIndex(k)
             self.stopLossChk.setChecked(r.stop_on_loss)
-            self.gauge.blockSignals(False)
+            self.gauge.blockSignals(False); self.pxmm.blockSignals(False)
             self.fpsWarn.setText(r.fps_note)
+            c = r.companion
+            self.compLbl.setText(("%s — %s" % (c.source, c.note)) if c
+                                 else "no data file attached")
+            self.compLbl.setStyleSheet("color:#2e9e4f;" if c else "color:#888;")
             self.fileLbl.setText("%s — %d frames, %dx%d"
                                  % (r.info["name"], r.info["frames"], r.info["w"], r.info["h"]))
             self.frameSlider.setEnabled(True)
@@ -1523,6 +1748,7 @@ class PostProcTab(QWidget):
         finally:
             self._loading = False
         self._refresh_ref_label()
+        self._refresh_gauge_state()
         self._refresh_l0()
         self.status.setText("%s — %s" % (r.label, r.status()))
 
@@ -1839,13 +2065,52 @@ class PostProcTab(QWidget):
             self._update_px_label()
 
     def _cfg(self):
-        return PP.Settings(gauge_mm=self.gauge.value(), box_half=self.boxHalf.value(),
+        r = self.run
+        return PP.Settings(gauge_mm=self.gauge.value(),
+                           gauge_confirmed=bool(r and r.gauge_confirmed),
+                           box_half=self.boxHalf.value(),
                            search=self.search.value(), min_corr=self.minCorr.value(),
-                           ref_frame=(self.run.ref_frame if self.run else 0),
-                           ref_image=(self.run.ref_image if self.run else ""),
+                           ref_frame=(r.ref_frame if r else 0),
+                           ref_image=(r.ref_image if r else ""),
                            fps=self.fps.value(),
                            step=self.step.value(), refine=self.method.currentData(),
                            stop_on_loss=self.stopLossChk.isChecked())
+
+    def _confirm_suspect_fps(self):
+        """Stop a run whose frame rate is unverified AND implausible. True = go ahead.
+
+        The dialog already warned about this in amber and was ignored, which is the whole lesson:
+        a warning that does not interrupt is a warning that gets published. The operator can still
+        proceed — but only by saying so, and the choice is remembered for that video.
+        """
+        why = self._fps_block_reason()
+        if not why:
+            return True
+        r = self.run
+        m = QMessageBox(self)
+        m.setIcon(QMessageBox.Icon.Warning)
+        m.setWindowTitle("Check the frame rate before running")
+        m.setText("%s is about to be measured at %.4f fps, and that number has not been verified."
+                  % (r.info["name"], r.fps))
+        m.setInformativeText(
+            "%s.\n\nStrain will be correct either way — it is a pixel ratio. Everything with time "
+            "in it will not be: duration, strain rate, and the whole time axis.\n\n"
+            "Attach the data file recorded with this video and the rate is computed from it "
+            "exactly, or type the rate you know is right." % why.capitalize())
+        attach = m.addButton("Attach data file…", QMessageBox.ButtonRole.AcceptRole)
+        anyway = m.addButton("Run at %.4f fps anyway" % r.fps, QMessageBox.ButtonRole.DestructiveRole)
+        m.addButton(QMessageBox.StandardButton.Cancel)
+        m.setDefaultButton(attach)
+        m.exec()
+        if m.clickedButton() is attach:
+            self.on_attach_companion()
+            return False
+        if m.clickedButton() is anyway:
+            r.fps_override = True
+            self.log.emit("[PostProc] %s: running at an UNVERIFIED %.4f fps by operator override"
+                          % (r.info["name"], r.fps))
+            return True
+        return False
 
     def on_run(self, _checked=False, queued=False):
         # Any amber left over from setup — the off-reference detect hint — stops applying the
@@ -1858,6 +2123,11 @@ class PostProcTab(QWidget):
         if r is None or not r.ready or self._busy():
             return
         self._store_widgets()
+        if not self._confirm_suspect_fps():
+            self._queue = []               # a queued Run-all stops here rather than rolling on
+            self.runBtn.setEnabled(True)
+            self._refresh_list()
+            return
         r.t, r.e, r.tr, r.summary = [], [], [], None
         a, b = r.boxes
         self.on_stop_play()                    # scrubbing and measuring must not share the file
@@ -1997,6 +2267,19 @@ class PostProcTab(QWidget):
         r = self.run
         self._running = None
         if r is not None:
+            # An attached load channel says where the specimen was actually preloaded, and the
+            # noise/rate window is anchored there instead of at the reference frame. Done here
+            # rather than in the worker because it needs the companion, which belongs to the run.
+            if r.companion is not None and summary.rows:
+                try:
+                    e0, note = PP.preload_strain_zero(
+                        [x for x in summary.rows if x.ok], r.companion)
+                    if note:
+                        summary.strain_zero = e0 if e0 else None
+                        summary.strain_zero_note = note
+                        self.log.emit("[PostProc] %s" % note)
+                except Exception as e:                       # never lose a finished run to this
+                    self.log.emit("[PostProc] could not anchor the noise window: %s" % e)
             r.summary = summary
         self._redraw_plot()
         # The FRAME is the last one analysed — on a fracture run that is the broken specimen, and
@@ -2107,7 +2390,8 @@ class PostProcTab(QWidget):
             return
         written = []
         for r in done:
-            cfg = PP.Settings(gauge_mm=self.gauge.value(), box_half=r.box_half, search=r.search,
+            cfg = PP.Settings(gauge_mm=r.gauge_mm, gauge_confirmed=r.gauge_confirmed,
+                              box_half=r.box_half, search=r.search,
                               min_corr=r.min_corr, ref_frame=r.ref_frame, ref_image=r.ref_image,
                               fps=r.fps, step=r.step, refine=r.refine)
             safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in r.label).strip()

@@ -721,29 +721,56 @@ show *all* smart features and auto-preload is a real, validated one that was sim
     session rather than one set for THIS specimen. The confirm dialog and Prepare share one formatter,
     so what is confirmed and what lands in the CSV header cannot drift apart.
 
-### 3a-bis. Two app fixes the MOT session-2 post-processing run exposed (2026-09-03)
+### 3a-bis. ✅ Three post-processing guards — DONE 2026-09-03
 
-Both were found by running someone else's video through our own post-processing dialog, which is
-the first time it has been given footage the rig did not record. Neither corrupted a result — the
-analysis recovered from both — but a user without the .daq beside them would not have noticed.
+All three were found by running someone else's video through our own post-processing dialog, which
+was the first time it had been given footage the rig did not record. None corrupted a strain — it
+is a pixel ratio — but every one reached a published number, and a reader without the acquisition
+file beside them could not have spotted any of them.
 
-- ⬜ **Do not trust the container's frame rate.** The XT-205's AVI reports **1000 fps**; the true
-  rate is **19.864 fps**, from 3351 frames over 168.643 s of the acquisition clock. The dialog took
-  1000 at face value, so "Data ends at 3.350 s" and "mean rate 1.284e-02 /s" are both wrong by
-  **50.34×**. Strain is untouched — it is a pixel ratio — but every time-derived output is not.
-  *Fix:* when the container fps is a round number ≥ 100, or the implied duration disagrees with a
-  companion CSV's time span, say so in the dialog and offer to take the rate from the companion
-  file or from a typed duration. Silently believing the metadata is the bug; see
-  [[video-metadata-lies-verify-independently]] — this is the same trap that has now bitten fps,
-  frame count and seeking.
+They shared a root cause: **the dialog could not see the data recorded with the video**, so it
+guessed three things and got all three wrong. One feature fixes all three.
 
-- ⬜ **Take the noise window AFTER the preload, not from the raw strain zero.** The dialog reports
-  "Noise, 0.05–0.35 %" = **57.0 µε** for this record. Re-measured from the preload instant on the
-  same data it is **24.1 µε**. The raw window (t = 7.9–19.0 s) straddles the preload ramp at
-  8.85 s, so it is measuring the specimen SEATING, not the instrument. The figure is not wrong so
-  much as measured in the wrong place — and it is the number a reader will quote.
-  *Fix:* anchor the window at the preload instant when a load channel is available, and label it
-  when it is not.
+- ✅ **A companion data file can be attached** (`Attach data file…` in Timebase).
+  `utm_postproc.read_companion()` reads a rig CSV, a foreign CSV or a tab-separated `.daq`, and
+  supplies whatever it actually contains: a duration (→ the true frame rate), a gauge column
+  (→ the gauge), a named load column (→ the preload instant). Nothing is guessed from column
+  shape — that is a judgement for an analysis script, not for a dialog that will silently repeat
+  it on the next file. A headerless `.daq` therefore gives time only, which is still enough to fix
+  the frame rate; `load_col=` takes an explicit column when the operator knows it.
+
+- ✅ **An unverified, implausible frame rate now BLOCKS the run.** The XT-205's AVI declares
+  **1000 fps** against a true **19.864**, so "Data ends at 3.350 s" was out by **50.34×**. The old
+  amber warning fired correctly and was ignored — which is the lesson: a warning that does not
+  interrupt is a warning that gets published. `fps_is_suspect()` flags a round number ≥ 100 fps, or
+  anything above 120 / below 1, whenever the rate has not been MEASURED from a sidecar or a
+  companion. The dialog then offers *Attach data file…* / *Run at N fps anyway* / *Cancel*, and an
+  override is logged. A genuinely measured 1000 fps is never blocked.
+  See [[video-metadata-lies-verify-independently]] — fps, frame count and seeking have all now
+  lied in this project.
+
+- ✅ **The noise window no longer sits on the seating ramp.** It reported **57.0 µε** where the
+  settled record gives **~24**. The band was 0.05–0.35 % of the RAW strain, measured from the
+  reference frame — right when that frame is a loaded, settled specimen, and wrong when the
+  preload happens *inside* the recording, as it did here (t = 7.9–19.0 s straddles the 8.85 s
+  preload). A straight-line fit across a curved toe measures the CURVATURE and calls it noise.
+  `noise_window()` now anchors on the preload instant when a load channel is attached, and
+  otherwise takes the **straightest band of the same width** — the measurement is defined as
+  scatter about a straight line, so the honest place to make it is where the record is straight.
+  Real record: **56.9 → 23.3 µε** with no companion at all, **23.8 µε** with the load attached.
+  The chosen window is now printed beside the figure, because a noise number whose window is
+  invisible cannot be checked.
+
+- ✅ **The gauge is per-run, enterable as px/mm, and stamped when assumed.** It was a single
+  spin box shared by every video, defaulting to 80.00 mm — so a 45 mm specimen was analysed at
+  80 mm and the results sheet said "80.00 mm" exactly as it would for a measured 80. Now: the
+  gauge belongs to the Run; **px/mm is a first-class input** beside it (they are the same number
+  once Px₀ exists, and which one you know depends on where the video came from); and an
+  unconfirmed value prints **`** ASSUMED — not confirmed for this video **`** on the results sheet
+  and in the report.
+
+Tests: `tests script/test_postproc_guards.py` — 21 tests, including the real MOT files. Each one
+fails if its guard is removed.
 
 ### 3b. Longer-range features
 - ✅ **Strain nomenclature settled (2026-08-11).** Everything user-facing now says **engineering**

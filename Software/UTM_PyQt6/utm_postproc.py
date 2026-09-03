@@ -37,6 +37,7 @@ FRAME RATE IS AN INPUT, NOT AN ASSUMPTION
     that would silently stretch the whole time axis. fps is therefore a parameter; the file's
     value is only the default, and `fps_warning()` says when it looks implausible.
 """
+import io
 import os
 import time
 from dataclasses import dataclass, field, replace
@@ -71,6 +72,10 @@ class Box:
 @dataclass
 class Settings:
     gauge_mm: float = 80.0        # physical distance between the two boxes, for px/mm only
+    # Has anyone actually said this gauge is right for THIS video? False means it is the default
+    # or a value carried over from another run. It changes no arithmetic; it changes what the
+    # results sheet claims, which is the part that misled a reader once already.
+    gauge_confirmed: bool = False
     box_half: int = 24            # patch half-size
     search: int = 40              # how far a box may move between reference and current frame
     min_corr: float = 0.55        # below this the match is not trusted
@@ -131,6 +136,10 @@ class Summary:
     lost_at_t: float = None
     lost_reason: str = ""
     data_ends_t: float = None      # t of the last row kept, i.e. where the plot stops
+    # The strain the specimen already carried at the preload instant, when a companion load
+    # channel says where that was. None means the noise window has to find its own zero.
+    strain_zero: float = None
+    strain_zero_note: str = ""
 
     @property
     def stopped_early(self):
@@ -215,6 +224,267 @@ def fps_warning(info, known_duration_s=None):
     if fps > 120 or fps < 1:
         return "Declared %.2f fps is implausible for this rig — check it before trusting time." % fps
     return ""
+
+
+def fps_is_suspect(fps, verified):
+    """Is this frame rate one that should stop a run rather than merely warn?
+
+    A round number at or above 100 fps is the signature of a container field nobody filled in:
+    1000, 500 and 240 all appear in the wild and none of them is what a tensile rig records.
+    The XT-205's export declares 1000 fps and actually ran at 19.864 — a 50x error that reaches
+    every time output while leaving the strain untouched, which is exactly the kind of fault that
+    survives a review because the headline number still looks right.
+    """
+    if verified:
+        return ""
+    if fps <= 0:
+        return "no frame rate at all"
+    if fps >= 100 and abs(fps - round(fps)) < 1e-6:
+        return "%.0f fps is a round number over 100 — almost certainly a container default" % fps
+    if fps > 120:
+        return "%.2f fps is faster than this rig has ever recorded" % fps
+    if fps < 1:
+        return "%.4f fps is slower than any real recording" % fps
+    return ""
+
+
+# ---------------------------------------------------------------------------------------------
+#  COMPANION DATA FILE
+#
+#  A video that this rig recorded has a capture folder beside it and needs none of this. A video
+#  from anywhere else arrives with nothing, and three separate things then have to be guessed:
+#  the frame rate, the gauge length, and where the specimen was actually loaded. All three were
+#  guessed wrong on the first foreign video this dialog was given (MOT session 2, 2026-09-03):
+#  1000 fps instead of 19.864, 80 mm instead of 45.0034, and a noise window that landed inside the
+#  preload ramp.
+#
+#  Every one of those is answerable from the acquisition file that came WITH the video. So rather
+#  than three separate guards, the dialog can be handed that file once.
+# ---------------------------------------------------------------------------------------------
+_T_NAMES = ("t", "time", "time_s", "seconds", "sec", "timestamp", "elapsed")
+_F_NAMES = ("f", "force", "load", "force_n", "load_n", "n", "kn", "force (n)", "load (n)")
+_G_NAMES = ("gauge", "gauge length", "gauge_mm", "gauge length (units)", "l0")
+
+
+@dataclass
+class Companion:
+    """The acquisition record that came with a foreign video, as far as it can be read.
+
+    Only `t` is required. Everything else is optional and absent rather than invented: a headerless
+    .daq gives a time base and nothing more, and a time base alone already fixes the frame rate.
+    """
+    path: str = ""
+    source: str = ""
+    n_rows: int = 0
+    t: object = None                 # np.ndarray, seconds
+    load: object = None              # np.ndarray, newtons, or None
+    gauge_mm: float = None           # if the file reports one
+    columns: list = field(default_factory=list)
+    note: str = ""
+
+    @property
+    def duration_s(self):
+        if self.t is None or len(self.t) < 2:
+            return 0.0
+        return float(self.t[-1] - self.t[0])
+
+
+def _num(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def companion_columns(path):
+    """(names, n_columns, n_rows) for a file, so a caller can offer a column to pick.
+
+    A headerless acquisition log — the XT-205 writes a 52-column .daq with none of them labelled —
+    cannot be read by name, and its load channel is not something this module will guess at. What
+    it can do is say what is in there and let a person choose.
+    """
+    try:
+        c = read_companion(path)
+    except ValueError:
+        return [], 0, 0
+    import csv as _csv
+    with io.open(path, encoding="utf-8-sig", errors="replace") as _fh:
+        raw = _fh.read().splitlines()
+    body = [ln for ln in raw if ln.strip() and not ln.lstrip().startswith("#")]
+    sep = "\t" if body[0].count("\t") >= max(1, body[0].count(",")) else ","
+    width = max(len(r) for r in list(_csv.reader(body[:50], delimiter=sep)))
+    return c.columns, width, c.n_rows
+
+
+def read_companion(path, load_col=None, load_scale=1.0):
+    """Read a rig CSV, a foreign CSV, or a tab-separated .daq into a Companion.
+
+    `load_col` names a column index to use as load when the file has no usable header — the
+    XT-205's .daq carries its force in column 4, in kN, and labels nothing. `load_scale` converts
+    it to newtons (1000 for kN).
+
+    Deliberately forgiving about layout and deliberately strict about naming: a column is used as
+    LOAD or GAUGE only when its header says so. Guessing a load column by its shape is a judgement
+    that belongs in an analysis script, not in a dialog that will quietly apply it to the next file
+    as well.
+
+    Raises ValueError with a readable reason when there is no usable time column.
+    """
+    import csv as _csv
+    with io.open(path, encoding="utf-8-sig", errors="replace") as _fh:
+        raw = _fh.read().splitlines()
+    body = [ln for ln in raw if ln.strip() and not ln.lstrip().startswith("#")]
+    if not body:
+        raise ValueError("the file has no data rows")
+
+    sep = "\t" if body[0].count("\t") >= max(1, body[0].count(",")) else ","
+    rows = list(_csv.reader(body, delimiter=sep))
+
+    # A header row is one whose first cell will not parse as a number. MOT's export has TWO: names
+    # then units, and the units row is where "Gauge length (units)" actually lives.
+    head, first_data = [], 0
+    for i, r in enumerate(rows[:3]):
+        if r and _num(r[0]) is None:
+            head.append([c.strip() for c in r])
+            first_data = i + 1
+        else:
+            break
+    names = []
+    if head:
+        width = max(len(h) for h in head)
+        for c in range(width):
+            parts = [h[c] for h in head if c < len(h) and h[c]]
+            names.append(" ".join(parts).strip().lower())
+
+    data = []
+    for r in rows[first_data:]:
+        vals = [_num(c) for c in r]
+        if vals and vals[0] is not None:
+            data.append(vals)
+    if len(data) < 2:
+        raise ValueError("fewer than two numeric rows")
+    width = max(len(r) for r in data)
+    cols = [np.array([(r[c] if c < len(r) and r[c] is not None else np.nan) for r in data], float)
+            for c in range(width)]
+
+    def find(cands):
+        """The first column whose header contains one of these names as a WHOLE WORD.
+
+        Not a prefix test: a real export labels its columns for a human, so the MOT strain file
+        calls its gauge column "Extensometer 1 Gauge length (units)" and a prefix rule misses it
+        entirely — which is how a 45 mm specimen came to be analysed as 80 mm even though the
+        gauge was sitting in the file all along. Whole-word rather than plain substring so that
+        "load" does not match "unloaded" and "n" does not match every column in the sheet.
+        """
+        import re as _re
+        for cand in cands:                       # candidate order is the priority order
+            pat = _re.compile(r"(?<![a-z0-9_])" + _re.escape(cand) + r"(?![a-z0-9_])")
+            for i, nm in enumerate(names):
+                if pat.search(nm):
+                    return i
+        return None
+
+    i_t = find(_T_NAMES)
+    if i_t is None:
+        # Unnamed columns: column 0 is the time base on every acquisition file this project has
+        # seen, and it is checked for monotonicity before being believed.
+        i_t = 0
+    t = cols[i_t]
+    if not np.all(np.diff(t[np.isfinite(t)]) >= 0):
+        raise ValueError("column %d is not monotonic, so it is not a time base" % i_t)
+    if np.nanmax(t) - np.nanmin(t) <= 0:
+        raise ValueError("the time column does not advance")
+
+    load = None
+    if load_col is not None and 0 <= int(load_col) < width:
+        load = cols[int(load_col)] * float(load_scale)
+    else:
+        i_f = find(_F_NAMES)
+        if i_f is not None:
+            load = cols[i_f]
+            # kN is common on commercial machines; a channel that never exceeds 50 is not newtons
+            # on a specimen this rig can break.
+            if names[i_f].endswith("kn") or "(kn)" in names[i_f]:
+                load = load * 1000.0
+
+    gauge = None
+    i_g = find(_G_NAMES)
+    if i_g is not None:
+        vals = cols[i_g][np.isfinite(cols[i_g])]
+        if len(vals):
+            g = float(np.median(vals))
+            if 1.0 < g < 1000.0:
+                gauge = g
+
+    got = []
+    if load is not None:
+        got.append("load")
+    if gauge is not None:
+        got.append("gauge %.4f mm" % gauge)
+    return Companion(
+        path=path, source=os.path.basename(path), n_rows=len(data), t=t, load=load,
+        gauge_mm=gauge, columns=names,
+        note=("%d rows over %.3f s" % (len(data), float(t[-1] - t[0]))
+              + ("; " + ", ".join(got) if got else "; time only")))
+
+
+def fps_from_companion(info, comp):
+    """(fps, sentence) taken from the companion's own duration, or None.
+
+    The frame count is the video's and the duration is the acquisition's, which is the whole point:
+    neither file can state the frame rate on its own, and together they cannot avoid it.
+    """
+    if comp is None or comp.duration_s <= 0:
+        return None
+    n = info.get("frames") or 0
+    if n < 2:
+        return None
+    fps = (n - 1) / comp.duration_s
+    declared = info.get("fps") or 0.0
+    if declared > 0 and abs(fps - declared) / declared > 0.02:
+        return round(fps, 4), (
+            "Using %.4f fps: %d frames over the %.3f s in %s. The file itself declares %.2f fps — "
+            "believing it would scale the time axis by %.2f×."
+            % (fps, n, comp.duration_s, comp.source, declared, declared / fps))
+    return round(fps, 4), ("Frame rate %.4f fps confirmed against %s (%d frames, %.3f s)."
+                           % (fps, comp.source, n, comp.duration_s))
+
+
+def preload_strain_zero(rows, comp, preload_n=None, frac=0.90):
+    """The strain the specimen already carried when the preload was reached. (e0, sentence).
+
+    WHY THIS EXISTS. The noise and strain-rate window is a band of STRAIN, and a band of strain is
+    only meaningful relative to a zero. The reference frame is usually the video's first, which on
+    a foreign recording can be minutes before the specimen is loaded at all — so the 0.05-0.35 %
+    band lands inside the seating ramp and measures the specimen bedding in rather than the
+    instrument's noise. On MOT session 2 that read 57 ue where the settled record gives 24.
+
+    With a load channel the fix is exact: find where the load first reaches the preload, and take
+    the strain there as the working zero. Returns (0.0, "") when there is no load to use.
+    """
+    if comp is None or comp.load is None or not rows:
+        return 0.0, ""
+    t = np.array([r.t for r in rows], float)
+    e = np.array([r.cauchy for r in rows], float)
+    ct, cf = comp.t, comp.load
+    ok = np.isfinite(ct) & np.isfinite(cf)
+    ct, cf = ct[ok], cf[ok]
+    if len(ct) < 5:
+        return 0.0, ""
+    target = preload_n if preload_n else frac * float(np.nanmax(cf))
+    hit = np.nonzero(cf >= target)[0]
+    if not len(hit):
+        return 0.0, ""
+    t_pre = float(ct[hit[0]])
+    # The video clock starts at the reference frame; the companion's starts where it starts. They
+    # share an origin only when the companion covers the whole recording, which is the case that
+    # matters — anything else is reported rather than silently corrected.
+    if t_pre < t.min() or t_pre > t.max():
+        return 0.0, ("The preload instant (%.2f s) falls outside the analysed frames (%.2f-%.2f s), "
+                     "so the noise window was not re-anchored." % (t_pre, t.min(), t.max()))
+    e0 = float(np.interp(t_pre, t, e))
+    return e0, ("Noise and rate re-zeroed at %.0f N, reached at %.2f s, where the strain already "
+                "read %.4f %%." % (target, t_pre, e0 * 100.0))
 
 
 def _grab(path):
@@ -839,6 +1109,72 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
     return summary
 
 
+# The noise/rate band: 0.30 % of strain wide, starting 0.05 % above the working zero. Kept at the
+# historical numbers so the figure stays comparable with every one already in the deck; what has
+# changed is WHERE the zero comes from.
+NOISE_LO, NOISE_SPAN, NOISE_MIN_PTS = 0.0005, 0.0030, 20
+NOISE_SEARCH_MAX = 0.012        # never look for a window above 1.2 % strain — past the elastic ramp
+
+
+def noise_window(t, e, e_zero=None):
+    """Which samples the noise and strain-rate figures are taken from. (mask, zero, sentence).
+
+    THE BUG THIS REPLACES. The band used to be 0.05-0.35 % of the RAW strain, measured from the
+    reference frame. That is right when the reference frame is a loaded, settled specimen — every
+    video this rig records — and wrong when it is not. On a foreign recording the reference frame
+    can precede the preload entirely, so the band lands inside the seating ramp, where the record
+    is genuinely curved. A straight-line fit then measures the CURVATURE and calls it noise: MOT
+    session 2 reported 57 ue where the settled part of the same record gives 24.
+
+    Two ways out, in order of preference:
+
+      1. A load channel says where the preload was reached, so the zero is known exactly. That is
+         what a companion file buys (see `preload_strain_zero`).
+      2. Without one, take the STRAIGHTEST band of the same width below NOISE_SEARCH_MAX. The
+         measurement is defined as scatter about a straight line, so the honest place to make it
+         is where the record is straight. This cannot invent a good number on a bad record — if
+         nothing is straight, the best R2 is poor and the window is reported with it.
+
+    Either way the window is RETURNED and printed, because a noise figure whose window is invisible
+    is a number nobody can check.
+    """
+    if e is None or len(e) < NOISE_MIN_PTS:
+        return None, 0.0, "too few points"
+
+    if e_zero is not None:
+        lo = float(e_zero) + NOISE_LO
+        m = (e >= lo) & (e <= lo + NOISE_SPAN)
+        if m.sum() >= NOISE_MIN_PTS:
+            return m, float(e_zero), ("%.2f-%.2f %% strain, anchored on the preload"
+                                      % (lo * 100, (lo + NOISE_SPAN) * 100))
+
+    base = float(np.nanmin(e))
+    hi_cap = min(float(np.nanmax(e)), base + NOISE_SEARCH_MAX)
+    if hi_cap - base < NOISE_SPAN:
+        m = np.isfinite(e)
+        return (m, base, "whole record — it never spans %.2f %% of strain"
+                % (NOISE_SPAN * 100)) if m.sum() >= NOISE_MIN_PTS else (None, base, "too few points")
+
+    best = None
+    for lo in np.linspace(base + NOISE_LO, hi_cap - NOISE_SPAN, 60):
+        m = (e >= lo) & (e <= lo + NOISE_SPAN)
+        if m.sum() < NOISE_MIN_PTS:
+            continue
+        tt, ee = t[m], e[m]
+        if tt.max() - tt.min() <= 0:
+            continue
+        r = np.corrcoef(tt, ee)[0, 1]
+        r2 = float(r * r)
+        if best is None or r2 > best[0]:
+            best = (r2, m, float(lo))
+    if best is None:
+        m = (e >= base + NOISE_LO) & (e <= base + NOISE_LO + NOISE_SPAN)
+        return (m if m.sum() >= NOISE_MIN_PTS else None), base, "fixed band from the record's own minimum"
+    r2, m, lo = best
+    return m, lo - NOISE_LO, ("%.2f-%.2f %% strain, the straightest band (R² %.5f)"
+                              % (lo * 100, (lo + NOISE_SPAN) * 100, r2))
+
+
 def metrics(summary, cfg=None, label="", source_video=""):
     """Headline numbers for one analysed video, as an ordered list of (name, value) pairs.
 
@@ -866,9 +1202,9 @@ def metrics(summary, cfg=None, label="", source_video=""):
     et = np.array([r.true for r in ok], float)
     t = np.array([r.t for r in ok], float)
 
+    m, e0, win_why = noise_window(t, e, e_zero=getattr(summary, "strain_zero", None))
     rate = noise = float("nan")
-    m = (e >= 0.0005) & (e <= 0.0035)
-    if m.sum() >= 20:
+    if m is not None and m.sum() >= NOISE_MIN_PTS:
         sl, ic = np.polyfit(t[m], e[m], 1)
         rate = float(sl)
         noise = float((L[m] - np.polyval(np.polyfit(np.arange(m.sum()), L[m], 1),
@@ -888,16 +1224,24 @@ def metrics(summary, cfg=None, label="", source_video=""):
         ("Duration", "%.2f s" % span),
         ("Frame rate used", "%.4f fps" % summary.fps),
         ("Px0 (L0)", "%.2f px" % summary.l0_px),
-        ("Gauge", "%.2f mm" % cfg.gauge_mm),
-        ("px per mm", ("%.4f" % summary.px_mm) if summary.px_mm else "-"),
+        # The gauge is stamped with WHERE IT CAME FROM. It sets px/mm and the extension in mm and
+        # nothing else — but "80.00 mm" read off a results sheet is indistinguishable from a
+        # measured 80.00 mm, and on the first foreign video this dialog was given it was neither:
+        # it was the spin-box default, on a 45 mm specimen.
+        ("Gauge", "%.2f mm%s" % (cfg.gauge_mm, "" if cfg.gauge_confirmed
+                                 else "   ** ASSUMED — not confirmed for this video **")),
+        ("px per mm", ("%.4f%s" % (summary.px_mm, "" if cfg.gauge_confirmed else "  (assumed)"))
+         if summary.px_mm else "-"),
         ("L at peak", "%.2f px" % L.max()),
-        ("Extension at peak", ("%.4f mm" % ((L.max() - summary.l0_px) / summary.px_mm))
+        ("Extension at peak", ("%.4f mm%s" % ((L.max() - summary.l0_px) / summary.px_mm,
+                                              "" if cfg.gauge_confirmed else "  (assumed gauge)"))
          if summary.px_mm else "-"),
         ("Peak strain (engineering)", "%.4f %%" % (e.max() * 100)),
         ("Peak strain (true/log)", "%.4f %%" % (et.max() * 100)),
         ("Mean rate over the run", "%.3e /s" % ((e[-1] - e[0]) / span) if span > 0 else "-"),
-        ("Strain rate, 0.05-0.35 %", ("%.3e /s" % rate) if rate == rate else "too few points"),
-        ("Noise, 0.05-0.35 %", ("%.1f ue" % noise) if noise == noise else "too few points"),
+        ("Noise / rate window", win_why),
+        ("Strain rate, in that window", ("%.3e /s" % rate) if rate == rate else "too few points"),
+        ("Noise, in that window", ("%.1f ue" % noise) if noise == noise else "too few points"),
         ("Tracking method", cfg.refine),
         ("Box half-size", "%d px" % cfg.box_half),
         ("Search window", "%d px" % cfg.search),
