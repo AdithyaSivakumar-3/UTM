@@ -202,15 +202,18 @@ def fig_agree(S=None):
 
 # --------------------------------------------------------------------------- stress-strain
 def fig_stress(S=None):
+    # Bigger canvas, and the legend moved OUT of the upper left. At 6.30 x 3.55 the legend's third
+    # entry sat exactly where the two curves peak, so the UTS marker landed on the words. The lower
+    # right of this plot is empty for the whole record, which is where a legend belongs here.
     S = S or PP.build()
-    fig, ax = plt.subplots(figsize=(6.30, 3.55))
+    fig, ax = plt.subplots(figsize=(6.75, 3.95))
 
     ax.plot(S["s34"]["e"], S["s34"]["sig"], "-", color=C_S34, lw=1.5, alpha=0.85,
             label="%s · PPD-UTM" % S["primary"])
     ax.plot(S["mot"]["e"], S["mot"]["sig"], "-", color=C_MOT, lw=2.0,
-            label="XT-205 · own extensometer")
+            label="XT205-S2 · XT-205 extensometer")
     ax.plot(S["ours"]["e"], S["ours"]["sig"], "--", color=C_PP, lw=1.9,
-            label="XT-205 footage · PPD-UTM DIC")
+            label="XT205-S2 · PPD-UTM DIC")
 
     for k, col in (("MOT", C_MOT), ("PP", C_PP)):
         l = S["L"][k]
@@ -218,21 +221,22 @@ def fig_stress(S=None):
         ax.plot([l["ef"]], [l["sigf"]], "s", ms=6.5, color=col, mec="white", mew=1.2, zorder=6)
 
     lp, lm = S["L"]["PP"], S["L"]["MOT"]
-    ax.annotate("the two red/blue curves are ONE specimen\nread two ways — they lie on each other",
-                xy=(2.55, np.interp(2.55, S["mot"]["e"], S["mot"]["sig"])), xytext=(1.02, 16.0),
-                fontsize=8.2, color=INK,
+    ax.annotate("the XT-205 and PPD-UTM DIC curves are ONE\nspecimen read two ways — they lie on "
+                "each other",
+                xy=(2.70, np.interp(2.70, S["mot"]["e"], S["mot"]["sig"])), xytext=(0.55, 15.0),
+                fontsize=8.4, color=INK,
                 arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.1))
     ax.annotate("fracture  %.2f vs %.2f %%\n(%+.2f %%)"
                 % (lp["ef"], lm["ef"], CMP.offset_pct(lp["ef"], lm["ef"])),
-                xy=(lm["ef"], lm["sigf"]), xytext=(3.15, 30.0), fontsize=8.2, color=INK,
+                xy=(lm["ef"], lm["sigf"]), xytext=(3.05, 30.0), fontsize=8.4, color=INK,
                 fontweight="bold", arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.1))
 
-    ax.set_xlabel("strain (%)  —  all three on the preload-frozen zero", fontsize=9)
-    ax.set_ylabel("engineering stress (MPa)", fontsize=9)
+    ax.set_xlabel("strain (%)  —  all three on the preload-frozen zero", fontsize=9.5)
+    ax.set_ylabel("engineering stress (MPa)", fontsize=9.5)
     ax.set_title("One specimen read twice, with the PPD-UTM run beside it",
-                 fontsize=10, color=INK)
-    ax.legend(fontsize=8.2, loc="upper left", frameon=False)
-    ax.tick_params(labelsize=8.5)
+                 fontsize=10.5, color=INK)
+    ax.legend(fontsize=8.6, loc="lower right", frameon=False)
+    ax.tick_params(labelsize=9)
     ax.set_xlim(-0.15, 6.0)
     ax.set_ylim(0, 54)
     _style(ax)
@@ -273,33 +277,63 @@ def fig_rate(S=None):
     """
     S = S or PP.build()
     B = S["B"]
-    fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.9),
-                             gridspec_kw={"width_ratios": [1.0, 1.12], "wspace": 0.20})
+    fig, axes = plt.subplots(1, 3, figsize=(13.6, 3.9),
+                             gridspec_kw={"width_ratios": [0.86, 1.0, 1.12], "wspace": 0.24})
 
+    # ---- (a) WHERE THIS WINDOW SITS IN THE WHOLE PULL.
+    #
+    # The fitted band is 0.30 % of strain out of a 5.2 % pull — under a sixteenth of the record,
+    # hard against the origin. Quoting a strain rate without showing that invites the reading that
+    # it describes the whole test; it describes the early elastic ramp and nothing else.
     ax = axes[0]
+    ax.plot(S["mot"]["e"], S["mot"]["sig"], "-", color=C_RATE_MOT, lw=1.8, alpha=0.9)
+    ax.axvspan(RATE_LO, RATE_HI, color="#1f77b4", alpha=0.22, lw=0)
+    _lm = S["L"]["MOT"]
+    ax.plot([_lm["uts_e"]], [_lm["uts"]], "o", ms=6, color=C_RATE_MOT, mec="white", mew=1.1,
+            zorder=5)
+    ax.plot([_lm["ef"]], [_lm["sigf"]], "s", ms=5.5, color=C_RATE_MOT, mec="white", mew=1.1,
+            zorder=5)
+    ax.annotate("UTS", xy=(_lm["uts_e"], _lm["uts"]), xytext=(_lm["uts_e"] + 0.45, _lm["uts"] + 3.4),
+                fontsize=8.2, color=MUTED,
+                arrowprops=dict(arrowstyle="->", color=MUTED, lw=0.9))
+    ax.annotate("fracture", xy=(_lm["ef"], _lm["sigf"]),
+                xytext=(_lm["ef"] - 2.35, _lm["sigf"] - 9.0), fontsize=8.2, color=MUTED,
+                arrowprops=dict(arrowstyle="->", color=MUTED, lw=0.9))
+    ax.annotate("the fitted window:\n%.2f–%.2f %% of a %.1f %% pull" % (RATE_LO, RATE_HI, _lm["ef"]),
+                xy=(RATE_HI, 20.0), xytext=(1.35, 12.5), fontsize=8.3, color="#1a5f9e",
+                fontweight="bold",
+                arrowprops=dict(arrowstyle="->", color="#1a5f9e", lw=1.1))
+    ax.set_xlabel("strain (%)")
+    ax.set_ylabel("engineering stress (MPa)")
+    ax.set_title("Where that window sits in the whole pull", fontsize=10.5, color=INK)
+    ax.set_xlim(-0.15, _lm["ef"] + 0.5)
+    ax.set_ylim(0, 52)
+    _style(ax)
+
+    ax = axes[1]
     ax.plot(S["mot"]["t"], S["mot"]["e"], "-", color=C_RATE_MOT, lw=2.4, alpha=0.85,
-            label="XT-205 extensometer")
+            label="XT205-S2 · XT-205 extensometer")
     ax.plot(S["ours"]["t"], S["ours"]["e"], "--", color=C_RATE_PP, lw=1.5,
-            label="PPD-UTM DIC")
+            label="XT205-S2 · PPD-UTM DIC")
     ax.axhspan(RATE_LO, RATE_HI, color="#1f77b4", alpha=0.10)
     ax.set_xlim(-1, 40)
     ax.set_ylim(-0.05, 0.90)
     ax.set_xlabel("time from the preload (s)")
     ax.set_ylabel("strain (%)")
-    ax.set_title("The XT-205's own footage, measured two ways\n(shaded: the fitted window)",
-                 fontsize=10.5, color=INK)
+    ax.set_title("XT205-S2 on the XT-205's own footage, measured two ways\n"
+                 "(shaded: the fitted window)", fontsize=10.5, color=INK)
     ax.legend(fontsize=8.4, loc="upper left", framealpha=0.95)
     _style(ax)
 
-    rows = [("XT-205 footage · PPD-UTM DIC",
+    rows = [("XT205-S2 · PPD-UTM DIC",
              _rate_over(S["ours"]["t"], S["ours"]["e"]), C_RATE_PP),
-            ("XT-205 footage · XT-205 extensometer",
+            ("XT205-S2 · XT-205 extensometer",
              _rate_over(S["mot"]["t"], S["mot"]["e"]), C_RATE_MOT),
             ("S33 · PPD-UTM", _rate_over(B["recs"]["S33"]["t"], B["recs"]["S33"]["e"]), C_S33),
             ("S34 · PPD-UTM", _rate_over(B["recs"]["S34"]["t"], B["recs"]["S34"]["e"]), C_S34)]
     rows = [r for r in rows if r[1]]
 
-    ax = axes[1]
+    ax = axes[2]
     from matplotlib.transforms import blended_transform_factory
     y = np.arange(len(rows))[::-1]
     vals = [r[1][0] for r in rows]
@@ -318,7 +352,7 @@ def fig_rate(S=None):
     ax.set_title("Strain rate on one shared window", fontsize=10.5, color=INK)
     _style(ax)
 
-    fig.subplots_adjust(left=0.062, right=0.995, top=0.86, bottom=0.145)
+    fig.subplots_adjust(left=0.050, right=0.996, top=0.86, bottom=0.145)
     fig.savefig(os.path.join(FIGS, "mot2pp_rate.png"), dpi=200, facecolor="white")
     plt.close(fig)
     print("  mot2pp_rate.png")

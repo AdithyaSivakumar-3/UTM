@@ -18,8 +18,8 @@ _R1ROW = {r["key"]: r for r in _R1["rows"]}
 _RIGN = _R1["rig_name"]
 
 _R2 = {nm: st for nm, st, _c in _RP.fig_rate()}
-_R2PP = _R2["XT-205 footage · PPD-UTM DIC"][0]
-_R2MOT = _R2["XT-205 footage · XT-205 extensometer"][0]
+_R2PP = _R2["XT205-S2 · PPD-UTM DIC"][0]
+_R2MOT = _R2["XT205-S2 · XT-205 extensometer"][0]
 _R2S33 = _R2["S33 · PPD-UTM"][0]
 _R2S34 = _R2["S34 · PPD-UTM"][0]
 _R2OURS = 0.5 * (_R2S33 + _R2S34)
@@ -67,10 +67,10 @@ img_fit(s, "documentation/figures/mot2pp_rate.png", 0.40, 1.10, 12.5, 3.40)
 
 header(s, 0.45, 4.62, 6.15, "The same layout, the 45 mm test")
 table(s, 0.45, 5.00, 6.15, 1.42, [
-    ["", "MOT Test 1 · 80 mm", "MOT Test 2 · 45 mm"],
-    ["XT-205 footage · PPD-UTM DIC",
+    ["", "XT205-S1 · 80 mm", "XT205-S2 · 45 mm"],
+    ["the MOT bar · PPD-UTM DIC",
      "%.2e /s" % _R1ROW["pp"]["rate"], "%.2e /s" % _R2PP],
-    ["XT-205 footage · XT-205",
+    ["the MOT bar · XT-205",
      "%.2e /s" % _R1ROW["mot"]["rate"], "%.2e /s" % _R2MOT],
     ["the two calculations, apart",
      "%.1f %%" % abs(100 * (_R1ROW["pp"]["rate"] / _R1ROW["mot"]["rate"] - 1)),

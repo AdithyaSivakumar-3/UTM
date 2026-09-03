@@ -47,7 +47,7 @@ table(s, 0.45, 1.92, 6.15, 1.64, [
 
 header(s, 6.85, 1.54, 6.1, "The three records")
 table(s, 6.85, 1.92, 6.1, 1.64, [
-    ["", "MOT XT-205", f"{_P} · PPD-UTM", f"{_S} · PPD-UTM"],
+    ["", "XT205-S2 · MOT", f"{_P} · PPD-UTM", f"{_S} · PPD-UTM"],
     ["crosshead", f"{_RM['res']['speed_mm_min']:.0f} mm/min",
      f"{_OURS_MM_MIN:.1f} mm/min", f"{_Rs['res']['rate'] * 60.0:.1f} mm/min"],
     ["preload", f"{_RM['res']['preload']:.0f} N",
@@ -101,7 +101,7 @@ img_fit(s, "documentation/figures/mot2cmp_stress.png", 0.35, 1.10, 6.55, 3.70)
 
 header(s, 7.10, 1.06, 5.85, "Every landmark, and the offset from %s" % _P)
 table(s, 7.10, 1.44, 5.85, 2.10, [
-    ["", "XT-205", _P, "offset", _S],
+    ["", "XT205-S2", _P, "offset", _S],
     ["σ_y  (0.2 % offset)", f"{_M['sy_steep']:.2f}", f"{_p['sy_steep']:.2f}",
      f"{_off(_M['sy_steep'], _p['sy_steep']):+.1f} %", f"{_s['sy_steep']:.2f}"],
     ["strain at yield (%)", f"{_M['sy_steep_e']:.2f}", f"{_p['sy_steep_e']:.2f}",
@@ -202,7 +202,7 @@ img_fit(s, "documentation/figures/mot2cmp_elastic.png", 0.45, 1.08, 12.5, 3.32)
 header(s, 0.45, 4.48, 6.15, "The same two methods on all three records")
 table(s, 0.45, 4.86, 6.15, 1.55, [
     ["", f"fixed {_WIN[0]:.2f}–{_WIN[1]:.2f} %", "steepest straight run", "window", "spread"],
-    ["XT-205 (MOT)", f"{_M['E_fix']['E']:.3f} GPa", f"{_M['E_steep']['E']:.3f} GPa",
+    ["XT205-S2 · MOT", f"{_M['E_fix']['E']:.3f} GPa", f"{_M['E_steep']['E']:.3f} GPa",
      f"{_M['E_steep']['lo']:.2f}–{_M['E_steep']['hi']:.2f} %",
      f"{abs(_M['E_steep']['E'] - _M['E_fix']['E']) / _M['E_fix']['E'] * 100:.1f} %"],
     [f"{_P} · ours", f"{_p['E_fix']['E']:.3f} GPa", f"{_p['E_steep']['E']:.3f} GPa",
@@ -256,12 +256,12 @@ header(s, 0.45, 4.48, 6.15, "Both windows, because each one flatters a different
 # draft's two section-label rows pushed the last two records down behind the banner.
 table(s, 0.45, 4.86, 6.15, 1.42, [
     ["window", "record", "rms", "median", "p95", "dwell", "spans"],
-    [f"STRAIN {CMP.NOISE_WIN[0]:.2f}–{CMP.NOISE_WIN[1]:.2f} %", "XT-205",
+    [f"STRAIN {CMP.NOISE_WIN[0]:.2f}–{CMP.NOISE_WIN[1]:.2f} %", "XT205-S2",
      f"{_ns_M['rms']:.1f} µε", f"{_ns_M['med']:.1f}", f"{_ns_M['p95']:.0f}",
      f"{_ns_M['dwell']:.1f} s", "0.35 %"],
     ["", f"{_P} · ours", f"{_ns_P['rms']:.1f} µε", f"{_ns_P['med']:.1f}", f"{_ns_P['p95']:.0f}",
      f"{_ns_P['dwell']:.1f} s", "0.35 %"],
-    [f"DURATION {CMP.NOISE_SECONDS:.1f} s", "XT-205",
+    [f"DURATION {CMP.NOISE_SECONDS:.1f} s", "XT205-S2",
      f"{_nd_M['rms']:.1f} µε", f"{_nd_M['med']:.1f}", f"{_nd_M['p95']:.0f}",
      f"{_nd_M['dwell']:.1f} s", f"{_nd_M['de']:.3f} %"],
     ["", f"{_P} · ours", f"{_nd_P['rms']:.1f} µε", f"{_nd_P['med']:.1f}", f"{_nd_P['p95']:.0f}",

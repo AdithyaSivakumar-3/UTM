@@ -4102,6 +4102,9 @@ exec(open("documentation/scripts/mot2_pp_slides_block.py", encoding="utf-8").rea
 # ---- the same strain-rate figure for both tests, side by side
 exec(open("documentation/scripts/mot_rate_slides_block.py", encoding="utf-8").read())
 
+# ---- the six records, named, and the speed each was pulled at
+exec(open("documentation/scripts/mot_specimens_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)

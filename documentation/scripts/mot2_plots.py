@@ -72,7 +72,7 @@ def fig_strain(D=None):
 
     ax.set_xlabel("time (s)", fontsize=9)
     ax.set_ylabel("extensometer strain (%)", fontsize=9)
-    ax.set_title("XT-205 strain over the whole pull — %.0f mm gauge, %.0f mm/min"
+    ax.set_title("XT205-S2 over the whole pull — %.0f mm gauge, %.0f mm/min"
                  % (D["gauge_mm"], D["speed_mm_min"]), fontsize=10, color=INK)
     ax.tick_params(labelsize=8.5)
     ax.set_xlim(0, t_e[-1] + 3)
@@ -122,7 +122,7 @@ def fig_stress(D=None):
 
     ax.set_xlabel("extensometer strain (%)", fontsize=9)
     ax.set_ylabel("engineering stress (MPa)", fontsize=9)
-    ax.set_title("Stress–strain from the XT-205's own two channels\n"
+    ax.set_title("XT205-S2 — stress–strain from the XT-205's own two channels\n"
                  "(load ÷ %.0f mm² nominal)" % D["area"], fontsize=10, color=INK)
     ax.tick_params(labelsize=8.5)
     ax.set_xlim(-0.15, D["ef"] + 0.9)

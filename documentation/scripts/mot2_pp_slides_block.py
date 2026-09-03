@@ -169,11 +169,11 @@ pageno(s)
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "MOT TEST 2 — ONE LOAD CHANNEL, THREE STRAIN READINGS")
 
-img_fit(s, "documentation/figures/mot2pp_stress.png", 0.35, 1.10, 6.55, 3.70)
+img_fit(s, "documentation/figures/mot2pp_stress.png", 0.30, 1.06, 6.72, 3.93)
 
 header(s, 7.10, 1.06, 5.85, "Every landmark, and the offset from the XT-205")
 table(s, 7.10, 1.44, 5.85, 2.10, [
-    ["", "MOT footage ·\nPPD-UTM DIC", "MOT footage ·\nXT-205", "offset", f"{_P} ·\nPPD-UTM"],
+    ["", "XT205-S2 ·\nPPD-UTM DIC", "XT205-S2 ·\nXT-205", "offset", f"{_P} ·\nPPD-UTM"],
     ["σ_y (0.2 % offset, MPa)", f"{_pp['sy_steep']:.2f}", f"{_mo['sy_steep']:.2f}",
      f"{_off(_pp['sy_steep'], _mo['sy_steep']):+.2f} %", f"{_s34['sy_steep']:.2f}"],
     ["UTS (MPa)", f"{_pp['uts']:.2f}", f"{_mo['uts']:.2f}",
@@ -203,7 +203,7 @@ tb(s, 7.10, 4.12, 5.85, 2.05,
    f"never a candidate for it, and now that is shown rather than assumed.",
    fs=9.5, colour=BLACK)
 
-tb(s, 0.35, 4.94, 6.55, 1.28,
+tb(s, 0.30, 5.06, 6.72, 1.16,
    f"Toughness differs by {abs(_off(_pp['tough'], _mo['tough'])):.2f} % for a mechanical reason "
    f"rather than a numerical one: it is the AREA under the curve, so it accumulates every small "
    f"strain difference along the whole record instead of sampling one instant. It is the most "
@@ -230,10 +230,10 @@ img_fit(s, "documentation/figures/mot2pp_slope_mot.png", 6.75, 1.08, 6.35, 3.46)
 header(s, 0.45, 4.62, 6.15, "The modulus, both methods, all three records")
 table(s, 0.45, 5.00, 6.15, 1.42, [
     ["", f"fixed {CMP.FIX_WIN[0]:.2f}–{CMP.FIX_WIN[1]:.2f} %", "steepest run", "window", "spread"],
-    ["MOT footage · PPD-UTM DIC", f"{_pp['E_fix']['E']:.3f} GPa", f"{_pp['E_steep']['E']:.3f} GPa",
+    ["XT205-S2 · PPD-UTM DIC", f"{_pp['E_fix']['E']:.3f} GPa", f"{_pp['E_steep']['E']:.3f} GPa",
      f"{_pp['E_steep']['lo']:.2f}–{_pp['E_steep']['hi']:.2f} %",
      f"{abs(_pp['E_steep']['E'] - _pp['E_fix']['E']) / _pp['E_fix']['E'] * 100:.1f} %"],
-    ["MOT footage · XT-205", f"{_mo['E_fix']['E']:.3f} GPa", f"{_mo['E_steep']['E']:.3f} GPa",
+    ["XT205-S2 · XT-205", f"{_mo['E_fix']['E']:.3f} GPa", f"{_mo['E_steep']['E']:.3f} GPa",
      f"{_mo['E_steep']['lo']:.2f}–{_mo['E_steep']['hi']:.2f} %",
      f"{abs(_mo['E_steep']['E'] - _mo['E_fix']['E']) / _mo['E_fix']['E'] * 100:.1f} %"],
     [f"{_P} · PPD-UTM", f"{_s34['E_fix']['E']:.3f} GPa", f"{_s34['E_steep']['E']:.3f} GPa",
@@ -283,7 +283,7 @@ tb(s, 0.45, 1.06, 12.5, 0.40,
 
 header(s, 0.45, 1.52, 4.05, "SETTLED — the calculation")
 table(s, 0.45, 1.90, 4.05, 1.42, [
-    ["same footage, PPD-UTM vs XT-205", "offset"],
+    ["XT205-S2, PPD-UTM vs XT-205", "offset"],
     ["scale", f"{abs(_D['scale_pct']):.3f} %"],
     ["σ_y", f"{_off(_pp['sy_steep'], _mo['sy_steep']):+.2f} %"],
     ["failure strain", f"{_off(_pp['ef'], _mo['ef']):+.2f} %"],

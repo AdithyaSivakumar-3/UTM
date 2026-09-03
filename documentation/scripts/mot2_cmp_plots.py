@@ -40,7 +40,7 @@ def _order(B):
 
 
 def _name(B, k):
-    return "MOT XT-205" if k == "MOT" else "%s · PPD-UTM" % k
+    return "XT205-S2 · MOT" if k == "MOT" else "%s · PPD-UTM" % k
 
 
 # --------------------------------------------------------------------------- stress-strain
