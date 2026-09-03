@@ -842,6 +842,40 @@ show *all* smart features and auto-preload is a real, validated one that was sim
   reprinting a specimen. Whether re-analysis actually SAVED specimens is answerable from the
   registry, and it is the one claim here that is about this project rather than about PLA.
 
+  ### The agreed plan (Adithya, 2026-09-03) — do the narrow calculation, and draw the whole map
+
+  **Scope it to what can be gathered quickly and calculated honestly:** filament for the specimens
+  (mass straight from PrusaSlicer, which is the one number that closes the material term), printing,
+  the test itself, and the measurement. Publish that, and NOT a whole-life LCA.
+
+  Two conditions make this defensible rather than misleading, and both are cheap:
+
+  1. **State the boundary loudly, in the figure itself.** A partial footprint that does not say what
+     it excludes reads as a total. The excluded terms here — the camera, the PC, the frame, the load
+     cell — are exactly the ones that could dominate, so the drawing has to show them greyed out and
+     labelled "not counted", not merely omitted. Done that way a narrow scope is a strength: it is
+     the part that is MEASURED rather than assumed.
+  2. **Spend one hour on a plug-in energy meter.** Printer draw and rig draw are the only remaining
+     guesses inside the chosen scope, and nameplate arithmetic is not a calculation. Metering the
+     printer over one specimen and the rig over one pull turns the whole in-scope study from
+     estimated into measured, for the price of a €15 meter. If the paper says "measured", this is
+     what has to have happened.
+
+  **The flowchart is the actual deliverable**, and the material for it already exists: rig photos in
+  `Images/UTM rig/`, 104 figures under `documentation/figures/`, specimen photographs, app
+  screenshots, and 35 014 real capture frames. Stages, each with a real image rather than an icon:
+
+      filament (cradle-to-gate, from literature)  ->  printing (energy + failed prints)
+      ->  marker spray  ->  the pull (rig energy)  ->  DIC measurement (compute)
+      ->  data retained (96.9 GB)  ->  end of life
+      with the excluded hardware drawn alongside, greyed, and named
+
+  **The one number worth chasing beyond the arithmetic** is the avoided reprint. Every capture run
+  that can be re-measured from video is a specimen not printed again — S29, S32 and the black-mode
+  runs are the candidates, and the registry can say how many re-analyses actually happened. That is
+  the only figure in this study that belongs to this rig rather than to PLA in general, and it is
+  the one another lab could not have written.
+
 - ⬜ **UTM instruction manual (for users):** short, crisp usage guide with clear photos of the rig + UI screenshots — Connect → Calibrate → Mount → Prepare → Run → Save → Report.
 
 ---
