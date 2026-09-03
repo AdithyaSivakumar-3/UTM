@@ -4090,6 +4090,9 @@ exec(open("documentation/scripts/workflow_slides_block.py", encoding="utf-8").re
 # ---- SF19: noise capture, and the offset/drift/sd distinction it turns on
 exec(open("documentation/scripts/sf21_slides_block.py", encoding="utf-8").read())
 
+# ---- MOT session 2: the XT-205's own 45 mm pull, as an independent record
+exec(open("documentation/scripts/mot2_slides_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)
