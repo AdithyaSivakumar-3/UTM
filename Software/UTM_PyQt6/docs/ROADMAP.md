@@ -881,13 +881,28 @@ fails if its guard is removed.
      carries about half the gap.
   2. **The specimen.** n = 1 on each side, and our own S33/S34 differ by 2.7 % on UTS.
 
-  **The test:** pull one 100 % infill PLA specimen at **2 mm/min**, everything else unchanged, and
-  compare it to S34 at 6.0 mm/min. If UTS drops by roughly the observed 7.7 %, the gap is rate and
-  the cross-validation is complete. If it barely moves, the gap is the specimen and we should say
-  so. Either answer closes the last open item in the MOT comparison, and the rig already supports
-  the speed — nothing is blocked.
+  **The test — and 2026-09-03 SHARPENED IT: matching the commanded speed does NOT match the strain
+  rate.** A specimen feels the strain rate in its own gauge, not the crosshead, and the two machines
+  deliver different fractions of travel there: **45 % (XT-205) against 33 % (PPD-UTM)**. So the
+  2.99× crosshead gap is only a **1.19× gauge strain-rate gap** — 2.60e-04 /s against 3.10e-04 /s.
 
-  Worth running two at each speed if specimens allow, so the result is not itself an n = 1 claim.
+  | PPD-UTM run at | its gauge strain rate | relative to XT205-S2 |
+  |---|---|---|
+  | 5.98 mm/min (as run) | 3.10e-04 /s | 1.19× |
+  | **5.01 mm/min** | **2.60e-04 /s** | **1.00× — matched** |
+  | 2.00 mm/min (their commanded) | 1.04e-04 /s | 0.40× — overshoots the other way |
+
+  So pull **two** specimens: one at **5.01 mm/min** to match XT205-S2's strain rate, and one at
+  **2.00 mm/min** to match its commanded speed. They bracket it from both sides, and the pair also
+  measures this rig's own rate-sensitivity over half a decade, which nothing on file does yet.
+  Worth two at each speed if specimens allow, so the result is not itself an n = 1 claim.
+
+  **What the rate hypothesis already CANNOT explain — deck p178-179.** Over 1.19× of strain rate,
+  a literature-typical PLA modulus sensitivity of 3–10 % per decade predicts **under 1 %** on E.
+  Measured, S34 − XT205-S2 is **+6.9 %** on the steepest-run fit and **−4.2 %** on the fixed window
+  — the sign flips with the fitting method, which a rate effect cannot do. The slope gap is the toe
+  in our own load train (see FW2), not the speed. The rate experiment above is still worth running,
+  but for UTS and ε_f, not for E.
 
 - ⬜ **Product Carbon Footprint / LCA of the PPD-UTM development.** Not a full LCA to start with —
   a SCREENING INVENTORY, because the inventory is what decides whether a full study is worth doing.

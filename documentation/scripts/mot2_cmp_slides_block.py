@@ -127,9 +127,12 @@ tb(s, 7.10, 4.12, 5.85, 2.05,
    f"THE BOTTOM HALF IS NOT A FAILURE, IT IS THE SPEED. Every quantity that disagrees is one that "
    f"depends on what happens AFTER yield, and all of them move the way a "
    f"{_OURS_MM_MIN / _RM['res']['speed_mm_min']:.0f}× slower pull moves them: a lower peak, reached "
-   f"earlier in strain, with less area under the curve. A rate effect explains roughly half of "
-   f"{abs(_off(_M['uts'], _p['uts'])):.1f} % for PLA; our own "
-   f"{abs(_off(_p['uts'], _s['uts'])):.1f} % specimen-to-specimen scatter covers much of the rest.",
+   f"earlier in strain, with less area under the curve. But the DIRECTION is all the speed buys: "
+   f"the two gauges see only 1.19× of strain rate between them, not the 3× of crosshead, so rate is "
+   f"worth well under 1 % here ({ref('WHAT THE SPEED DIFFERENCE PREDICTS')}). Our own "
+   f"{abs(_off(_p['uts'], _s['uts'])):.1f} % specimen-to-specimen scatter covers more of the "
+   f"{abs(_off(_M['uts'], _p['uts'])):.1f} % than the speed does; the rest is a batch and machine "
+   f"difference that n = 1 a side cannot separate.",
    fs=9.5, colour=BLACK)
 
 tb(s, 0.35, 4.92, 6.55, 1.30,
@@ -242,6 +245,160 @@ footer(s, "The steepest-straight-run search is utm_analysis._steepest_straight_r
 pageno(s)
 
 
+# ============================================ 4b. what the SPEED difference predicts for the slope
+#
+# XT205-S2 was pulled at 2 mm/min and S34 at 5.98, so the obvious question is whether the slope
+# difference on the slide above is simply rate-sensitivity. Working it through says no — and the
+# reason is worth its own slide, because the naive version of the calculation gives an answer 4x
+# too big and the sign test settles it without needing any magnitude at all.
+import numpy as _np                                                   # noqa: E402
+import math as _math                                                  # noqa: E402
+
+
+def _rate_of(rec, lo=0.05, hi=0.35):
+    """d(eps)/dt over the shared window, on the preload-zeroed axis."""
+    t, e = _np.asarray(rec["t"], float), _np.asarray(rec["e"], float)
+    m = (e >= lo) & (e <= hi)
+    return float(_np.polyfit(t[m], e[m] / 100.0, 1)[0])
+
+
+_RT_M, _RT_P = _rate_of(_RM), _rate_of(_Rp)
+_CROSS_RATIO = _OURS_MM_MIN / _RM["res"]["speed_mm_min"]
+_RATE_RATIO = _RT_P / _RT_M
+_DECADES = _math.log10(_RATE_RATIO)
+_SH_M, _SH_P = _B["share"]["MOT"]["pct"], _B["share"][_P]["pct"]
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "MOT TEST 2 — WHAT THE SPEED DIFFERENCE PREDICTS")
+
+tb(s, 0.45, 1.06, 12.5, 0.40,
+   f"{_P} was pulled {_CROSS_RATIO:.1f}× faster than XT205-S2 at the crosshead. PLA is "
+   f"rate-sensitive, so that is the first thing to suspect for the slope gap on the previous "
+   f"slide. It is worth doing the arithmetic before believing it.",
+   fs=11, colour=BLACK)
+
+header(s, 0.45, 1.52, 6.15, "The crosshead ratio is not the ratio that matters")
+table(s, 0.45, 1.90, 6.15, 1.42, [
+    ["", "XT205-S2", f"{_P}", "ratio"],
+    ["crosshead", f"{_RM['res']['speed_mm_min']:.2f} mm/min",
+     f"{_OURS_MM_MIN:.2f} mm/min", f"{_CROSS_RATIO:.2f}×"],
+    ["share reaching the gauge", f"{_SH_M:.0f} %", f"{_SH_P:.0f} %",
+     f"{_SH_M / _SH_P:.2f}×"],
+    ["GAUGE STRAIN RATE", f"{_RT_M:.3e} /s", f"{_RT_P:.3e} /s", f"{_RATE_RATIO:.3f}×"],
+], cw=[2.2, 1.4, 1.4, 0.9], hf=9.5, bf=9)
+
+header(s, 0.45, 3.50, 6.15, "Why the two ratios are so different")
+tb(s, 0.45, 3.88, 6.15, 1.55,
+   f"A specimen does not feel the crosshead; it feels the strain rate in its own gauge. The "
+   f"XT-205 delivers {_SH_M:.0f} % of its travel there and the PPD-UTM {_SH_P:.0f} %, so the "
+   f"stiffer frame hands over a larger share and claws back most of the {_CROSS_RATIO:.1f}× speed "
+   f"handicap. What is left is {_RATE_RATIO:.3f}× — a factor of "
+   f"{_CROSS_RATIO / _RATE_RATIO:.1f} smaller than the speeds suggest, and only "
+   f"{_DECADES:.3f} of a DECADE.",
+   fs=9.5, colour=BLACK)
+
+header(s, 6.85, 1.52, 6.1, "So how much modulus should that buy?")
+table(s, 6.85, 1.90, 6.1, 1.42, [
+    ["If PLA's E rises…", f"…then {_P} − XT205-S2 should be"],
+    ["3 % per decade of strain rate", f"+{3 * _DECADES:.2f} %"],
+    ["5 % per decade", f"+{5 * _DECADES:.2f} %"],
+    ["8 % per decade", f"+{8 * _DECADES:.2f} %"],
+    ["10 % per decade (a generous ceiling)", f"+{10 * _DECADES:.2f} %"],
+], cw=[3.5, 2.6], hf=9.5, bf=9)
+
+header(s, 6.85, 3.50, 6.1, "The prediction, stated before looking")
+tb(s, 6.85, 3.88, 6.1, 1.55,
+   f"DIRECTION: XT205-S2 is the slower specimen, so it should have the LOWER slope. A polymer "
+   f"pulled slowly gives its chains more time to rearrange, and reads softer.\n\n"
+   f"MAGNITUDE: under 1 % on E, whichever rate-sensitivity is assumed. That is the useful part — "
+   f"anything much larger than 1 % is NOT the speed, whatever direction it points in.",
+   fs=9.5, colour=BLACK)
+
+banner(s, 0.40, 4.86, 12.55, 0.52,
+       f"The per-decade figures are literature-typical for PLA, not measured on this rig — which is "
+       f"why the DIRECTION test below carries the argument and the magnitude only bounds it.",
+       fill=YELLOW_WARN, fg=BLACK, fs=10.5)
+
+tb(s, 0.45, 5.52, 12.5, 0.72,
+   f"Note what this already says about the planned experiment. Running the PPD-UTM at "
+   f"{_RM['res']['speed_mm_min']:.0f} mm/min matches XT205-S2's COMMANDED speed but not its strain "
+   f"rate: our gauge would see {_RT_P * _RM['res']['speed_mm_min'] / _OURS_MM_MIN:.3e} /s, which is "
+   f"{(_RT_P * _RM['res']['speed_mm_min'] / _OURS_MM_MIN) / _RT_M:.2f}× theirs — an overshoot in "
+   f"the other direction. To match the RATE the PPD-UTM would run "
+   f"{_OURS_MM_MIN * _RT_M / _RT_P:.2f} mm/min.",
+   fs=10, colour=BLACK)
+footer(s, "Gauge strain rate is fitted over the same 0.05–0.35 % window used everywhere in this "
+          "block, on the preload-zeroed axis. Share of travel reaching the gauge is from "
+          f"{ref('MOT TEST 2 — TEST 1')}.")
+pageno(s)
+
+
+# ============================================ 4c. did the slopes differ as predicted?
+_E_FIX_D = _off(_p["E_fix"]["E"], _M["E_fix"]["E"])          # S34 relative to XT205-S2
+_E_ST_D = _off(_p["E_steep"]["E"], _M["E_steep"]["E"])
+_METHOD_P = abs(_p["E_steep"]["E"] - _p["E_fix"]["E"]) / _p["E_fix"]["E"] * 100
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "MOT TEST 2 — DID THE SLOPES DIFFER AS PREDICTED?")
+
+tb(s, 0.45, 1.06, 12.5, 0.40,
+   f"Prediction: {_P} stiffer than XT205-S2, by under 1 %. Two fitting methods, two answers — and "
+   f"they do not even agree on the SIGN.",
+   fs=11, colour=BLACK)
+
+header(s, 0.45, 1.52, 7.4, "Predicted against measured")
+table(s, 0.45, 1.90, 7.4, 1.42, [
+    ["", "XT205-S2", f"{_P}", f"{_P} − XT205-S2", "as predicted?"],
+    ["predicted from the strain rate", "—", "—", f"+{5 * _DECADES:.2f} %  (±)", "—"],
+    [f"MEASURED, fixed {_WIN[0]:.2f}–{_WIN[1]:.2f} %",
+     f"{_M['E_fix']['E']:.3f} GPa", f"{_p['E_fix']['E']:.3f} GPa", f"{_E_FIX_D:+.1f} %",
+     "NO — wrong sign"],
+    ["MEASURED, steepest straight run",
+     f"{_M['E_steep']['E']:.3f} GPa", f"{_p['E_steep']['E']:.3f} GPa", f"{_E_ST_D:+.1f} %",
+     "right sign, 9× too big"],
+], cw=[2.5, 1.3, 1.3, 1.35, 1.6], hf=9, bf=8.5)
+
+header(s, 0.45, 3.50, 7.4, "The sign test, and why it is the one that decides")
+tb(s, 0.45, 3.88, 7.4, 1.95,
+   f"A rate effect has a direction that does not depend on how the line is fitted: the slower "
+   f"specimen reads softer, always. Here the slower specimen reads SOFTER on the steepest-run fit "
+   f"and STIFFER on the fixed window. One of those contradicts rate outright, so rate is not what "
+   f"is driving either.\n\n"
+   f"The magnitude says the same thing from the other side. Rate can buy under 1 %; the two "
+   f"measurements are {abs(_E_FIX_D):.1f} % and {abs(_E_ST_D):.1f} % apart. And {_P}'s OWN two "
+   f"methods differ by {_METHOD_P:.1f} % on one specimen with no speed difference at all — the "
+   f"method spread is larger than the machine gap it is being used to explain.",
+   fs=9.5, colour=BLACK)
+
+header(s, 8.05, 1.52, 4.9, "So what IS driving it")
+tb(s, 8.05, 1.90, 4.9, 2.30,
+   f"The toe in the PPD-UTM load train, which {ref('MOT TEST 2 — WHERE YOU FIT')} shows directly: "
+   f"XT205-S2's slope is flat from the origin, while {_P}'s dips to 2.7 GPa near 0.15 % and only "
+   f"reaches its steepest at {_p['E_steep']['lo']:.2f}–{_p['E_steep']['hi']:.2f} %.\n\n"
+   f"A fixed window that straddles that dip reads {_P} LOW; a steepest-run search that skips past "
+   f"it reads {_P} HIGH. Same specimen, same pull — the sign of the gap is set by which part of "
+   f"our own seating curve the fit lands on.",
+   fs=9.5, colour=BLACK)
+
+header(s, 8.05, 4.30, 4.9, "What would test rate properly")
+tb(s, 8.05, 4.68, 4.9, 1.15,
+   f"Match the GAUGE STRAIN RATE, not the crosshead: {_OURS_MM_MIN * _RT_M / _RT_P:.2f} mm/min on "
+   f"the PPD-UTM. Pair it with a {_RM['res']['speed_mm_min']:.0f} mm/min run and the two bracket "
+   f"XT205-S2 from both sides.",
+   fs=9.5, colour=BLACK)
+
+banner(s, 0.40, 5.24, 12.55, 0.62,
+       f"ANSWERED: XT205-S2 was predicted to have the lower slope, and it does on one fitting "
+       f"method and not the other. Because the sign is not stable, the {abs(_E_ST_D):.1f} % gap "
+       f"cannot be credited to the speed — the speed is worth under 1 %, and where the line is "
+       f"fitted is worth {_METHOD_P:.1f} %.",
+       fill=GREEN_PASS, fg=BLACK, fs=11)
+footer(s, "Both moduli are computed by the same two methods on both records, so nothing here is a "
+          "method difference dressed as a machine difference. Percentages are relative to "
+          "XT205-S2.")
+pageno(s)
+
+
 # ================================================================= 5. noise
 _ns_M, _ns_P = _B["noise_s"]["MOT"], _B["noise_s"][_P]
 _nd_M, _nd_P = _B["noise_d"]["MOT"], _B["noise_d"][_P]
@@ -324,10 +481,11 @@ tb(s, 4.75, 1.90, 4.05, 2.84,
    f"{abs(_off(_M['tough'], _p['tough'])):.1f} % low. Every quantity that disagrees is post-yield, "
    f"and every one moves the way a {_OURS_MM_MIN / _RM['res']['speed_mm_min']:.0f}× slower pull "
    f"moves it.\n\n"
-   f"That is a DIRECTION the physics predicts, not a magnitude it pins down — for PLA a "
-   f"{_OURS_MM_MIN / _RM['res']['speed_mm_min']:.0f}× rate change is worth a few per cent, so rate "
-   f"plausibly carries half of the gap and specimen scatter the rest. Neither term is separable "
-   f"from the other with n = 1 on each side.\n\n"
+   f"That is a DIRECTION the physics predicts, and NOT a magnitude — the correction on "
+   f"{ref('WHAT THE SPEED DIFFERENCE PREDICTS')} is that the two gauges differ by 1.19× of strain "
+   f"rate rather than the 3× of crosshead, so the speed is worth under 1 %. Our own "
+   f"{abs(_off(_p['uts'], _s['uts'])):.1f} % specimen scatter carries more of it, and the remainder "
+   f"belongs to a different machine and a different batch, which n = 1 a side cannot split.\n\n"
    f"Also explained: the {_G['measured']:.2f}× rise in our noise floor, which is 1/Px₀ and nothing "
    f"else, and the strain-rate gap MOT Test 1 could not account for, which is the load train.",
    fs=9.5, colour=BLACK)
