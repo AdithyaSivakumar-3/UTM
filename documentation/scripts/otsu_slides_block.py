@@ -10,8 +10,14 @@
 # ===================================================================================
 import otsu_data as _OD                                               # noqa: E402
 import otsu_plots as _OP                                              # noqa: E402
+import otsu_valley as _OV                                             # noqa: E402
 
 _OP.all_figs()
+_V = _OV.all_figs()
+# The two optional probes are appended last, so indices 0-5 are fixed but 6 is only the
+# glare if a glare pixel was found. Fail the build rather than silently label the glint.
+_PROBE_ERR = "otsu_valley probe order changed - the valley slides index it positionally"
+assert _V["halo_px"] and _V["probes"][6][2].startswith("the grip's glare"), _PROBE_ERR
 _O = _OD.load()
 
 _OTSU_URL = "https://ieeexplore.ieee.org/document/4310076"
@@ -110,6 +116,91 @@ banner(s, 0.40, 6.86, 12.55, 0.36,
        "The valley is the whole point: a threshold put where hardly any pixels sit can drift a "
        "little without changing which side anything falls on.",
        fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
+pageno(s)
+
+
+# ================================================================= 1c. the valley, on the specimen
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "WHAT THE VALLEY ACTUALLY IS — READ OFF THE SPECIMEN")
+
+img_fit(s, "documentation/figures/otsu_greymap.png", 0.35, 0.98, 12.6, 3.48)
+
+header(s, 0.40, 4.60, 4.05, "The three bands, as things you can point at")
+tb(s, 0.40, 4.98, 4.05, 1.80,
+   f"•  25–100, the big peak — the specimen and the field behind it. Plain body reads "
+   f"{_V['probes'][2][4]:.0f}, a dark print line {_V['probes'][3][4]:.0f}, the background "
+   f"{_V['probes'][4][4]:.0f}.\n"
+   f"•  Above 150 — the two spray dots ({_V['probes'][0][4]:.0f} at centre) and the grips "
+   f"({_V['probes'][5][4]:.0f}).\n"
+   f"•  101–150, the valley — {_V['v_pct']:.2f} % of the frame. Every ring in amber above is one "
+   f"of these, and none of them is an object.",
+   fs=9.6, colour=BLACK)
+
+header(s, 4.65, 4.60, 4.05, "A correction worth making here")
+tb(s, 4.65, 4.98, 4.05, 1.80,
+   f"•  Calling the big peak “the specimen body” is a simplification. It is the specimen AND the "
+   f"dark field behind it.\n"
+   f"•  Measured in the columns where both are visible: the body averages grey "
+   f"{_V['grey_body']:.1f}, the surround {_V['grey_back']:.1f}, and 99.6 % of BOTH fall in 25–100.\n"
+   f"•  They are one peak because brightness cannot tell them apart — only position can. It does "
+   f"not matter here, because neither is anywhere near the cut.",
+   fs=9.6, colour=BLACK)
+
+header(s, 8.90, 4.60, 4.05, "So what IS in the valley?")
+tb(s, 8.90, 4.98, 4.05, 1.80,
+   f"•  Edges. A pixel lying across a boundary averages the bright side and the dark side, and the "
+   f"lens is not perfectly sharp — so a marker's rim reads {_V['probes'][1][4]:.0f} two pixels out, "
+   f"on its way from {_V['probes'][0][4]:.0f} to {_V['probes'][2][4]:.0f}.\n"
+   f"•  Glare. The grip is still at {_V['probes'][6][4]:.0f} some "
+   f"{_V['halo_px']:.0f} px away from its own face.\n"
+   f"•  One real oddity: a glint off a raised print artefact out on the gauge, peaking at "
+   f"{_V['glint'][2]:.0f}. Next slide.",
+   fs=9.6, colour=BLACK)
+
+banner(s, 0.40, 6.86, 12.55, 0.36,
+       "Nothing in this scene IS mid-grey. The valley is what you get at the boundaries between "
+       "the things that are — which is exactly why a threshold is safe there.",
+       fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
+pageno(s)
+
+
+# ================================================= 1d. and it is mostly the grips', not the markers'
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "THE VALLEY IS AN EDGE — AND MOSTLY THE GRIPS' EDGE")
+
+img_fit(s, "documentation/figures/otsu_valley_where.png", 0.35, 0.98, 12.6, 3.85)
+
+header(s, 0.40, 5.00, 6.05, "Where every valley pixel sits")
+table(s, 0.40, 5.38, 6.05, 1.14, [
+    ["Nearest bright object", "share of the valley", "what those pixels are"],
+    ["a GRIP", "%.1f %%" % _V["pct_g"], "glare along a long, bright edge"],
+    ["a SPRAY DOT", "%.1f %%" % _V["pct_m"], "the marker's own thin rim"],
+    ["neither", "%.1f %%" % _V["pct_o"], "glints on the print, sensor noise"],
+], cw=[1.85, 1.55, 2.65], hf=9.5, bf=9.2,
+    ov={(1, 1): {"bg": RED_FAIL, "bold": True}, (2, 1): {"bg": GREEN_PASS, "bold": True}})
+
+tb(s, 0.40, 6.55, 6.05, 0.80,
+   "The markers contribute a tenth of it. If the valley looks mushy, that is the GRIPS being "
+   "mushy — and the grips are exactly what the blob detector has to reject.",
+   fs=9.6, italic=True, colour=GREY_TEXT)
+
+header(s, 6.75, 5.00, 6.20, "Why the grips own it — two factors, both measured")
+tb(s, 6.75, 5.38, 6.20, 1.90,
+   f"•  MORE EDGE. The grips have {_V['out_g']:,} px of outline against the two dots' "
+   f"{_V['out_m']:,} — {_V['ratio_outline']:.2f}×. Four big shapes cut by the frame beat two "
+   f"circles 125 px across.\n"
+   f"•  A SOFTER EDGE. Out from a spray dot the grey is back under 100 within {_V['w_m']:.0f} px; "
+   f"out from a grip it takes {_V['w_g']:.0f} — {_V['ratio_width']:.2f}×. Matte paint on matte "
+   f"plastic gives a crisp step; a bright specular face throws a skirt of glare.\n"
+   f"•  Together {_V['ratio_pred']:.1f}×, against the {_V['ratio_obs']:.1f}× observed. The two "
+   f"factors are the bulk of it; the residual is glare reaching past where the width metric "
+   f"stops counting — not the same number, and not claimed as one.",
+   fs=9.4, colour=BLACK)
+
+banner(s, 0.40, 6.94, 12.55, 0.36,
+       "This is the mechanism behind “six qualifying blobs, not two”: the grips are bright, "
+       "large, and soft-edged, so they pass any threshold the markers pass.",
+       fill=YELLOW_WARN, fg=BLACK, fs=10.5)
 pageno(s)
 
 
