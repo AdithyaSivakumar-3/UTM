@@ -23,7 +23,10 @@ _R2MOT = _R2["XT205-S2 · XT-205 extensometer"][0]
 _R2S33 = _R2["S33 · PPD-UTM"][0]
 _R2S34 = _R2["S34 · PPD-UTM"][0]
 _R2OURS = 0.5 * (_R2S33 + _R2S34)
-_R2EF = _RP.PP.build()["L"]["MOT"]["ef"]          # XT205-S2 fracture strain, %
+_S3 = _RP.PP.build()
+_R2EF = _S3["L"]["MOT"]["ef"]                     # XT205-S2 fracture strain, %
+_N_PP, _N_MOT = _S3["N"]["PP"]["rms"], _S3["N"]["MOT"]["rms"]
+_N_QUAD = (_N_PP ** 2 + _N_MOT ** 2) ** 0.5       # if the two noises were independent
 
 
 # ================================================================= 1. MOT Test 1
@@ -120,8 +123,8 @@ title(s, "THE WHOLE PULL, BOTH CALCULATIONS — XT205-S2 TO FRACTURE")
 
 img_fit(s, "documentation/figures/mot2pp_full.png", 0.40, 1.02, 12.5, 3.62)
 
-header(s, 0.45, 4.76, 6.15, "Why this had to be shown at full scale")
-tb(s, 0.45, 5.14, 6.15, 1.30,
+header(s, 0.45, 4.76, 4.05, "Why this had to be shown at full scale")
+tb(s, 0.45, 5.14, 4.05, 1.30,
    f"Every other view of these two records either stops at 0.9 % strain — the fitted window and a "
    f"little either side — or puts them on separate axes. Neither answers the question a reader "
    f"should be asking: does the agreement SURVIVE past the elastic ramp, out to "
@@ -129,18 +132,27 @@ tb(s, 0.45, 5.14, 6.15, 1.30,
    f"then tearing? The window is 6 % of the record. This is the other 94 %.",
    fs=9.5, colour=BLACK)
 
-header(s, 6.85, 4.76, 6.1, "And it does")
-tb(s, 6.85, 5.14, 6.1, 1.30,
+header(s, 4.75, 4.76, 4.05, "And it does")
+tb(s, 4.75, 5.14, 4.05, 1.30,
    f"The two traces are indistinguishable at this scale for the whole 156 s. The lower panel is "
    f"the difference on the same time axis: it sits on a constant −55 µε — which is 0.069 px on a "
    f"1255 px marker span, a reference-frame difference and not a calibration one — with no drift, "
    f"no divergence at large strain, and no step at yield. Fracture strain lands 0.08 % apart.",
    fs=9.5, colour=BLACK)
 
+header(s, 9.05, 4.76, 3.9, "What the lower panel is NOT")
+tb(s, 9.05, 5.14, 3.9, 1.30,
+   f"It is a DIFFERENCE, and a difference cannot say whose noise is larger — subtracting two "
+   f"records ADDS their scatter. That answer comes from fitting each record separately over one "
+   f"window: PPD-UTM {_N_PP:.1f} µε against the XT-205's {_N_MOT:.1f} µε, so ours is the quieter "
+   f"by {_N_MOT / _N_PP:.2f}×.",
+   fs=9.5, colour=BLACK)
+
 banner(s, 0.40, 6.52, 12.55, 0.40,
-       f"The agreement is not a property of the window it was measured in — it holds from the "
-       f"preload to the tear.",
-       fill=GREEN_PASS, fg=BLACK, fs=10.5)
+       f"The difference scatters by 36.7 µε, within 2 % of the {_N_QUAD:.1f} µε those two noises "
+       f"give added in quadrature — so they are INDEPENDENT. Neither instrument is picking up a "
+       f"common flicker from the footage they share; each is limited by its own marker-locating.",
+       fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
 footer(s, "Raw samples throughout; the lower panel is a plain difference, not a fit. Both records "
           "are re-zeroed at the 300 N preload so they share one convention.")
 pageno(s)

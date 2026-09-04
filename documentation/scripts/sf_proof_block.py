@@ -83,6 +83,10 @@ banner(s, 0.4, 6.4, 12.55, 0.5,
 footer(s, "Operator screenshot, 2026-08-22. Settings ▸ DIC camera setup ▸ Auto-calibrate DIC.")
 pageno(s)
 
+# ---- Otsu: what the auto-calibration sweep is scoring it against. Inserted here rather than
+# appended, because this is the dialog that evaluates it.
+exec(open("documentation/scripts/otsu_slides_block.py", encoding="utf-8").read())
+
 # ---------------------------------------------------------------- C. SF13 guided wizard
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "SF13 · GUIDED WIZARD — NINE OF NINE, ON A REAL RUN")

@@ -418,7 +418,11 @@ def fig_full(S=None):
             transform=a2.transAxes, ha="right", va="top", fontsize=8.2, color=INK,
             fontweight="bold")
     a2.set_xlabel("time from the preload (s)", fontsize=9.5)
-    a2.set_ylabel("PPD-UTM − XT-205\n(µε)", fontsize=9)
+    # "PPD-UTM − XT-205 (µε)" reads like a noise trace and was taken for one. It is a DIFFERENCE,
+    # and a difference cannot say whose noise is larger: subtracting two records ADDS their scatter.
+    a2.set_ylabel("difference, µε\n(PPD-UTM − XT-205)", fontsize=9)
+    a2.text(0.012, 0.92, "a DIFFERENCE, not a noise floor — it cannot say whose noise is larger",
+            transform=a2.transAxes, ha="left", va="top", fontsize=8.0, color=MUTED, style="italic")
     a2.set_ylim(-260, 140)
     a2.set_xlim(-3, max(S["mot"]["t"].max(), S["ours"]["t"].max()) + 3)
     a2.tick_params(labelsize=9)
