@@ -153,6 +153,80 @@ footer(s, f"σ_y is computed on each record's OWN steepest-straight-run modulus,
 pageno(s)
 
 
+# ============================================ 2b. the two-specimen head-to-head, offsets graded
+#
+# The previous slide carries S33 as well, which is right there — its coverage is the point being
+# made. Here the question is a two-specimen one, so S33 is left out and the two curves get the
+# room to be marked up properly.
+#
+# THE OFFSET COLUMN IS COLOUR-GRADED, and the bands are chosen against something real rather than
+# by eye: our own two 45 mm specimens differ by 2.7 % on UTS, so anything inside that is within
+# the scatter we already live with, and anything outside it is asking to be explained.
+_GRADE = [
+    (1.0, RGBColor(0xC8, 0xE6, 0xC9), "≤ 1 %", "instrument-level agreement"),
+    (3.0, RGBColor(0xE6, 0xEF, 0xC4), "1 – 3 %", "inside our own S33/S34 specimen scatter"),
+    (8.0, RGBColor(0xFF, 0xF3, 0xCD), "3 – 8 %", "larger than that scatter — needs a reason"),
+    (1e9, RGBColor(0xFF, 0xCD, 0xD2), "> 8 %", "the largest gaps in this comparison"),
+]
+
+
+def _grade(v):
+    for lim, col, _lab, _why in _GRADE:
+        if abs(v) <= lim:
+            return col
+    return _GRADE[-1][1]
+
+
+_ROWS = [
+    ("σ_y  (0.2 % offset, MPa)", _M["sy_steep"], _p["sy_steep"], _s["sy_steep"]),
+    ("strain at yield (%)", _M["sy_steep_e"], _p["sy_steep_e"], _s["sy_steep_e"]),
+    ("UTS  (MPa)", _M["uts"], _p["uts"], _s["uts"]),
+    ("strain at UTS (%)", _M["uts_e"], _p["uts_e"], _s["uts_e"]),
+    ("failure strain (%)", _M["ef"], _p["ef"], _s["ef"]),
+    ("fracture stress (MPa)", _M["sigf"], _p["sigf"], _s["sigf"]),
+    ("toughness (MJ/m³)", _M["tough"], _p["tough"], _s["tough"]),
+]
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "MOT TEST 2 — XT205-S2 AGAINST S34, HEAD TO HEAD")
+
+img_fit(s, "documentation/figures/mot2cmp_pair.png", 0.30, 1.06, 6.65, 4.07)
+
+tb(s, 0.30, 5.22, 6.65, 1.10,
+   f"Two specimens, two machines, one material. UTS and fracture are called out on both curves "
+   f"because they are the two landmarks that behave differently: they sit {abs(_off(_M['uts'], _p['uts'])):.1f} % "
+   f"apart on stress and {abs(_off(_M['ef'], _p['ef'])):.1f} % apart on strain. The curves are "
+   f"indistinguishable up to about 1.5 % strain and separate only after yield.",
+   fs=9.5, colour=BLACK)
+
+header(s, 7.15, 1.02, 5.80, "Every landmark, with the offset graded by size")
+_tbl = [["", "XT205-S2", _P, "offset", _S]]
+for nm, a, b, c in _ROWS:
+    _tbl.append([nm, f"{a:.2f}", f"{b:.2f}", f"{_off(a, b):+.1f} %", f"{c:.2f}"])
+_ov = {(i + 1, 3): {"bg": _grade(_off(a, b)), "bold": True}
+       for i, (_nm, a, b, _c) in enumerate(_ROWS)}
+table(s, 7.15, 1.40, 5.80, 2.14, _tbl, cw=[1.9, 1.0, 0.95, 1.0, 0.95], hf=9, bf=8.5, ov=_ov)
+
+header(s, 7.15, 3.66, 5.80, "How to read the colour")
+_key = [["Band", "What it means"]] + [[lab, why] for _lim, _col, lab, why in _GRADE]
+table(s, 7.15, 4.04, 5.80, 1.39, _key, cw=[1.15, 4.65], hf=9, bf=8.5,
+      ov={(i + 1, 0): {"bg": col, "bold": True} for i, (_l, col, _lab, _w) in enumerate(_GRADE)})
+
+tb(s, 7.15, 5.52, 5.80, 0.80,
+   f"Read down the offset column and the split is not random: the two GREEN rows are the ones the "
+   f"pull speed cannot touch, and every amber or red row is post-yield.",
+   fs=9.5, colour=BLACK)
+
+banner(s, 0.40, 6.42, 12.55, 0.44,
+       f"Yield and failure strain agree at instrument level; everything after yield does not. "
+       f"Which of those two groups a number falls into is the whole result.",
+       fill=GREEN_PASS, fg=BLACK, fs=11)
+footer(s, f"Offsets are XT205-S2 relative to {_P}. σ_y is on each record's own steepest-straight-run "
+          f"modulus, so the same construction is used on both. {_S} is shown for scale and is not "
+          f"part of the offset.")
+pageno(s)
+
+
 # ================================================================= 3. strain records + compliance
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "MOT TEST 2 — TEST 1'S OPEN QUESTION, CLOSED")

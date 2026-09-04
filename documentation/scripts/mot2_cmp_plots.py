@@ -298,10 +298,74 @@ def fig_noise(B=None):
     print("  mot2cmp_noise.png")
 
 
+# --------------------------------------------------------------------------- the head-to-head pair
+def fig_pair(B=None):
+    """XT205-S2 against S34 alone, with UTS and fracture called out on BOTH curves.
+
+    S33 is deliberately absent. It earns its place on the three-way slide, where its 79.7 % in-pull
+    DIC coverage is the point being made; here it is a third line crossing the other two and the
+    question is a two-specimen one.
+
+    The y-axis runs to 60 MPa with nothing above 49 so that the two UTS callouts have a band of
+    their own to sit in, and both fracture callouts go in the empty lower right. Every label is
+    clear of every curve by construction rather than by trial.
+    """
+    B = B or C.build()
+    P = B["primary"]
+    fig, ax = plt.subplots(figsize=(6.70, 4.10))
+
+    for k in (P, "MOT"):
+        r = B["recs"][k]
+        ax.plot(r["e"], r["sig"], "-", color=COL[k], lw=2.1, label=_name(B, k))
+
+    lm, lp = B["L"]["MOT"], B["L"][P]
+    for k, l in (("MOT", lm), (P, lp)):
+        ax.plot([l["uts_e"]], [l["uts"]], "o", ms=9, color=COL[k], mec="white", mew=1.5, zorder=6)
+        ax.plot([l["ef"]], [l["sigf"]], "s", ms=8, color=COL[k], mec="white", mew=1.5, zorder=6)
+
+    # --- UTS, in the headroom band
+    ax.annotate("UTS  %.2f MPa\nat %.2f %% strain" % (lp["uts"], lp["uts_e"]),
+                xy=(lp["uts_e"], lp["uts"]), xytext=(2.62, 55.0), fontsize=8.6,
+                color=COL[P], fontweight="bold", ha="left",
+                arrowprops=dict(arrowstyle="->", color=COL[P], lw=1.3))
+    ax.annotate("UTS  %.2f MPa\nat %.2f %% strain\n(%+.1f %% on stress)"
+                % (lm["uts"], lm["uts_e"], C.offset_pct(lm["uts"], lp["uts"])),
+                xy=(lm["uts_e"], lm["uts"]), xytext=(0.10, 51.2), fontsize=8.6,
+                color=COL["MOT"], fontweight="bold", ha="left",
+                arrowprops=dict(arrowstyle="->", color=COL["MOT"], lw=1.3))
+
+    # --- fracture, in the empty lower right
+    ax.annotate("fracture  %.2f %%\nat %.2f MPa" % (lp["ef"], lp["sigf"]),
+                xy=(lp["ef"], lp["sigf"]), xytext=(3.30, 25.5), fontsize=8.6,
+                color=COL[P], fontweight="bold", ha="left",
+                arrowprops=dict(arrowstyle="->", color=COL[P], lw=1.3))
+    ax.annotate("fracture  %.2f %%\nat %.2f MPa\n(%+.1f %% on strain)"
+                % (lm["ef"], lm["sigf"], C.offset_pct(lm["ef"], lp["ef"])),
+                xy=(lm["ef"], lm["sigf"]), xytext=(3.30, 12.0), fontsize=8.6,
+                color=COL["MOT"], fontweight="bold", ha="left",
+                arrowprops=dict(arrowstyle="->", color=COL["MOT"], lw=1.3))
+
+    ax.set_xlabel("strain (%)  —  both on the preload-frozen zero", fontsize=9.5)
+    ax.set_ylabel("engineering stress (MPa)", fontsize=9.5)
+    ax.set_title("XT205-S2 against S34 — the two-specimen comparison",
+                 fontsize=10.5, color=INK)
+    ax.legend(fontsize=9, loc="lower left", frameon=False,
+              title="●  UTS          ■  fracture", title_fontsize=8.2)
+    ax.tick_params(labelsize=9)
+    ax.set_xlim(-0.15, 6.1)
+    ax.set_ylim(0, 60)
+    _style(ax)
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIGS, "mot2cmp_pair.png"), dpi=200, facecolor="white")
+    plt.close(fig)
+    print("  mot2cmp_pair.png")
+
+
 def all_figs():
     print("MOT Test 2 comparison figures:")
     B = C.build()
     fig_stress(B)
+    fig_pair(B)
     fig_strain(B)
     fig_elastic(B)
     fig_noise(B)
