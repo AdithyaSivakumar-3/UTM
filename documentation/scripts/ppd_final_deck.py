@@ -270,7 +270,7 @@ text(s, 8.6, 6.62, 4.3, 0.4, "Prototype Product Development · Jönköping Unive
 pageno(s)
 
 # ========================================================================== 02 · agenda
-s = content_slide("agenda", "What the next 30 minutes cover")
+s = content_slide("agenda", "Today, in six parts")
 _AG = [
     ("01", "DIC, in one picture", "what the rig measures, and why no sensor touches the part"),
     ("02", "What was built", "hardware, software — and 19 things it does on its own"),
@@ -292,19 +292,19 @@ text(s, 0.85, 6.72, 11.6, 0.3,
 
 # =========================================================================== 03 · DIC?
 s = content_slide("01 · background", "DIC — the camera is the strain gauge", side="BACKGROUND")
-pic(s, os.path.join(FIGS, "ppd_dic_explain.png"), 0.85, 2.05, 11.6, 3.05)
+text(s, 0.85, 1.98, 11.6, 0.4,
+     "DIC — Digital Image Correlation — measures how a part deforms by comparing photographs of its surface while it is loaded; here in its simplest two-dot form.",
+     fs=12, colour=INK)
+pic(s, os.path.join(FIGS, "ppd_dic_explain.png"), 2.47, 2.52, 8.4, 2.45)
 _c = [("No contact", "nothing touches the specimen — no clip-on gauge to knock off at fracture"),
       ("No calibration", "strain is a ratio of two pixel distances — mm per pixel cancels out"),
       ("Every frame", "35 measurements per second, live on screen while the test runs")]
 for i, (t, d) in enumerate(_c):
     x = 0.85 + i * 3.95
-    card(s, x, 5.35, 3.70, 1.45)
-    rect(s, x, 5.35, 0.07, 1.45, TAN)
-    text(s, x + 0.25, 5.52, 3.3, 0.35, t, fs=13.5, font=SEMI, colour=INK)
-    text(s, x + 0.25, 5.90, 3.3, 0.85, d, fs=10.5, colour=INK, spacing=1.05)
-text(s, 0.85, 6.95, 11.6, 0.3,
-     "DIC = Digital Image Correlation — here in its simplest two-marker form.",
-     fs=10, colour=SAGE)
+    card(s, x, 5.30, 3.70, 1.45)
+    rect(s, x, 5.30, 0.07, 1.45, TAN)
+    text(s, x + 0.25, 5.47, 3.3, 0.35, t, fs=13.5, font=SEMI, colour=INK)
+    text(s, x + 0.25, 5.85, 3.3, 0.85, d, fs=10.5, colour=INK, spacing=1.05)
 
 # ==================================================================== 04 · what was built
 s = content_slide("02 · the build", "One rig, one application — built together", side="THE BUILD")
