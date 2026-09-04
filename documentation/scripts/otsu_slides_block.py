@@ -35,16 +35,16 @@ tb(s, 0.40, 5.24, 6.30, 1.55,
    f"valley.",
    fs=9.6, colour=BLACK)
 
-header(s, 7.00, 1.10, 5.95, "What it does")
+header(s, 7.00, 1.10, 5.95, "What it does — in one sentence")
 tb(s, 7.00, 1.48, 5.95, 1.95,
-   "•  Picks ONE global grey level by looking only at the histogram — no user setting, no "
-   "training, no assumption about the shape of either class.\n"
-   "•  It tries every level and keeps the one that splits the pixels into two classes that are "
-   "internally as alike as possible.\n"
-   "•  Formally it MAXIMISES the between-class variance\n"
-   "        σ²b(t) = ω₀ω₁ (μ₀ − μ₁)²\n"
-   "   where ω are the two class shares and μ their means — which is exactly equivalent to "
-   "MINIMISING the variance within them.",
+   "•  THE JOB: decide which pixels are “marker” and which are “background”. That needs one "
+   "brightness number — above it is a marker, below it is not.\n"
+   "•  Otsu picks that number by itself, from the picture alone. No setting to turn, nothing to "
+   "train, no guess about what the specimen looks like.\n"
+   "•  HOW: it tries all 254 possible numbers and keeps the one that leaves the two groups as "
+   "tidy as possible — dark pixels alike, bright pixels alike.\n"
+   "•  Written out, it maximises   σ²b(t) = ω₀ω₁ (μ₀ − μ₁)²   (ω = group sizes, μ = group means), "
+   "which is the same thing as making each group internally consistent.",
    fs=9.6, colour=BLACK)
 
 header(s, 7.00, 3.52, 5.95, "Why that is a respectable choice")
@@ -67,6 +67,49 @@ linkbox(s, 0.40, 6.86, 12.5,
         "Otsu 1979 — “A Threshold Selection Method from Gray-Level Histograms”, "
         "IEEE Trans. SMC 9(1):62–66   ·   ieeexplore.ieee.org/document/4310076",
         _OTSU_URL, fs=10)
+pageno(s)
+
+
+# ================================================================= 1b. the graph, in plain words
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "READING THAT GRAPH — GREY LEVELS AND WHAT OTSU IS DOING")
+
+img_fit(s, "documentation/figures/otsu_explain.png", 0.35, 1.06, 12.6, 3.30)
+
+header(s, 0.40, 4.52, 4.05, "“Grey level” — the number on a pixel")
+tb(s, 0.40, 4.90, 4.05, 1.85,
+   "•  The camera records no colour. Each pixel is ONE number: 0 is black, 255 is white, and "
+   "everything between is a shade of grey.\n\n"
+   "•  The left panel is a real 8 × 6 corner of a frame with those numbers printed on it. Read "
+   "across the top row and the marker's edge is visible as the numbers fall from 234 to 104.\n\n"
+   "•  Nothing is interpreted yet. This is just what the sensor wrote down.",
+   fs=9.6, colour=BLACK)
+
+header(s, 4.65, 4.52, 4.05, "“Share of pixels” — a headcount")
+tb(s, 4.65, 4.90, 4.05, 1.85,
+   "•  Go through every pixel in the picture and tally how many have each of the 256 numbers. "
+   "That tally is the graph on the right.\n\n"
+   "•  The height is the SHARE: “this percentage of the picture is exactly this bright”.\n\n"
+   "•  The scale is logarithmic because the two markers are a fraction of one per cent of the "
+   "pixels. On an ordinary scale the specimen body would be a spike and the markers would be an "
+   "invisible flat line.",
+   fs=9.6, colour=BLACK)
+
+header(s, 8.90, 4.52, 4.05, "What Otsu does with it — plainly")
+tb(s, 8.90, 4.90, 4.05, 1.85,
+   "•  It tries EVERY possible cut, 1 to 254, and for each one splits the pixels into a dark pile "
+   "and a bright pile.\n\n"
+   "•  It keeps the cut where each pile is most alike INSIDE itself — where the two piles are "
+   "most cleanly separated.\n\n"
+   "•  Like sorting a room of people into “short” and “tall”: you put the line where you get two "
+   "tidy groups, not one where half the tall people end up with the short ones.\n\n"
+   "•  On this picture that lands at 131 — down in the valley, where few pixels live.",
+   fs=9.6, colour=BLACK)
+
+banner(s, 0.40, 6.86, 12.55, 0.36,
+       "The valley is the whole point: a threshold put where hardly any pixels sit can drift a "
+       "little without changing which side anything falls on.",
+       fill=LIGHT_BLUE, fg=BLACK, fs=10.5)
 pageno(s)
 
 

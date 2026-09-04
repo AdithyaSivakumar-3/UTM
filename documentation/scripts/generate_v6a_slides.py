@@ -4105,6 +4105,9 @@ exec(open("documentation/scripts/mot_rate_slides_block.py", encoding="utf-8").re
 # ---- the six records, named, and the speed each was pulled at
 exec(open("documentation/scripts/mot_specimens_block.py", encoding="utf-8").read())
 
+# ---- the one-page index of every smart feature
+exec(open("documentation/scripts/sf_allinone_block.py", encoding="utf-8").read())
+
 # Every slide exists now, so forward references can be resolved. This runs BEFORE the save, and
 # a bad key aborts rather than shipping a deck that points at the wrong slide.
 _resolved, _problems = resolve_refs(prs)
