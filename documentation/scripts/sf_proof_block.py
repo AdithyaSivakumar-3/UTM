@@ -87,6 +87,9 @@ pageno(s)
 # appended, because this is the dialog that evaluates it.
 exec(open("documentation/scripts/otsu_slides_block.py", encoding="utf-8").read())
 
+# how a marker is actually read, drawn: the loop, detect_blobs, and the two paths
+exec(open("documentation/scripts/dic_flow_block.py", encoding="utf-8").read())
+
 # ---------------------------------------------------------------- C. SF13 guided wizard
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "SF13 · GUIDED WIZARD — NINE OF NINE, ON A REAL RUN")
