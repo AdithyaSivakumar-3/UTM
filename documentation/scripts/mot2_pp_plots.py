@@ -286,8 +286,12 @@ def fig_rate(S=None):
     # hard against the origin. Quoting a strain rate without showing that invites the reading that
     # it describes the whole test; it describes the early elastic ramp and nothing else.
     ax = axes[0]
-    ax.plot(S["mot"]["e"], S["mot"]["sig"], "-", color=C_RATE_MOT, lw=1.8, alpha=0.9)
-    ax.axvspan(RATE_LO, RATE_HI, color="#1f77b4", alpha=0.22, lw=0)
+    # Labelled, even though it is the only curve here: a reader arriving at this panel first has
+    # no way to know WHICH of the four records in the right-hand panel it belongs to.
+    ax.plot(S["mot"]["e"], S["mot"]["sig"], "-", color=C_RATE_MOT, lw=1.8, alpha=0.9,
+            label="XT205-S2 · XT-205 extensometer")
+    ax.axvspan(RATE_LO, RATE_HI, color="#1f77b4", alpha=0.22, lw=0,
+               label="the fitted window")
     _lm = S["L"]["MOT"]
     ax.plot([_lm["uts_e"]], [_lm["uts"]], "o", ms=6, color=C_RATE_MOT, mec="white", mew=1.1,
             zorder=5)
@@ -306,6 +310,7 @@ def fig_rate(S=None):
     ax.set_xlabel("strain (%)")
     ax.set_ylabel("engineering stress (MPa)")
     ax.set_title("Where that window sits in the whole pull", fontsize=10.5, color=INK)
+    ax.legend(fontsize=8.0, loc="lower right", frameon=False)
     ax.set_xlim(-0.15, _lm["ef"] + 0.5)
     ax.set_ylim(0, 52)
     _style(ax)
@@ -359,6 +364,72 @@ def fig_rate(S=None):
     return rows
 
 
+# --------------------------------------------------------------------------- the WHOLE record
+def fig_full(S=None):
+    """Both strain records overlaid for the ENTIRE pull, not just the fitted window.
+
+    Every other view of these two either stops at 0.9 % strain (the rate slide) or plots them on
+    separate axes (the two-record slide). Neither answers the obvious question: does the agreement
+    survive past the elastic ramp, out to 5.2 % where the specimen is drawing and tearing? It does,
+    and this is where that can be seen rather than asserted.
+
+    The shaded band is the fitted window, drawn to scale, so the reader can see how small a slice
+    of the record the rate and noise figures are taken from.
+    """
+    S = S or PP.build()
+    D = S["D"]
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(12.40, 3.80), sharex=True,
+                                 gridspec_kw={"height_ratios": [2.35, 1.0], "hspace": 0.10})
+
+    a1.axhspan(0.05, 0.35, color="#1f77b4", alpha=0.16, lw=0)
+    a1.plot(S["mot"]["t"], S["mot"]["e"], "-", color=C_MOT, lw=2.6, alpha=0.85,
+            label="XT205-S2 · XT-205 extensometer")
+    a1.plot(S["ours"]["t"], S["ours"]["e"], "--", color=C_PP, lw=1.6,
+            label="XT205-S2 · PPD-UTM DIC")
+    lp, lm = S["L"]["PP"], S["L"]["MOT"]
+    a1.plot([S["mot"]["t"][int(np.argmax(S["mot"]["e"]))]], [lm["ef"]], "s", ms=8,
+            color=C_MOT, mec="white", mew=1.4, zorder=6)
+    a1.annotate("fracture   %.2f %% (XT-205)\n                %.2f %% (PPD-UTM DIC)\n"
+                "                %+.2f %% apart"
+                % (lm["ef"], lp["ef"], CMP.offset_pct(lp["ef"], lm["ef"])),
+                xy=(S["mot"]["t"][int(np.argmax(S["mot"]["e"]))], lm["ef"]),
+                xytext=(22, 3.30), fontsize=8.4, color=INK, fontweight="bold",
+                arrowprops=dict(arrowstyle="->", color=MUTED, lw=1.2))
+    a1.annotate("the fitted window used for rate and noise —\n"
+                "0.05–0.35 %% of a %.1f %% pull, drawn to scale" % lm["ef"],
+                xy=(138, 0.20), xytext=(96, 1.30), fontsize=8.0, color="#1a5f9e",
+                arrowprops=dict(arrowstyle="->", color="#1a5f9e", lw=1.1))
+    a1.set_ylabel("strain (%)", fontsize=9.5)
+    a1.set_title("The whole pull, both calculations — XT205-S2 to fracture",
+                 fontsize=10.5, color=INK)
+    a1.legend(fontsize=8.8, loc="upper left", frameon=False)
+    a1.set_ylim(-0.2, 6.0)
+    a1.tick_params(labelsize=9)
+    _style(a1)
+
+    # the difference on the same time axis, so "they agree" can be checked rather than believed
+    t = D["pair_t"]
+    d = (D["pair_e_ours"] - D["pair_e_theirs"]) * 1e4
+    a2.plot(t - D["t_pre"], d, "-", color=C_PP, lw=0.8, alpha=0.75)
+    a2.axhline(0, color="#BBBBBB", lw=1.2)
+    a2.axhline(D["offset_ue"], color=INK, ls="--", lw=1.3)
+    a2.text(0.985, 0.90, "the constant %.0f µε — %.3f px on a %.0f px span"
+            % (D["offset_ue"], D["offset_px"], D["px0"]),
+            transform=a2.transAxes, ha="right", va="top", fontsize=8.2, color=INK,
+            fontweight="bold")
+    a2.set_xlabel("time from the preload (s)", fontsize=9.5)
+    a2.set_ylabel("PPD-UTM − XT-205\n(µε)", fontsize=9)
+    a2.set_ylim(-260, 140)
+    a2.set_xlim(-3, max(S["mot"]["t"].max(), S["ours"]["t"].max()) + 3)
+    a2.tick_params(labelsize=9)
+    _style(a2)
+
+    fig.tight_layout()
+    fig.savefig(os.path.join(FIGS, "mot2pp_full.png"), dpi=200, facecolor="white")
+    plt.close(fig)
+    print("  mot2pp_full.png")
+
+
 def all_figs():
     print("MOT Test 2 post-processing figures:")
     S = PP.build()
@@ -369,6 +440,7 @@ def all_figs():
     fig_agree(S)
     fig_stress(S)
     fig_rate(S)
+    fig_full(S)
     return S
 
 

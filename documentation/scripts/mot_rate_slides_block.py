@@ -23,6 +23,7 @@ _R2MOT = _R2["XT205-S2 · XT-205 extensometer"][0]
 _R2S33 = _R2["S33 · PPD-UTM"][0]
 _R2S34 = _R2["S34 · PPD-UTM"][0]
 _R2OURS = 0.5 * (_R2S33 + _R2S34)
+_R2EF = _RP.PP.build()["L"]["MOT"]["ef"]          # XT205-S2 fracture strain, %
 
 
 # ================================================================= 1. MOT Test 1
@@ -63,10 +64,10 @@ pageno(s)
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "MOT TEST 2 — STRAIN RATE ON ONE SHARED WINDOW")
 
-img_fit(s, "documentation/figures/mot2pp_rate.png", 0.40, 1.10, 12.5, 3.40)
+img_fit(s, "documentation/figures/mot2pp_rate.png", 0.40, 1.02, 12.5, 2.90)
 
-header(s, 0.45, 4.62, 6.15, "The same layout, the 45 mm test")
-table(s, 0.45, 5.00, 6.15, 1.42, [
+header(s, 0.45, 4.02, 6.15, "The same layout, the 45 mm test")
+table(s, 0.45, 4.40, 6.15, 1.39, [
     ["", "XT205-S1 · 80 mm", "XT205-S2 · 45 mm"],
     ["the MOT bar · PPD-UTM DIC",
      "%.2e /s" % _R1ROW["pp"]["rate"], "%.2e /s" % _R2PP],
@@ -80,8 +81,8 @@ table(s, 0.45, 5.00, 6.15, 1.42, [
      "%.2fx" % (_R2MOT / _R2OURS)],
 ], cw=[2.6, 1.75, 1.8], hf=9, bf=8.5)
 
-header(s, 6.85, 4.62, 6.1, "The row that changed, and why")
-tb(s, 6.85, 5.00, 6.1, 1.55,
+header(s, 6.85, 4.02, 6.1, "The row that changed, and why")
+tb(s, 6.85, 4.40, 6.1, 1.45,
    f"The two CALCULATIONS agree in both tests, and more tightly here: "
    f"{abs(100 * (_R2PP / _R2MOT - 1)):.1f} % against Test 1's "
    f"{abs(100 * (_R1ROW['pp']['rate'] / _R1ROW['mot']['rate'] - 1)):.1f} %.\n\n"
@@ -93,10 +94,53 @@ tb(s, 6.85, 5.00, 6.1, 1.55,
    f"could not.",
    fs=9.5, colour=BLACK)
 
-banner(s, 0.40, 6.60, 12.55, 0.40,
+banner(s, 0.40, 6.02, 12.55, 0.38,
        f"Same figure, same window, one test apart: the CALCULATION agreement holds and the MACHINE "
        f"gap moves with the pull speed — which is the difference between a method and a machine.",
        fill=GREEN_PASS, fg=BLACK, fs=10.5)
+
+# What "fitted window" means, said once and plainly. It is the single thing on this slide a reader
+# could reasonably take the wrong way: nothing here is smoothed, and the only fit is the straight
+# line whose slope IS the reported rate.
+tb(s, 0.45, 6.46, 12.55, 0.42,
+   f"WHAT \"FITTED WINDOW\" MEANS: the shaded band is a slice of RAW samples — nothing is smoothed, "
+   f"filtered or resampled. The only fitting is one least-squares straight line through the "
+   f"strain-against-time points inside that band, and its SLOPE is the rate reported in the bars. "
+   f"The band is narrow and nearly straight on purpose, so what the fit leaves behind is instrument "
+   f"noise rather than the curvature of the pull ({ref('THE WHOLE PULL, BOTH CALCULATIONS')}).",
+   fs=10, colour=BLACK)
 footer(s, "45 mm marker spacing. The window is 0.05–0.35 % of the PRELOAD-ZEROED strain: Test 2's "
           "preload lands inside the recording, so a raw window would sit on the seating ramp.")
+pageno(s)
+
+
+# ================================================================= 3. the whole pull, not the window
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "THE WHOLE PULL, BOTH CALCULATIONS — XT205-S2 TO FRACTURE")
+
+img_fit(s, "documentation/figures/mot2pp_full.png", 0.40, 1.02, 12.5, 3.62)
+
+header(s, 0.45, 4.76, 6.15, "Why this had to be shown at full scale")
+tb(s, 0.45, 5.14, 6.15, 1.30,
+   f"Every other view of these two records either stops at 0.9 % strain — the fitted window and a "
+   f"little either side — or puts them on separate axes. Neither answers the question a reader "
+   f"should be asking: does the agreement SURVIVE past the elastic ramp, out to "
+   f"{_R2EF:.2f} % where the specimen is drawing and "
+   f"then tearing? The window is 6 % of the record. This is the other 94 %.",
+   fs=9.5, colour=BLACK)
+
+header(s, 6.85, 4.76, 6.1, "And it does")
+tb(s, 6.85, 5.14, 6.1, 1.30,
+   f"The two traces are indistinguishable at this scale for the whole 156 s. The lower panel is "
+   f"the difference on the same time axis: it sits on a constant −55 µε — which is 0.069 px on a "
+   f"1255 px marker span, a reference-frame difference and not a calibration one — with no drift, "
+   f"no divergence at large strain, and no step at yield. Fracture strain lands 0.08 % apart.",
+   fs=9.5, colour=BLACK)
+
+banner(s, 0.40, 6.52, 12.55, 0.40,
+       f"The agreement is not a property of the window it was measured in — it holds from the "
+       f"preload to the tear.",
+       fill=GREEN_PASS, fg=BLACK, fs=10.5)
+footer(s, "Raw samples throughout; the lower panel is a plain difference, not a fit. Both records "
+          "are re-zeroed at the 300 N preload so they share one convention.")
 pageno(s)
