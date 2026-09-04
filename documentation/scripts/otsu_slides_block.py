@@ -11,9 +11,11 @@
 import otsu_data as _OD                                               # noqa: E402
 import otsu_plots as _OP                                              # noqa: E402
 import otsu_valley as _OV                                             # noqa: E402
+import otsu_modes as _OM                                              # noqa: E402
 
 _OP.all_figs()
 _V = _OV.all_figs()
+_M = _OM.all_figs()
 # The two optional probes are appended last, so indices 0-5 are fixed but 6 is only the
 # glare if a glare pixel was found. Fail the build rather than silently label the glint.
 _PROBE_ERR = "otsu_valley probe order changed - the valley slides index it positionally"
@@ -204,6 +206,113 @@ banner(s, 0.40, 6.94, 12.55, 0.36,
 pageno(s)
 
 
+# ============================================== 1e. it is not a black-specimen method
+_MR = _M["runs"]
+_WHITE = [r for r in _MR.values() if r["light"]]
+_BLACK = [r for r in _MR.values() if not r["light"]]
+
+
+def _margins(r):
+    """How far the cut sits from each population it is meant to separate, whichever way round."""
+    lo, hi = (r["marker"], r["specimen"]) if r["light"] else (r["specimen"], r["marker"])
+    return r["otsu"] - lo, hi - r["otsu"]
+
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "OTSU IS NOT A BLACK-SPECIMEN METHOD — IT WORKS ON WHITE TOO")
+
+img_fit(s, "documentation/figures/otsu_polarity.png", 0.35, 1.06, 6.35, 4.30)
+
+header(s, 0.40, 5.50, 6.30, "Why every earlier example here was black")
+tb(s, 0.40, 5.88, 6.30, 1.30,
+   "•  Because that is where the measured evidence was — S13 and the abandoned PETG run. It was "
+   "an accident of which specimens had saved frames, not a property of the method.\n"
+   "•  S24–S26 are light-bodied: mean grey ~172 against S13's 79. They have now been measured, "
+   "and the claim is no longer resting on one polarity.",
+   fs=9.6, colour=BLACK)
+
+header(s, 7.00, 1.06, 5.95, "The polarity and the rule are separate settings")
+tb(s, 7.00, 1.44, 5.95, 1.42,
+   "•  The rig has a WHITE preset — THRESH_BINARY_INV, dark dots on a light body — beside the "
+   "BLACK one.\n"
+   "•  Every Otsu call in the app does the same two steps: strip the flag, then re-apply it — "
+   "base = type & ~THRESH_OTSU, then base | THRESH_OTSU.\n"
+   "•  So Otsu supplies the LEVEL; BINARY vs BINARY_INV decides which side counts as “marker”. "
+   "The two never interfere.",
+   fs=9.6, colour=BLACK)
+
+header(s, 7.00, 3.00, 5.95, "Measured on four runs — and white has MORE room")
+table(s, 7.00, 3.38, 5.95, 1.39, [
+    ["Run", "marker", "body", "Otsu", "margin either side"],
+] + [[r["label"].split(" · ")[0] + (" · white" if r["light"] else " · black"),
+      "%.0f" % r["marker"], "%.0f" % r["specimen"], "%.0f" % r["otsu"],
+      "%.0f  /  %.0f" % _margins(r)]
+     for r in sorted(_MR.values(), key=lambda r: (not r["light"], r["label"]))],
+    cw=[1.55, 0.95, 0.85, 0.85, 1.75], hf=9.2, bf=9.0)
+
+tb(s, 7.00, 4.92, 5.95, 1.95,
+   f"•  Otsu lands at {min(r['otsu'] for r in _WHITE):.0f}–{max(r['otsu'] for r in _WHITE):.0f} "
+   f"on all three white runs — as stable as the {_BLACK[0]['otsu']:.0f} it picks on black.\n"
+   f"•  The white specimens give it MORE clearance, not less: the nearest margin is "
+   f"{min(min(_margins(r)) for r in _WHITE):.0f} grey levels against "
+   f"{min(_margins(_BLACK[0])):.0f} on black.\n"
+   f"•  So nothing about Otsu prefers a dark specimen. What differs is the SCENE, and that is the "
+   f"next slide.",
+   fs=9.6, colour=BLACK)
+pageno(s)
+
+
+# ============================================== 1f. …but it never looks at the markers
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "BUT OTSU NEVER LOOKS AT THE MARKERS — ON EITHER POLARITY")
+
+img_fit(s, "documentation/figures/otsu_setby.png", 0.35, 1.06, 6.35, 3.95)
+
+header(s, 0.40, 5.18, 6.30, "The test")
+tb(s, 0.40, 5.56, 6.30, 1.60,
+   f"•  Paint the two markers out of the frame — fill them with the body's own grey — and "
+   f"recompute Otsu on the doctored picture.\n"
+   f"•  If Otsu were choosing a marker/specimen boundary, deleting the markers would move it a "
+   f"long way. It moves by at most 3 grey levels, on all four runs.\n"
+   f"•  The markers are {min(r['share'] for r in _MR.values()):.2f}–"
+   f"{max(r['share'] for r in _MR.values()):.2f} % of the frame. They cannot shift an optimum "
+   f"computed over the whole picture.",
+   fs=9.6, colour=BLACK)
+
+header(s, 7.00, 1.06, 5.95, "What Otsu is actually separating")
+tb(s, 7.00, 1.44, 5.95, 1.55,
+   "•  The two DOMINANT populations — and on this rig neither of them is a marker.\n"
+   "•  On a WHITE specimen: the bright body against the dark background.\n"
+   "•  On a BLACK specimen: the dark body against the bright grips.\n"
+   "•  The markers survive because they happen to land on the far side of a boundary that was "
+   "chosen without reference to them.",
+   fs=9.6, colour=BLACK)
+
+header(s, 7.00, 3.12, 5.95, "Why this is the real reason not to default to it")
+tb(s, 7.00, 3.50, 5.95, 1.80,
+   "•  The deck has said “Otsu follows the SCENE, not the markers”. This is the proof, and it is "
+   "sharper than the PETG story alone.\n"
+   "•  Otsu was never optimising for the quantity that matters. Marker separation is a BY-PRODUCT "
+   "of a specimen/background split.\n"
+   "•  On PETG the dominant populations shifted, the by-product went with them, and one marker "
+   "fell under the cut on half the frames. Nothing warned anyone, because nothing in the "
+   "algorithm was watching the markers.",
+   fs=9.6, colour=BLACK)
+
+header(s, 7.00, 5.44, 5.95, "What the rig does instead")
+tb(s, 7.00, 5.82, 5.95, 1.05,
+   "•  A FIXED threshold does not follow the scene at all — it stays put and is wrong in a way "
+   "you can predict.\n"
+   "•  Auto-calibrate sweeps fixed values AND Otsu, scores them on contrast margin — the thing "
+   "Otsu ignores — and applies the winner.",
+   fs=9.6, colour=BLACK)
+
+banner(s, 0.40, 6.98, 12.55, 0.36,
+       "The margin is what protects the markers, and nothing inside Otsu is defending it.",
+       fill=YELLOW_WARN, fg=BLACK, fs=10.5)
+pageno(s)
+
+
 # ================================================================= 2. why not by default
 s = prs.slides.add_slide(BLANK); ju(s)
 title(s, "OTSU ON THIS RIG — EVALUATED EVERY TIME, DEFAULTED TO NEVER")
@@ -252,4 +361,72 @@ banner(s, 0.40, 6.60, 12.55, 0.36,
 footer(s, "Otsu's threshold measured on %d S13 frames (documentation/scripts/otsu_data.py); the "
           "48.5 / 99.5 / 99.8 rates are quoted from the project's replay validation over two full "
           "runs. Limitations per Otsu 1979 and its review literature." % _O["n"])
+pageno(s)
+
+
+# ============================== 3. where Otsu sits among the methods, and what the others are for
+#
+# Answering a question the deck had left open: Otsu keeps being called "the method", and the
+# obvious follow-up is what the binary and intensity methods are then. They are not alternatives to
+# it - they sit a level above. Otsu chooses a NUMBER inside the binary method; the intensity family
+# is a different way of locating a marker altogether, and full correlation is a different
+# measurement entirely.
+_J = _M["jitter"]
+_JW = [j for j in _J.values() if "white" in j["label"]]
+_JB = [j for j in _J.values() if "black" in j["label"]]
+_SAT = {r["label"]: r["hist"][255] for r in _M["runs"].values() if r["light"]}
+_SAT_LO, _SAT_HI = min(_SAT.values()), max(_SAT.values())
+
+s = prs.slides.add_slide(BLANK); ju(s)
+title(s, "THRESHOLD, BINARY, INTENSITY — WHAT EACH ONE IS ACTUALLY FOR")
+
+header(s, 0.40, 1.02, 12.55, "Three different levels, often confused for three options")
+table(s, 0.40, 1.40, 12.55, 1.39, [
+    ["", "What it decides", "What comes out", "Used here?"],
+    ["THRESHOLDING RULE\nfixed value · Otsu · auto-calibrate",
+     "ONE number: the grey level that splits bright from dark",
+     "a single threshold, per run or per frame",
+     "YES — fixed by default, Otsu offered and scored"],
+    ["BINARY / blob method",
+     "which shapes past that cut are markers — by area, circularity, pairing",
+     "two centroids → one axial strain",
+     "YES — this is what the PPD-UTM measures with"],
+    ["INTENSITY methods\nweighted centroid · full correlation",
+     "position from the grey levels themselves — no cut at all",
+     "sub-pixel centres, or a whole displacement FIELD",
+     "NO — measured below, and the reason"],
+], cw=[2.95, 3.85, 2.95, 2.80], hf=9.5, bf=8.8,
+    ov={(1, 3): {"bg": GREEN_PASS}, (2, 3): {"bg": GREEN_PASS}, (3, 3): {"bg": YELLOW_WARN}})
+
+tb(s, 0.40, 3.08, 12.55, 0.32,
+   "So Otsu is not an alternative to “the binary method” — it is a rule INSIDE it. Its only "
+   "alternatives are a fixed number or the swept value auto-calibrate picks.",
+   fs=10, italic=True, colour=GREY_TEXT)
+
+img_fit(s, "documentation/figures/otsu_methods.png", 0.35, 3.44, 6.20, 2.92)
+
+header(s, 6.80, 3.42, 6.15, "What keeping the grey levels would buy")
+tb(s, 6.80, 3.80, 6.15, 1.62,
+   f"•  The rig throws the grey levels away at the threshold: every pixel inside the blob counts "
+   f"1, every pixel outside 0, and the centroid is the contour's moments.\n"
+   f"•  Weighting each pixel by its contrast instead cuts frame-to-frame jitter by "
+   f"{min(j['gain'] for j in _JB):.2f}× on black and "
+   f"{min(j['gain'] for j in _JW):.2f}–{max(j['gain'] for j in _JW):.2f}× on white. Real, "
+   f"and not transformative.\n"
+   f"•  Jitter about a 9-frame local trend — NOT the noise floor, which also carries drift.",
+   fs=9.4, colour=BLACK)
+
+header(s, 6.80, 5.50, 6.15, "Why full correlation DIC is a different animal")
+tb(s, 6.80, 5.88, 6.15, 1.30,
+   "•  It never thresholds. It matches the grey-level pattern of small subsets between frames, so "
+   "it needs a random speckle over the whole gauge — not two dots — and returns a strain FIELD "
+   "that shows necking and localisation.\n"
+   f"•  On this rig it would have nothing to match: {_SAT_LO:.1f}–{_SAT_HI:.1f} % of every "
+   f"white frame sits at exactly 255. The body is CLIPPED, so it carries no pattern to "
+   f"correlate. Exposure would have to come down first.",
+   fs=9.4, colour=BLACK)
+
+footer(s, "Jitter measured over 250 consecutive frames per run at 1/5 through the pull, on the "
+          "frame as the camera delivers it (documentation/scripts/otsu_modes.py). Detection rates "
+          "are quoted, never re-derived.")
 pageno(s)
