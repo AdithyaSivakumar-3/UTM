@@ -501,6 +501,12 @@ class Run:
     gauge_mm: float = 80.0
     gauge_confirmed: bool = False    # has anyone said this is right for THIS video?
     gauge_src: str = ""              # where it came from, for the results sheet
+    # Which of gauge / px-per-mm the operator actually KNOWS — the other one follows the boxes.
+    # "gauge" (default): the marker spacing is the given, px/mm floats as boxes move — right for
+    # a foreign video. "pxmm": the optics are calibrated (our own rig), so the SCALE is the given
+    # and the gauge box becomes a live MEASUREMENT, re-derived at every placement and drag.
+    # Set implicitly by whichever field was typed last; no extra widget to explain.
+    scale_anchor: str = "gauge"
     fps_verified: bool = False       # measured from a sidecar or a companion, not merely declared
     fps_override: bool = False       # the operator was warned and chose to proceed anyway
     companion: object = None         # PP.Companion, when a data file has been attached
@@ -1782,6 +1788,7 @@ class PostProcTab(QWidget):
             r.gauge_mm = float(val)
             r.gauge_confirmed = True
             r.gauge_src = "typed"
+            r.scale_anchor = "gauge"
         l0 = self._l0_now()
         if l0 > 0 and val > 0:
             self.pxmm.blockSignals(True)
@@ -1810,6 +1817,7 @@ class PostProcTab(QWidget):
             r.gauge_mm = float(g)
             r.gauge_confirmed = True
             r.gauge_src = "from px/mm"
+            r.scale_anchor = "pxmm"
         self._refresh_gauge_state()
         self._refresh_l0()
 
@@ -1875,6 +1883,7 @@ class PostProcTab(QWidget):
             self.gauge.blockSignals(False)
             r.gauge_mm, r.gauge_confirmed = float(comp.gauge_mm), True
             r.gauge_src = "from %s" % comp.source
+            r.scale_anchor = "gauge"
             msgs.append("Gauge set to %.4f mm from the file's own gauge column." % comp.gauge_mm)
 
         if comp.load is not None:
@@ -2344,7 +2353,32 @@ class PostProcTab(QWidget):
         a, b = self.boxes
         if a and b:
             l0 = float(np.hypot(b[0] - a[0], b[1] - a[1]))
+            r = self.run
+            anchor = getattr(r, "scale_anchor", "gauge") if r is not None else "gauge"
+            if anchor == "pxmm" and self.pxmm.value() > 0:
+                # The scale is the known thing (he typed a calibrated px/mm), so the GAUGE is
+                # the measurement: re-derived live at every placement, snap and drag — his ask
+                # (2026-09-06): "show the value that you measured instead" of the 80 mm default.
+                g = l0 / self.pxmm.value()
+                self.gauge.blockSignals(True)
+                self.gauge.setValue(g)
+                self.gauge.blockSignals(False)
+                if r is not None:
+                    r.gauge_mm, r.gauge_confirmed = float(g), True
+                    r.gauge_src = "measured from px/mm"
+                self.l0Lbl.setText("Px₀ = %.2f px    →    gauge MEASURED: %.2f mm at the "
+                                   "typed %.4f px/mm" % (l0, g, self.pxmm.value()))
+                self._refresh_gauge_state()
+                self.runBtn.setEnabled(self.path is not None
+                                       and not (self.worker and self.worker.isRunning()))
+                self._update_px_label()
+                return
             ppm = l0 / self.gauge.value() if self.gauge.value() > 0 else 0
+            # keep the px/mm SPIN live too — it used to go stale the moment a box moved
+            if ppm > 0:
+                self.pxmm.blockSignals(True)
+                self.pxmm.setValue(ppm)
+                self.pxmm.blockSignals(False)
             self.l0Lbl.setText("Px₀ = %.2f px    →    %.4f px/mm at %.2f mm"
                                % (l0, ppm, self.gauge.value()))
             self.runBtn.setEnabled(self.path is not None and not (self.worker and self.worker.isRunning()))
