@@ -196,19 +196,25 @@ def steps(app):
     if f:
         room, need = f.get("room", 0.0), f.get("need", 0.0)
         short_mm = (need - room) / max(1e-6, f.get("pxmm") or 1.0)
+        # Kept, and reworded (2026-09-06 - "i dont get it"): the CHECK is essential (S36, a
+        # TPU pull, was lost at 15.8 mm when the marker walked out of frame and the only warning
+        # was a console line), but the old INFO text trailed off mid-sentence.
         if f.get("mover") is None:
             out.append(["framing", "Marker travel room", INFO,
-                        "apply the preload, then Calibrate Px₀ again — which marker moves "
-                        "cannot be told until something has"])
+                        "= will the markers stay INSIDE the picture for the whole pull? As the "
+                        "specimen stretches one marker walks toward the frame edge. Not "
+                        "measurable yet — after the preload and Calibrate Px₀, a little motion "
+                        "shows which marker is the walker"])
         elif room >= need:
             out.append(["framing", "Marker travel room", DONE,
-                        f"{room:.0f} px ahead of the moving marker, {need:.0f} needed for the "
-                        f"{f['target']:.0f} mm pull"])
+                        f"the walking marker has {room:.0f} px of frame ahead of it and the "
+                        f"{f['target']:.0f} mm pull needs {need:.0f} px — it stays in the picture"])
         else:
             out.append(["framing", "Marker travel room", NEXT,
-                        f"⚠ ONLY {room:.0f} px ahead of the moving marker, {need:.0f} needed — "
-                        f"tracking will stop at about {_stop_mm(f):.0f} mm. "
-                        f"Shift the CAMERA ~{short_mm:.0f} mm, then Calibrate Px₀ again"])
+                        f"⚠ the walking marker will LEAVE THE PICTURE: {room:.0f} px of frame "
+                        f"ahead, {need:.0f} px needed — tracking dies at ~{_stop_mm(f):.0f} mm of "
+                        f"the pull. Shift the CAMERA ~{short_mm:.0f} mm, then Calibrate Px₀ again "
+                        f"(this is how S36 was lost)"])
 
     prepared = getattr(app, "_prepared_t", None) is not None
     add("prepare", "Prepare test (tares DIC readouts, position, force)", prepared,
@@ -224,9 +230,24 @@ def steps(app):
                 "optional — Settings ▸ Capture settings, only if this run needs a video"])
 
     ran = n_samples > 0 and moved > 0.05
-    add("run", "Run the test", ran, f"{n_samples} samples" if ran else
-        "Fracture test, a manual pull, or an advanced test mode "
-        "(cyclic · staircase · relaxation · creep · →fracture)")
+    # Name the BUTTON for the method that is actually armed (his ask, 2026-09-06), instead of a
+    # generic list: an advanced mode ticked on points at ITS Start test; otherwise the standard
+    # paths - the Fracture test button (auto-stop), the strain-rate variant, or a manual pull
+    # with Motor control ▸ Up.
+    adv_on = bool(getattr(app, "modeEnableCheck", None) and app.modeEnableCheck.isChecked())
+    if adv_on:
+        try:
+            adv_type = app.modeCombo.currentText()
+        except Exception:
+            adv_type = "the chosen mode"
+        how = (f"advanced mode armed — press its Start test to run {adv_type}. "
+               f"(The plain Fracture test button and Motor ▸ Up stay available.)")
+    else:
+        how = ("press Fracture test (auto-stops at the load collapse) · or Start strain-rate "
+               "fracture test for constant dε/dt · or pull manually with Motor control ▸ Up. "
+               "For cyclic / staircase / relaxation / creep / →fracture, tick Advanced test "
+               "modes first")
+    add("run", "Run the test", ran, f"{n_samples} samples" if ran else how)
 
     add("save", "Save data", bool(saved), f"{saved.split(chr(92))[-1]}" if saved else
         "save into the specimen folder — the report follows it there")
