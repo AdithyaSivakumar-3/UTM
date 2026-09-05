@@ -248,25 +248,25 @@ rect(s, 0.30, 0, 0.52, 1.00, INK)
 rect(s, 0.30, 1.14, 0.52, EH - 1.14, SAGE)
 ju(s, x=1.30, y=0.40, hgt=0.52)
 squares(s)
-text(s, 1.28, 2.02, 10.6, 2.3,
-     [[("PPD-UTM", {})]], fs=66, font=DISP, colour=INK)
-text(s, 1.32, 3.22, 10.6, 0.6,
+# Slide 1 mirrors the edits HE made on his own copy after delivery (2026-09-04): the
+# project name in full, real supervisor names, the date under the rule instead of on the
+# edge, and no programme footer. A rebuild must never regress them.
+text(s, 1.28, 2.02, 11.3, 2.0, [
+    [("1-D DIC IMPLEMENTATION ON", {})],
+    [("UNIVERSAL TESTING MACHINE", {})],
+], fs=38, font=SEMI, colour=INK, spacing=1.22)
+text(s, 1.32, 3.62, 11.0, 0.6,
      "A camera-instrumented desktop tensile tester — built, validated against a "
      "commercial lab, and documented.",
-     fs=15.5, font=BODY, colour=SAGE)
-tricolour(s, 1.32, 3.94, w=4.3, h=0.075)
+     fs=15, font=BODY, colour=SAGE)
+tricolour(s, 1.32, 4.22, w=4.3, h=0.075)
+text(s, 1.32, 4.42, 3.0, 0.35, "SEPTEMBER 2026", fs=10, font=SEMI, colour=INK)
 text(s, 1.32, 5.55, 7.4, 1.5, [
     [("Adithya Sivakumar", {"font": SEMI, "fs": 14})],
     [("adithya.sivakumar@ju.se", {"fs": 11, "colour": SAGE})],
     [("", {"fs": 5})],
-    [("Supervisors:  [ supervisor 1 ]  ·  [ supervisor 2 ]", {"fs": 11, "colour": SAGE})],
+    [("Supervisors:  Johan Jansson · Mirza Cenanovic", {"fs": 11, "colour": SAGE})],
 ], spacing=1.15)
-vt = text(s, 10.6, 3.3, 2.6, 0.34, "SEPTEMBER 2026", fs=9.5, font=SEMI, colour=INK,
-          align=PP_ALIGN.CENTER, wrap=False)
-vt.rotation = 270
-vt.left, vt.top = Inches(11.85), Inches(3.42)
-text(s, 8.6, 6.62, 4.3, 0.4, "Prototype Product Development · Jönköping University",
-     fs=10, colour=SAGE, align=PP_ALIGN.RIGHT)
 pageno(s)
 
 # ========================================================================== 02 · agenda
