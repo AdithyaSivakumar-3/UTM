@@ -103,6 +103,24 @@ def steps(app):
     add("camera", "Start camera, DIC tracking 2/2", live and nb == 2,
         f"{nb}/2 markers" if live else "camera off — no strain will be recorded")
 
+    # Blob selection (SF20). OPTIONAL and right after the camera step, at his request: the
+    # moment the feed is live is the moment to decide whether auto detection is holding, and if
+    # its gates fight the markers, to override by hand instead of chasing thresholds.
+    bmode = getattr(cm, "blob_mode", "auto") if cm else "auto"
+    seeds = getattr(cm, "manual_seeds", None) if cm else None
+    if bmode == "manual" and seeds:
+        bdetail = ("MANUAL — tracking your two picked blobs (%.0f px apart); shape/size gates "
+                   "are off for them. Auto is back under Settings ▸ DIC camera setup ▸ Blob "
+                   "selection." % abs(seeds[1][1] - seeds[0][1]))
+    elif bmode == "manual":
+        bdetail = ("manual mode is chosen but no blobs are picked yet — auto keeps running "
+                   "until you press Select Blobs (next to Calibrate Px₀)")
+    else:
+        bdetail = ("optional · auto detection is on (default). If the badge keeps showing 1/2 "
+                   "because the gates reject a marker — odd shape, odd size — press Select "
+                   "Blobs (next to Calibrate Px₀) and click the two markers yourself.")
+    out.append(["blobsel", "Blob selection — auto or manual", INFO, bdetail])
+
     # Force and position are what a test IS; velocity is a convenience channel, so it is reported
     # but not required. A run with the load-cell stream off records nothing worth analysing.
     streams = {n: bool(getattr(app, n + "Switch", None) and getattr(app, n + "Switch").isChecked())

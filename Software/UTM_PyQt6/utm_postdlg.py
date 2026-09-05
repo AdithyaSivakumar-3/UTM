@@ -39,7 +39,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLa
                              QFileDialog, QDoubleSpinBox, QSpinBox, QGroupBox, QSplitter,
                              QProgressBar, QMessageBox, QSlider, QCheckBox, QComboBox,
                              QListWidget, QListWidgetItem, QInputDialog, QDialog, QFrame,
-                             QScrollArea, QTableWidget, QTableWidgetItem)
+                             QScrollArea, QTableWidget, QTableWidgetItem,
+                             QApplication)
 
 from matplotlib.backends.backend_qtagg import (FigureCanvasQTAgg as FigureCanvas,
                                                 NavigationToolbar2QT as NavigationToolbar)
@@ -124,15 +125,19 @@ class FrameView(QLabel):
         self._half = half
         self._redraw()
 
-    def play(self, gray, a, b, half):
+    def play(self, gray, a, b, half, extra=None):
         """One repaint for a frame AND its box positions — used while the analysis runs.
 
         set_frame() followed by set_boxes() would redraw twice per frame, which at 25 Hz on a
         2348 px frame is enough scaling work to make the GUI feel heavy for no benefit.
+        `extra`, when given, is the extra pairs at THIS frame's scale — the preview stream is
+        downscaled before crossing the thread, so the caller scales them with the same factor.
         """
         self._gray = gray
         self._boxes = [a, b]
         self._half = half
+        if extra is not None:
+            self._extra = extra
         self._redraw()
 
     def resizeEvent(self, e):
@@ -298,6 +303,94 @@ class FrameView(QLabel):
         self._boxes[self._sel] = (x, y)
         self.moved.emit(self._sel, x, y)
         self._redraw()
+
+
+class BigPickDialog(QDialog):
+    """The frame at desk size, for placing boxes and pairs the small pane makes guesswork.
+
+    His complaint (2026-09-05): "it is hard to choose from the small window". This is not a
+    second implementation of placement — every click, drag and arrow-key nudge is routed into
+    the TAB's own handlers (snap-to-marker, pair arming, box-size suggestion included), and the
+    view here only MIRRORS the tab's state afterwards. One source of truth, twice the pixels.
+    """
+
+    def __init__(self, tab):
+        super().__init__(tab)
+        self.setWindowTitle("Place boxes — large view")
+        self._tab = tab
+        lay = QVBoxLayout(self)
+        self.hint = QLabel("")
+        self.hint.setWordWrap(True)
+        self.hint.setStyleSheet("color:#4dabf7; font-weight:bold;")
+        lay.addWidget(self.hint)
+        self.fv = FrameView()
+        scr = QApplication.primaryScreen().availableGeometry()
+        self.fv.setMinimumSize(int(scr.width() * 0.70), int(scr.height() * 0.58))
+        self.fv.clicked.connect(self._clicked)
+        self.fv.moved.connect(self._moved)
+        self.fv.selected.connect(tab.view.select)      # keep the two views' selection in step
+        lay.addWidget(self.fv)
+        row = QHBoxLayout()
+        row.addStretch(1)
+        done = QPushButton("Done")
+        done.clicked.connect(self.close)
+        row.addWidget(done)
+        lay.addLayout(row)
+        self.refresh()
+
+    def _clicked(self, x, y):
+        self._tab.on_click(x, y)                       # same snapping, same arming, same logs
+        self.refresh()
+
+    def _moved(self, i, x, y):
+        self._tab.on_box_moved(i, x, y)
+        self.refresh()
+
+    def refresh(self):
+        t = self._tab
+        src = t.view
+        if src._gray is not None:
+            self.fv._gray = src._gray
+        self.fv._markers = list(getattr(t, "_markers", []) or [])
+        self.fv._half = t.boxHalf.value()
+        self.fv._boxes = list(t.boxes)
+        r = t.run
+        self.fv._extra = list(r.extra_pairs) if r is not None else []
+        self.fv._redraw()
+        if getattr(t, "_arm_extra", None):
+            n = 1 if getattr(t, "_extra_first", None) is None else 2
+            self.hint.setText("placing a %s pair — click point %d of 2 (clicks snap to a "
+                              "marker centre when one is near)"
+                              % ("width" if t._arm_extra == "transverse" else "second axial", n))
+        else:
+            self.hint.setText("click places box %s — drag a box to adjust, arrow keys nudge "
+                              "(Shift = ×10)" % "AB"[getattr(t, "_next_box", 0)])
+
+
+class TrackPopout(QDialog):
+    """A big live view of the pull while it is measured, parked at the LEFT of the screen so it
+    never covers the plot on the tab's right.
+
+    Fed by the same throttled preview stream as the small pane — no extra decoding, no extra
+    load on the analysis; the frames were crossing the thread anyway.
+    """
+
+    def __init__(self, tab):
+        super().__init__(tab)
+        self.setWindowFlag(Qt.WindowType.Window, True)
+        self.setWindowTitle("Tracking — live")
+        lay = QVBoxLayout(self)
+        self.fv = FrameView()
+        lay.addWidget(self.fv, 1)
+        self.status = QLabel("waiting for the first frame…")
+        self.status.setStyleSheet("color:#4dabf7;")
+        lay.addWidget(self.status)
+        scr = QApplication.primaryScreen().availableGeometry()
+        self.resize(int(scr.width() * 0.46), int(scr.height() * 0.60))
+        self.move(scr.left() + 12, scr.top() + 80)
+
+    def play(self, gray, a, b, half, extra=None):
+        self.fv.play(gray, a, b, half, extra=extra)
 
 
 class Worker(QThread):
@@ -634,6 +727,10 @@ class PostProcTab(QWidget):
         self.runs = []
         self._cur = -1
         self._next_box = 0
+        self._bigpick = None          # the large placement window, reused
+        self._popout = None           # the live tracking window, reused
+        self._last_extra_pts = []     # latest extra-pair positions, raw frame px
+        self._run_boxhalf = None      # box_half the RUNNING cfg used, for preview scale
         self.worker = None
         self._queue = []                 # indices still to run in a Run-all sweep
         self._running = None             # index being measured right now, for the legend tag
@@ -877,9 +974,13 @@ class PostProcTab(QWidget):
         self.addTransBtn.clicked.connect(lambda: self._arm_pair("transverse"))
         self.clearPairsBtn = QPushButton("Clear pairs")
         self.clearPairsBtn.clicked.connect(self.on_clear_pairs)
+        self.bigViewBtn = QPushButton("Large view…")
+        self.bigViewBtn.setToolTip("Open the frame in a desk-sized window to place the boxes and "
+                                   "pairs — same clicks, same snapping, just visible.")
+        self.bigViewBtn.clicked.connect(self.on_big_view)
         prow = QHBoxLayout()
         prow.addWidget(self.addAxialBtn); prow.addWidget(self.addTransBtn)
-        prow.addWidget(self.clearPairsBtn)
+        prow.addWidget(self.clearPairsBtn); prow.addWidget(self.bigViewBtn)
         gl.addLayout(prow, 9, 0, 1, 2)
         self.extraLbl = QLabel("")
         self.extraLbl.setWordWrap(True)
@@ -2024,6 +2125,19 @@ class PostProcTab(QWidget):
                       % ("first point", "axial" if kind == "axial" else "width"))
         self.status.setText("placing a %s pair — click point 1 of 2"
                             % ("second axial" if kind == "axial" else "width"))
+        # He asked for exactly this: picking in the small pane is guesswork, so arming a pair
+        # brings up the desk-sized view. Clicks there land in the same handlers.
+        self.on_big_view()
+
+    def on_big_view(self):
+        if self.run is None:
+            return
+        if self._bigpick is None:
+            self._bigpick = BigPickDialog(self)
+        self._bigpick.refresh()
+        self._bigpick.show()
+        self._bigpick.raise_()
+        self._bigpick.activateWindow()
 
     def on_clear_pairs(self):
         if self.run is not None:
@@ -2174,6 +2288,8 @@ class PostProcTab(QWidget):
         self.view.set_extra(pairs)
         self.extraLbl.setText("  ·  ".join(
             "P%d %s (%s)" % (i + 1, p[5], p[4]) for i, p in enumerate(pairs)))
+        if self._bigpick is not None and self._bigpick.isVisible():
+            self._bigpick.refresh()
         self._refresh_l0()
         self._refresh_list()
 
@@ -2266,6 +2382,16 @@ class PostProcTab(QWidget):
         cfg = self._cfg()
         extras = [(PP.Box(p[0], p[1], cfg.box_half), PP.Box(p[2], p[3], cfg.box_half),
                    p[4], p[5]) for p in r.extra_pairs]
+        self._run_boxhalf = cfg.box_half
+        self._last_extra_pts = []
+        if self.playChk.isChecked():
+            # the pop-out he asked for: a big view of the tracking, parked screen-LEFT so the
+            # plot on the tab's right stays visible while the curve draws
+            if self._popout is None:
+                self._popout = TrackPopout(self)
+            self._popout.setWindowTitle("Tracking — %s" % r.label)
+            self._popout.status.setText("waiting for the first frame…")
+            self._popout.show()
         self.worker = Worker(r.path, PP.Box(a[0], a[1], cfg.box_half),
                              PP.Box(b[0], b[1], cfg.box_half), cfg,
                              preview=self.playChk.isChecked(), extras=extras)
@@ -2315,8 +2441,17 @@ class PostProcTab(QWidget):
             self.worker.stop()
 
     def on_frame(self, gray, a, b, half):
-        """Paint one frame of the pull, then tell the worker it may send the next."""
-        self.view.play(gray, a, b, half)
+        """Paint one frame of the pull, then tell the worker it may send the next.
+
+        The preview stream is downscaled before crossing the thread and `half` was scaled with
+        it, so half / the running box_half recovers the factor — the cached extra-pair points
+        are in raw frame pixels and scale by the same k to land on this frame."""
+        k = half / max(1e-9, float(self._run_boxhalf or self.boxHalf.value()))
+        ext = [(ax * k, ay * k, bx * k, by * k, kind, lbl)
+               for (ax, ay, bx, by, kind, lbl) in self._last_extra_pts]
+        self.view.play(gray, a, b, half, extra=ext)
+        if self._popout is not None and self._popout.isVisible():
+            self._popout.play(gray, a, b, half, extra=ext)
         if self.worker:
             self.worker.frame_shown()
 
@@ -2328,6 +2463,9 @@ class PostProcTab(QWidget):
                 for j, xs in enumerate(cur.xe):
                     ej = r.extra[j] if j < len(r.extra) else None
                     xs.append(ej[5] if (ej and ej[6]) else float("nan"))
+                self._last_extra_pts = [
+                    (e[0], e[1], e[2], e[3], pair[4], pair[5])
+                    for e, pair in zip(r.extra, cur.extra_pairs) if e[6]]
                 self._update_px_label(l_px=r.l_px, corr=r.corr)
             elif not cur.stop_on_loss and cur.t and cur.e[-1] == cur.e[-1]:
                 # An untracked frame, with "stop when lost" OFF. Record it as a HOLE rather than
@@ -2412,6 +2550,12 @@ class PostProcTab(QWidget):
     def on_done(self, summary):
         r = self.run
         self._running = None
+        if self._popout is not None and self._popout.isVisible():
+            self._popout.status.setText(
+                "finished — %d frames, %.1f %% tracked%s"
+                % (summary.n, summary.coverage,
+                   "  ·  MARKER LOST at %.2f s" % summary.lost_at_t
+                   if summary.stopped_early else ""))
         if r is not None and any(p[4] == "transverse" for p in r.extra_pairs):
             # FW1's maths, offline: nu, area change and true stress from the width pair. The
             # note is printed VERBATIM - it is the honesty line that says when the width change
@@ -2529,7 +2673,12 @@ class PostProcTab(QWidget):
                             "report if you export them: look for the 'Tracking ended' row.")
         box.exec()
 
+    def _popout_failed(self, err):
+        if self._popout is not None and self._popout.isVisible():
+            self._popout.status.setText("FAILED — %s" % err)
+
     def on_failed(self, err):
+        self._popout_failed(err)
         self._running = None
         self.runBtn.setEnabled(True); self.stopBtn.setEnabled(False)
         if self._queue:
