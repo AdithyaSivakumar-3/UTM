@@ -1038,6 +1038,8 @@ to reach fracture. So the honest options are a **gauge-zoomed second camera** (t
 leaving the axial view alone), a **wider specimen**, or a dedicated transverse extensometer — plus
 a matte backdrop, which the black-specimen work would deliver anyway.
 
+**2026-09-05 — the OFFLINE half is BUILT.** The post-processor now tracks EXTRA pairs in the same pass (`analyse(extras=…)`): a second axial pair, or a **width pair** whose contraction feeds `utm_dic`'s own maths — ν, A(t) = A₀(1+ε_lat)², and **true (Cauchy) stress** from an attached load channel (`poisson_true_stress`). Verified on a synthetic 4-marker pull: ν recovered to 0.02 of the 0.35 synthesised, true stress exact against the closed form. The dialog gained “+ Axial pair / + Width pair” placement, per-run A₀, plot overlays and CSV columns (P*_… + Nu/Area/Sigma_true). The OPTICS blocker is unchanged and the code says so at runtime: a run whose width change is sub-pixel prints that ν from it is noise wearing units. So FW1's remaining work is exactly what it was — a gauge-zoomed camera or a wider specimen — but the day such a video exists (or another lab's does), the measurement is one click, not a build.
+
 Until one of those exists, **every stress this rig reports is engineering stress**, and that is
 stated on every figure rather than assumed.
 

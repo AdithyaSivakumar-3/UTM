@@ -93,6 +93,11 @@ class FrameView(QLabel):
         self._drag = None            # index of the box being dragged
         self._sel = None             # index of the selected box, for the arrow keys
         self._markers = []           # drawn as faint rings, so the operator sees what will snap
+        self._extra = []             # extra pairs: (ax, ay, bx, by, kind, label)
+
+    def set_extra(self, pairs):
+        self._extra = list(pairs or [])
+        self._redraw()
 
     def set_frame(self, gray):
         self._gray = gray
@@ -162,6 +167,20 @@ class FrameView(QLabel):
         if len(pts) == 2:
             p.setPen(QPen(QColor("#4dabf7"), 1, Qt.PenStyle.DashLine))
             p.drawLine(int(pts[0][0]), int(pts[0][1]), int(pts[1][0]), int(pts[1][1]))
+        # Extra pairs, drawn lighter than the primary so the extensometer that sets L0 stays
+        # visually the main event. Purple = a second axial pair, amber = a width (transverse) one.
+        for j, (eax, eay, ebx, eby, kind, _lbl) in enumerate(self._extra):
+            col = QColor("#fcc419") if kind == "transverse" else QColor("#b197fc")
+            r = max(3.0, self._half * self._scale)
+            p.setPen(QPen(col, 1, Qt.PenStyle.DashLine))
+            p.drawLine(int(eax * self._scale), int(eay * self._scale),
+                       int(ebx * self._scale), int(eby * self._scale))
+            p.setPen(QPen(col, 2))
+            for (x, y) in ((eax, eay), (ebx, eby)):
+                cx, cy = x * self._scale, y * self._scale
+                p.drawRect(int(cx - r), int(cy - r), int(2 * r), int(2 * r))
+            p.drawText(int(ebx * self._scale + r + 4), int(eby * self._scale - r - 4),
+                       "P%d" % (j + 1))
         p.end()
         self.setPixmap(pm)
 
@@ -285,9 +304,10 @@ class Worker(QThread):
     # scaled with it, so the view still draws them in frame coordinates.
     PREVIEW_MAX_PX = 720
 
-    def __init__(self, path, a, b, cfg, preview=True):
+    def __init__(self, path, a, b, cfg, preview=True, extras=None):
         super().__init__()
         self.path, self.a, self.b, self.cfg = path, a, b, cfg
+        self.extras = extras or []
         self._stop = False
         self._preview = preview
         self._last_emit = 0.0
@@ -331,7 +351,7 @@ class Worker(QThread):
             gen = PP.analyse(self.path, self.a, self.b, self.cfg,
                              progress=lambda d, t: self.progress.emit(d, t),
                              should_stop=lambda: self._stop,
-                             preview=self._on_frame)
+                             preview=self._on_frame, extras=self.extras)
             while True:
                 try:
                     self.row.emit(next(gen))
@@ -375,6 +395,14 @@ class Run:
     fps_verified: bool = False       # measured from a sidecar or a companion, not merely declared
     fps_override: bool = False       # the operator was warned and chose to proceed anyway
     companion: object = None         # PP.Companion, when a data file has been attached
+    # EXTRA tracked pairs: [ (ax, ay, bx, by, kind, label), ... ] — a second axial pair, or a
+    # transverse ("width") pair that feeds the Poisson / true-stress maths. Owned by the run for
+    # the same reason the boxes are: no two videos have their markers in the same place.
+    extra_pairs: list = None
+    area_mm2: float = 80.0           # nominal cross-section — only true stress consumes it
+    xe: list = None                  # per-extra strain series, mirrored against t for plotting
+    poisson_rows: object = None      # per-row nu/area/true-stress dicts, once computed
+    poisson_note: str = ""
     t: list = None
     e: list = None
     tr: list = None
@@ -383,7 +411,9 @@ class Run:
     def __post_init__(self):
         if self.boxes is None:
             self.boxes = [None, None]
-        for k in ("t", "e", "tr"):
+        if self.extra_pairs is None:
+            self.extra_pairs = []
+        for k in ("t", "e", "tr", "xe"):
             if getattr(self, k) is None:
                 setattr(self, k, [])
 
@@ -812,6 +842,38 @@ class PostProcTab(QWidget):
         self.l0Lbl = QLabel("place two boxes to set Px₀")
         self.l0Lbl.setStyleSheet("color:#4dabf7; font-weight:bold;")
         gl.addWidget(self.l0Lbl, 7, 0, 1, 2)
+
+        # ---- extra pairs: a second axial extensometer, or a WIDTH pair for Poisson/true stress.
+        # They ride the same analysis pass; the width pair is what unlocks the one quantity the
+        # rig's CSVs have always disclaimed — true (Cauchy) stress needs the current cross-section.
+        self.addAxialBtn = QPushButton("+ Axial pair")
+        self.addAxialBtn.setToolTip("Track a SECOND axial pair in the same run — e.g. a shorter "
+                                    "gauge inside the main one, to compare strain along the "
+                                    "specimen. Next two clicks on the frame place it.")
+        self.addAxialBtn.clicked.connect(lambda: self._arm_pair("axial"))
+        self.addTransBtn = QPushButton("+ Width pair")
+        self.addTransBtn.setToolTip("Track a TRANSVERSE pair across the specimen's width. Its "
+                                    "contraction gives lateral strain → Poisson's ratio → area "
+                                    "change → TRUE stress (with a load channel attached).\n\n"
+                                    "Honesty note: on the mini-dogbone at ~21 px/mm the width "
+                                    "change is sub-pixel and the result is noise — the run says "
+                                    "so when that happens. Next two clicks place the pair.")
+        self.addTransBtn.clicked.connect(lambda: self._arm_pair("transverse"))
+        self.clearPairsBtn = QPushButton("Clear pairs")
+        self.clearPairsBtn.clicked.connect(self.on_clear_pairs)
+        prow = QHBoxLayout()
+        prow.addWidget(self.addAxialBtn); prow.addWidget(self.addTransBtn)
+        prow.addWidget(self.clearPairsBtn)
+        gl.addLayout(prow, 9, 0, 1, 2)
+        self.extraLbl = QLabel("")
+        self.extraLbl.setWordWrap(True)
+        self.extraLbl.setStyleSheet("color:#b197fc;")
+        gl.addWidget(self.extraLbl, 10, 0, 1, 2)
+        self.area = QDoubleSpinBox(); self.area.setRange(0.01, 100000); self.area.setDecimals(2)
+        self.area.setValue(80.0); self.area.setSuffix(" mm²")
+        self.area.setToolTip("Nominal cross-section A₀. Consumed ONLY by the true-stress maths "
+                             "of a width pair — strain and engineering quantities never touch it.")
+        gl.addWidget(QLabel("Area A₀"), 11, 0); gl.addWidget(self.area, 11, 1)
         # An unconfirmed gauge is stated, not hidden. It corrupts no strain — but it does reach
         # px/mm, the extension in mm and the results sheet, where a default is indistinguishable
         # from a measurement.
@@ -1708,6 +1770,7 @@ class PostProcTab(QWidget):
         r.refine = self.method.currentData()
         r.stop_on_loss = self.stopLossChk.isChecked()
         r.gauge_mm = self.gauge.value()
+        r.area_mm2 = self.area.value()
 
     def on_select_run(self, i):
         if self._busy():
@@ -1727,6 +1790,7 @@ class PostProcTab(QWidget):
             if k >= 0:
                 self.method.setCurrentIndex(k)
             self.stopLossChk.setChecked(r.stop_on_loss)
+            self.area.setValue(getattr(r, "area_mm2", 80.0))
             self.gauge.blockSignals(False); self.pxmm.blockSignals(False)
             self.fpsWarn.setText(r.fps_note)
             c = r.companion
@@ -1935,6 +1999,45 @@ class PostProcTab(QWidget):
             self.refLbl.setStyleSheet("color:#ffc046; font-weight:bold;")
             self.setRefBtn.setEnabled(True)
 
+    def _arm_pair(self, kind):
+        """The next TWO clicks on the frame define an extra pair of the given kind."""
+        if self.run is None:
+            return
+        self._arm_extra, self._extra_first = kind, None
+        self.log.emit("[PostProc] click the %s of the %s pair"
+                      % ("first point", "axial" if kind == "axial" else "width"))
+        self.status.setText("placing a %s pair — click point 1 of 2"
+                            % ("second axial" if kind == "axial" else "width"))
+
+    def on_clear_pairs(self):
+        if self.run is not None:
+            self.run.extra_pairs = []
+        self._arm_extra = self._extra_first = None
+        self._refresh_boxes()
+
+    def _click_extra(self, x, y):
+        """Second half of _arm_pair: collect the two clicks, snapping like the main boxes do."""
+        snapped = PP.snap_to_marker(getattr(self, "_markers", []), x, y)
+        if snapped:
+            x, y = snapped[0], snapped[1]
+        if self._extra_first is None:
+            self._extra_first = (x, y)
+            self.status.setText("placing the pair — click point 2 of 2")
+            return
+        (x1, y1), kind = self._extra_first, self._arm_extra
+        r = self.run
+        n_axial = sum(1 for p in r.extra_pairs if p[4] == "axial")
+        label = ("width" if kind == "transverse" else "axial %d" % (n_axial + 2))
+        r.extra_pairs.append((x1, y1, x, y, kind, label))
+        self._arm_extra = self._extra_first = None
+        dx, dy = abs(x - x1), abs(y - y1)
+        self.log.emit("[PostProc] %s pair \"%s\" placed — %.1f px apart%s"
+                      % (kind, label, (dx * dx + dy * dy) ** 0.5,
+                         "" if (kind == "transverse") == (dx > dy) else
+                         "  (NB: separation runs mostly %s — is the kind right?)"
+                         % ("axially" if dy > dx else "across")))
+        self._refresh_boxes()
+
     def on_click(self, x, y):
         """Place a box — on the nearest marker's CENTRE when there is one near the click.
 
@@ -1949,6 +2052,9 @@ class PostProcTab(QWidget):
             self._show_frame(self.frameSlider.value())
             self.log.emit("[PostProc] back to the reference frame (%d) to place a box"
                           % self.frameSlider.value())
+        if getattr(self, "_arm_extra", None):
+            self._click_extra(x, y)
+            return
         snapped = PP.snap_to_marker(getattr(self, "_markers", []), x, y)
         if snapped:
             cx, cy, moved, m = snapped
@@ -2047,6 +2153,11 @@ class PostProcTab(QWidget):
 
     def _refresh_boxes(self):
         self.view.set_boxes(self.boxes[0], self.boxes[1], self.boxHalf.value())
+        r = self.run
+        pairs = r.extra_pairs if r is not None else []
+        self.view.set_extra(pairs)
+        self.extraLbl.setText("  ·  ".join(
+            "P%d %s (%s)" % (i + 1, p[5], p[4]) for i, p in enumerate(pairs)))
         self._refresh_l0()
         self._refresh_list()
 
@@ -2129,15 +2240,19 @@ class PostProcTab(QWidget):
             self._refresh_list()
             return
         r.t, r.e, r.tr, r.summary = [], [], [], None
+        r.xe = [[] for _ in r.extra_pairs]
+        r.poisson_rows, r.poisson_note = None, ""
         a, b = r.boxes
         self.on_stop_play()                    # scrubbing and measuring must not share the file
         self.playPauseBtn.setEnabled(False)
         self.runBtn.setEnabled(False); self.runAllBtn.setEnabled(False)
         self.stopBtn.setEnabled(True)
         cfg = self._cfg()
+        extras = [(PP.Box(p[0], p[1], cfg.box_half), PP.Box(p[2], p[3], cfg.box_half),
+                   p[4], p[5]) for p in r.extra_pairs]
         self.worker = Worker(r.path, PP.Box(a[0], a[1], cfg.box_half),
                              PP.Box(b[0], b[1], cfg.box_half), cfg,
-                             preview=self.playChk.isChecked())
+                             preview=self.playChk.isChecked(), extras=extras)
         self.worker.row.connect(self.on_row)
         self.worker.done.connect(self.on_done)
         self.worker.failed.connect(self.on_failed)
@@ -2194,6 +2309,9 @@ class PostProcTab(QWidget):
         if cur is not None:
             if r.ok:
                 cur.t.append(r.t); cur.e.append(r.cauchy); cur.tr.append(r.true)
+                for j, xs in enumerate(cur.xe):
+                    ej = r.extra[j] if j < len(r.extra) else None
+                    xs.append(ej[5] if (ej and ej[6]) else float("nan"))
                 self._update_px_label(l_px=r.l_px, corr=r.corr)
             elif not cur.stop_on_loss and cur.t and cur.e[-1] == cur.e[-1]:
                 # An untracked frame, with "stop when lost" OFF. Record it as a HOLE rather than
@@ -2206,6 +2324,8 @@ class PostProcTab(QWidget):
                 # last instant actually measured, which is not what "where the data ends" means.
                 cur.t.append(r.t)
                 cur.e.append(float("nan")); cur.tr.append(float("nan"))
+                for xs in cur.xe:
+                    xs.append(float("nan"))
         self.status.setText(
             "frame %d   t %.2f s   L %s px   ε %s   corr %.2f%s"
             % (r.idx, r.t,
@@ -2242,6 +2362,15 @@ class PostProcTab(QWidget):
             live = (i == self._running)
             self.ax.plot(r.t, [v * 100 for v in r.e], color=r.colour, lw=1.6,
                          label=r.label + (" (running)" if live else ""))
+            for j, xs in enumerate(getattr(r, "xe", []) or []):
+                if not xs or j >= len(r.extra_pairs):
+                    continue
+                kind, lbl = r.extra_pairs[j][4], r.extra_pairs[j][5]
+                n = min(len(r.t), len(xs))
+                self.ax.plot(r.t[:n], [v * 100 for v in xs[:n]], color=r.colour, lw=1.0,
+                             ls=":" if kind == "transverse" else "-.", alpha=0.8,
+                             label="%s — %s%s" % (r.label, lbl,
+                                                  " (lateral ε)" if kind == "transverse" else ""))
             if self._want_true():
                 self.ax.plot(r.t, [v * 100 for v in r.tr], color=r.colour, lw=1.0, ls="--",
                              alpha=0.7, label="%s — true" % r.label)
@@ -2266,6 +2395,25 @@ class PostProcTab(QWidget):
     def on_done(self, summary):
         r = self.run
         self._running = None
+        if r is not None and any(p[4] == "transverse" for p in r.extra_pairs):
+            # FW1's maths, offline: nu, area change and true stress from the width pair. The
+            # note is printed VERBATIM - it is the honesty line that says when the width change
+            # is sub-pixel and the numbers are noise wearing units.
+            r.poisson_rows, r.poisson_note = PP.poisson_true_stress(
+                summary, self.area.value(), comp=r.companion)
+            self.log.emit("[PostProc] %s" % r.poisson_note)
+            got = [p for p in (r.poisson_rows or []) if p and p.get("nu") is not None]
+            if got:
+                med_nu = sorted(p["nu"] for p in got)[len(got) // 2]
+                line = "[PostProc] Poisson (median where defined): %.3f" % med_nu
+                st = [p for p in got if p.get("sigma_true") is not None]
+                if st:
+                    pk = max(st, key=lambda p: p["sigma_true"])
+                    line += ("   ·   true stress peak %.2f MPa vs %.2f engineering "
+                             "(area %.2f -> %.2f mm2)"
+                             % (pk["sigma_true"], pk["sigma_eng"],
+                                self.area.value(), pk["area_mm2"]))
+                self.log.emit(line)
         if r is not None:
             # An attached load channel says where the specimen was actually preloaded, and the
             # noise/rate window is anchored there instead of at the reference frame. Done here
@@ -2397,7 +2545,8 @@ class PostProcTab(QWidget):
             safe = "".join(c if c.isalnum() or c in "-_ " else "_" for c in r.label).strip()
             out = os.path.join(folder, "%s_dic_postproc.csv" % (safe or "run"))
             try:
-                PP.to_csv(r.summary, out, source_video=r.path, cfg=cfg)
+                PP.to_csv(r.summary, out, source_video=r.path, cfg=cfg,
+                          poisson_rows=getattr(r, "poisson_rows", None))
                 written.append(os.path.basename(out))
             except Exception as e:
                 QMessageBox.warning(self, "Could not write a CSV", "%s\n\n%s" % (out, e))

@@ -118,6 +118,10 @@ class FrameResult:
     corr: float
     ok: bool
     note: str = ""
+    # One entry per EXTRA tracked pair (see analyse(extras=...)): (ax, ay, bx, by, l_px,
+    # strain, ok). `strain` is (l - l0)/l0 along that pair's own axis — for a transverse pair
+    # that IS the lateral strain, negative in tension as the width shrinks.
+    extra: tuple = ()
 
 
 @dataclass
@@ -140,6 +144,9 @@ class Summary:
     # channel says where that was. None means the noise window has to find its own zero.
     strain_zero: float = None
     strain_zero_note: str = ""
+    # Per EXTRA pair: {"label", "kind" ("axial"|"transverse"), "l0_px", "tracked", "n",
+    # "centroid_frames", "reseeds"} in the order the pairs were given to analyse().
+    extras: list = field(default_factory=list)
 
     @property
     def stopped_early(self):
@@ -891,7 +898,139 @@ def _match(gray, tmpl, guess, search):
     return (x0 + mx + sx + r, y0 + my + sy + r, float(peak))
 
 
-def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, preview=None):
+def _patch_is_dark(t):
+    """Dark-on-light or light-on-dark, decided from the patch itself: middle vs border. A video
+    carries no setting to say which, and the rig runs both (dark spray on white PLA, bright on
+    dark TPU)."""
+    m = t.shape[0] // 2
+    q = max(2, t.shape[0] // 6)
+    middle = float(t[m - q:m + q + 1, m - q:m + q + 1].mean())
+    border = float(np.concatenate([t[0, :], t[-1, :], t[:, 0], t[:, -1]]).mean())
+    return middle < border
+
+
+class _PairTracker:
+    """One tracked pair with the exact per-frame policy analyse() used to carry inline.
+
+    Factored out 2026-09-05 so the SAME code can track the primary pair and any number of extra
+    pairs (a second axial pair, or a transverse pair for Poisson / true stress) in one pass over
+    the video. The policy is unchanged and pinned: the pre-refactor analyse() was run on S13's
+    real recording and the refactored primary path reproduces it row for row.
+
+    Policy, per frame: centroid chained from the marker's own previous position when the markers
+    are discrete dots (with the blob-area window that stops it following a dot merged with a
+    shadow); template correlation as the fallback; on low correlation, one retry against the last
+    good frame's patch carrying its offset, so the measurement stays anchored to l0.
+    """
+
+    def __init__(self, gray0, box_a, box_b, cfg, kind="axial", label=""):
+        h, w = gray0.shape
+        self._w, self._h = w, h
+        for b in (box_a, box_b):
+            b.half = int(cfg.box_half)
+            b.clamp(w, h)
+        self.box_a, self.box_b = box_a, box_b
+        self.cfg = cfg
+        self.kind, self.label = kind, label
+        tmpl_a, tmpl_b = box_a.patch(gray0), box_b.patch(gray0)
+        if tmpl_a.size == 0 or tmpl_b.size == 0:
+            raise ValueError("a tracking box falls outside the frame")
+
+        a0 = np.array([box_a.cx, box_a.cy], float)
+        b0 = np.array([box_b.cx, box_b.cy], float)
+        # l0 MUST be measured the same way every later frame is. If the frames are refined to the
+        # marker centroid but l0 is taken from wherever the box was dropped, the difference
+        # becomes a constant offset on every strain in the run.
+        self.refine = cfg.refine
+        if self.refine in ("auto", "rig"):
+            for pt, t in ((a0, tmpl_a), (b0, tmpl_b)):
+                dark_ = _patch_is_dark(t)
+                got = centroid_refine(gray0, pt[0], pt[1], cfg.box_half, dark_,
+                                      reference_threshold(t, dark_),
+                                      weighted=(self.refine != "rig"))
+                if got:
+                    pt[0], pt[1] = got[0], got[1]
+        axis = b0 - a0
+        self.l0 = float(np.hypot(*axis))
+        if self.l0 < 5:
+            raise ValueError("the two boxes are on top of each other — place them apart")
+        self.axis = axis / self.l0
+        self.perp = np.array([-self.axis[1], self.axis[0]])
+
+        self.dark_a, self.dark_b = _patch_is_dark(tmpl_a), _patch_is_dark(tmpl_b)
+        self.thr_a = reference_threshold(tmpl_a, self.dark_a)
+        self.thr_b = reference_threshold(tmpl_b, self.dark_b)
+        _ra = centroid_refine(gray0, a0[0], a0[1], cfg.box_half, self.dark_a, self.thr_a)
+        _rb = centroid_refine(gray0, b0[0], b0[1], cfg.box_half, self.dark_b, self.thr_b)
+        self.area_a = _ra[2] if _ra else 0.0
+        self.area_b = _rb[2] if _rb else 0.0
+        if not (_ra and _rb):
+            # No discrete markers here — a speckle pattern. Correlation is the only honest
+            # option, and the centroid path is disabled rather than left to latch onto texture.
+            self.refine = "correlation"
+
+        self.tmpl_a, self.tmpl_b = tmpl_a, tmpl_b
+        self.live_a, self.live_b = tmpl_a, tmpl_b    # re-seeded templates, used after a drop
+        self.off_a = self.off_b = np.zeros(2)
+        self.last_a, self.last_b = a0.copy(), b0.copy()
+        self.n = self.tracked = self.reseeds = self.centroid_frames = 0
+
+    def step(self, gray):
+        """Track one frame. Returns (pa, pb, l_px, dx_px, cauchy, true, corr, ok, note,
+        reseeded); on a lost frame pa/pb are the last good positions and the floats are NaN."""
+        cfg = self.cfg
+        note, reseeded = "", False
+        ra = rb = None
+        corr = 0.0
+        if self.refine in ("auto", "rig"):
+            ca = centroid_refine(gray, self.last_a[0], self.last_a[1], cfg.box_half,
+                                 self.dark_a, self.thr_a, weighted=(self.refine != "rig"))
+            cb = centroid_refine(gray, self.last_b[0], self.last_b[1], cfg.box_half,
+                                 self.dark_b, self.thr_b, weighted=(self.refine != "rig"))
+            # A blob is only the marker if it is still about the size the marker was.
+            if ca and cb and 0.5 * self.area_a < ca[2] < 2.0 * self.area_a \
+                    and 0.5 * self.area_b < cb[2] < 2.0 * self.area_b:
+                ra, rb = (ca[0], ca[1], 1.0), (cb[0], cb[1], 1.0)
+                corr = 1.0
+                self.centroid_frames += 1
+
+        if ra is None or rb is None:
+            ra = _match(gray, self.tmpl_a, self.last_a, cfg.search)
+            rb = _match(gray, self.tmpl_b, self.last_b, cfg.search)
+            corr = min(ra[2] if ra else 0.0, rb[2] if rb else 0.0)
+        if corr < cfg.min_corr:
+            ra2 = _match(gray, self.live_a, self.last_a, cfg.search)
+            rb2 = _match(gray, self.live_b, self.last_b, cfg.search)
+            if ra2 and rb2 and min(ra2[2], rb2[2]) >= cfg.min_corr:
+                ra = (ra2[0] + self.off_a[0], ra2[1] + self.off_a[1], ra2[2])
+                rb = (rb2[0] + self.off_b[0], rb2[1] + self.off_b[1], rb2[2])
+                corr = min(ra2[2], rb2[2])
+                note, reseeded = "re-seeded (reference correlation %.2f)" % corr, True
+                self.reseeds += 1
+            else:
+                note = "LOST — best correlation %.2f" % corr
+
+        self.n += 1
+        if ra and rb and corr >= cfg.min_corr:
+            pa = np.array(ra[:2], float)
+            pb = np.array(rb[:2], float)
+            d = pb - pa
+            l_px = float(abs(np.dot(d, self.axis)))
+            dx_px = float(abs(np.dot(d, self.perp)))
+            cauchy, true = dic_strain(l_px, self.l0)
+            self.last_a, self.last_b = pa, pb
+            if not reseeded:
+                self.live_a = Box(pa[0], pa[1], cfg.box_half).clamp(self._w, self._h).patch(gray)
+                self.live_b = Box(pb[0], pb[1], cfg.box_half).clamp(self._w, self._h).patch(gray)
+                self.off_a = self.off_b = np.zeros(2)
+            self.tracked += 1
+            return pa, pb, l_px, dx_px, cauchy, true, corr, True, note, reseeded
+        return (self.last_a, self.last_b, float("nan"), float("nan"), float("nan"),
+                float("nan"), corr, False, note or "no match", reseeded)
+
+
+def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, preview=None,
+            extras=None):
     """Track both boxes through the video and yield a FrameResult per analysed frame.
 
     progress(done, total) is called for the UI; should_stop() aborts cleanly between frames.
@@ -900,6 +1039,12 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
     the UI to re-read it would fight the sequential decoder this loop depends on. The callback is
     handed the live array, not a copy: a caller that keeps it must copy it itself, because the
     decoder reuses the buffer.
+
+    extras: optional list of (box_a, box_b, kind, label) — ADDITIONAL pairs tracked in the same
+    pass over the video: a second axial pair, or a transverse pair whose strain is the lateral
+    strain the Poisson / true-stress maths needs (see poisson_true_stress). Each extra pair is
+    tracked with the identical policy but lives its own life: an extra losing its markers never
+    stops the run — only the PRIMARY pair drives stop_on_loss, exactly as before.
     The generator's return value is a Summary (use `yield from` / .value via StopIteration).
     """
     cfg = cfg or Settings()
@@ -924,67 +1069,18 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
             cap.release()
             raise IOError("cannot read reference frame %d" % cfg.ref_frame)
         gray0 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
-    h, w = gray0.shape
-    for b in (box_a, box_b):
-        b.half = int(cfg.box_half)
-        b.clamp(w, h)
-    tmpl_a, tmpl_b = box_a.patch(gray0), box_b.patch(gray0)
-    if tmpl_a.size == 0 or tmpl_b.size == 0:
+    try:
+        prim = _PairTracker(gray0, box_a, box_b, cfg)
+        extra_tr = [_PairTracker(gray0, ea, eb, cfg, kind=k, label=lb)
+                    for (ea, eb, k, lb) in (extras or [])]
+    except ValueError:
         cap.release()
-        raise ValueError("a tracking box falls outside the frame")
+        raise
 
-    a0 = np.array([box_a.cx, box_a.cy], float)
-    b0 = np.array([box_b.cx, box_b.cy], float)
-    # L0 MUST be measured the same way every later frame is. If the frames are refined to the
-    # marker centroid but L0 is taken from wherever the box was dropped, the difference becomes a
-    # constant offset on every strain in the run — invisible, and wrong by however far the click
-    # missed the centre.
-    if cfg.refine in ("auto", "rig"):
-        for pt, t in ((a0, tmpl_a), (b0, tmpl_b)):
-            m_ = t.shape[0] // 2
-            q_ = max(2, t.shape[0] // 6)
-            mid_ = float(t[m_ - q_:m_ + q_ + 1, m_ - q_:m_ + q_ + 1].mean())
-            bor_ = float(np.concatenate([t[0, :], t[-1, :], t[:, 0], t[:, -1]]).mean())
-            got = centroid_refine(gray0, pt[0], pt[1], cfg.box_half, mid_ < bor_,
-                                  reference_threshold(t, mid_ < bor_),
-                                  weighted=(cfg.refine != "rig"))
-            if got:
-                pt[0], pt[1] = got[0], got[1]
-    axis = b0 - a0
-    l0 = float(np.hypot(*axis))
-    if l0 < 5:
-        cap.release()
-        raise ValueError("the two boxes are on top of each other — place them apart")
-    axis = axis / l0                     # unit vector along the reference pair
-    perp = np.array([-axis[1], axis[0]])
-
-    # Is each marker dark-on-light or light-on-dark? Decided once, from the reference patch:
-    # compare its middle against its border. A video carries no setting to say which, and the rig
-    # runs both (dark spray on white PLA, bright on dark TPU).
-    def _is_dark(t):
-        m = t.shape[0] // 2
-        q = max(2, t.shape[0] // 6)
-        middle = float(t[m - q:m + q + 1, m - q:m + q + 1].mean())
-        border = float(np.concatenate([t[0, :], t[-1, :], t[:, 0], t[:, -1]]).mean())
-        return middle < border
-
-    dark_a, dark_b = _is_dark(tmpl_a), _is_dark(tmpl_b)
-    thr_a = reference_threshold(tmpl_a, dark_a)
-    thr_b = reference_threshold(tmpl_b, dark_b)
-    _ra = centroid_refine(gray0, a0[0], a0[1], cfg.box_half, dark_a, thr_a)
-    _rb = centroid_refine(gray0, b0[0], b0[1], cfg.box_half, dark_b, thr_b)
-    area_a = _ra[2] if _ra else 0.0
-    area_b = _rb[2] if _rb else 0.0
-    if not (_ra and _rb):
-        # No discrete markers here — a speckle pattern. Correlation is the only honest option,
-        # and the centroid path is disabled rather than left to latch onto texture.
-        cfg = replace(cfg, refine="correlation")
-    n_refined = 0
-
-    summary = Summary(l0_px=l0, px_mm=px_per_mm(l0, cfg.gauge_mm), fps=fps)
-    last_a, last_b = a0.copy(), b0.copy()
-    live_a, live_b = tmpl_a, tmpl_b          # re-seeded templates, used only after a drop
-    off_a = off_b = np.zeros(2)              # offset between a re-seeded template and the reference
+    summary = Summary(l0_px=prim.l0, px_mm=px_per_mm(prim.l0, cfg.gauge_mm), fps=fps)
+    summary.extras = [{"label": t.label, "kind": t.kind, "l0_px": t.l0,
+                       "tracked": 0, "n": 0, "centroid_frames": 0, "reseeds": 0}
+                      for t in extra_tr]
     total = max(1, (info["frames"] - cfg.ref_frame) // max(1, cfg.step))
 
     # Read SEQUENTIALLY. Seeking with CAP_PROP_POS_FRAMES per frame forces the decoder to rewind
@@ -1002,70 +1098,34 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
             break
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
 
-        note, reseeded = "", False
+        # CENTROID FIRST when the markers are discrete dots, correlation as the fallback, one
+        # retry against the last good patch — the whole policy lives in _PairTracker.step now,
+        # unchanged (measured on S25: centroid off its own last position 25 microstrain, off a
+        # correlation estimate 215, correlation alone 175, the live rig 28).
+        pa, pb, l_px, dx_px, cauchy, true, corr, ok, note, reseeded = prim.step(gray)
+        if reseeded:
+            summary.reseeds += 1
 
-        # ---- CENTROID FIRST, when the markers are discrete dots.
-        #
-        # The centroid is chained from the marker's own previous position, NOT from a correlation
-        # estimate. That matters: correlation jitters by ~0.3 px, and centring the measuring
-        # window on a jittering estimate feeds that jitter straight into the result. Measured on
-        # S25 — centroid off correlation 215 microstrain, centroid off its own last position 25,
-        # against 175 for correlation alone and 28 for the live rig. Same maths, different anchor.
-        #
-        # Motion between frames is a fraction of the box, so a dot cannot escape its window in one
-        # step; if it ever does, the centroid fails and correlation below recovers it.
-        ra = rb = None
-        corr = 0.0
-        if cfg.refine in ("auto", "rig"):
-            ca = centroid_refine(gray, last_a[0], last_a[1], cfg.box_half, dark_a, thr_a,
-                                 weighted=(cfg.refine != "rig"))
-            cb = centroid_refine(gray, last_b[0], last_b[1], cfg.box_half, dark_b, thr_b,
-                                 weighted=(cfg.refine != "rig"))
-            # A blob is only the marker if it is still about the size the marker was. Without this
-            # the centroid will happily follow a dot that has merged with a shadow.
-            if ca and cb and 0.5 * area_a < ca[2] < 2.0 * area_a \
-                    and 0.5 * area_b < cb[2] < 2.0 * area_b:
-                ra, rb = (ca[0], ca[1], 1.0), (cb[0], cb[1], 1.0)
-                corr = 1.0
-                n_refined += 1
+        # The extras live their own lives: tracked with the identical policy, but a lost extra
+        # never stops the run and never marks the primary row as lost.
+        ext = []
+        for t, meta in zip(extra_tr, summary.extras):
+            epa, epb, el, _edx, ec, _et, _ecorr, eok, _en, _ers = t.step(gray)
+            meta["n"] += 1
+            if eok:
+                meta["tracked"] += 1
+            ext.append((float(epa[0]), float(epa[1]), float(epb[0]), float(epb[1]),
+                        el, ec, eok))
 
-        if ra is None or rb is None:
-            ra = _match(gray, tmpl_a, last_a, cfg.search)
-            rb = _match(gray, tmpl_b, last_b, cfg.search)
-            corr = min(ra[2] if ra else 0.0, rb[2] if rb else 0.0)
-        if corr < cfg.min_corr:
-            # The reference patch no longer resembles the scene. Fall back to the last good
-            # frame's patch and carry its offset, so the measurement stays anchored to L0.
-            ra2 = _match(gray, live_a, last_a, cfg.search)
-            rb2 = _match(gray, live_b, last_b, cfg.search)
-            if ra2 and rb2 and min(ra2[2], rb2[2]) >= cfg.min_corr:
-                ra = (ra2[0] + off_a[0], ra2[1] + off_a[1], ra2[2])
-                rb = (rb2[0] + off_b[0], rb2[1] + off_b[1], rb2[2])
-                corr = min(ra2[2], rb2[2])
-                note, reseeded = "re-seeded (reference correlation %.2f)" % corr, True
-                summary.reseeds += 1
-            else:
-                note = "LOST — best correlation %.2f" % corr
-
-        if ra and rb and corr >= cfg.min_corr:
-            pa = np.array(ra[:2], float)
-            pb = np.array(rb[:2], float)
-            d = pb - pa
-            l_px = float(abs(np.dot(d, axis)))      # along the reference pair axis, as on the rig
-            dx_px = float(abs(np.dot(d, perp)))     # perpendicular, reported like the rig's dx_px
-            cauchy, true = dic_strain(l_px, l0)
-            last_a, last_b = pa, pb
-            if not reseeded:
-                live_a, live_b = box_a.__class__(pa[0], pa[1], cfg.box_half).clamp(w, h).patch(gray), \
-                                 box_b.__class__(pb[0], pb[1], cfg.box_half).clamp(w, h).patch(gray)
-                off_a = off_b = np.zeros(2)
+        t_s = (idx - cfg.ref_frame) / fps if fps > 0 else float(idx)
+        if ok:
             summary.tracked += 1
-            res = FrameResult(idx, (idx - cfg.ref_frame) / fps if fps > 0 else float(idx),
-                              tuple(pa), tuple(pb), l_px, dx_px, cauchy, true, corr, True, note)
+            res = FrameResult(idx, t_s, tuple(pa), tuple(pb), l_px, dx_px, cauchy, true,
+                              corr, True, note, tuple(ext))
         else:
-            res = FrameResult(idx, (idx - cfg.ref_frame) / fps if fps > 0 else float(idx),
-                              tuple(last_a), tuple(last_b), float("nan"), float("nan"),
-                              float("nan"), float("nan"), corr, False, note or "no match")
+            res = FrameResult(idx, t_s, tuple(pa), tuple(pb), float("nan"), float("nan"),
+                              float("nan"), float("nan"), corr, False, note or "no match",
+                              tuple(ext))
 
         summary.n += 1
         summary.rows.append(res)
@@ -1094,7 +1154,7 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
         if preview is not None:
             # Where the boxes are NOW, so the drawn overlay follows the markers apart rather than
             # sitting where they started. On a lost frame these are the last good positions.
-            preview(gray, tuple(last_a), tuple(last_b))
+            preview(gray, tuple(prim.last_a), tuple(prim.last_b))
         yield res
         done += 1
         if progress:
@@ -1104,7 +1164,9 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
             if not cap.grab():
                 break
 
-    summary.centroid_frames = n_refined
+    summary.centroid_frames = prim.centroid_frames
+    for t, meta in zip(extra_tr, summary.extras):
+        meta["centroid_frames"], meta["reseeds"] = t.centroid_frames, t.reseeds
     cap.release()
     return summary
 
@@ -1254,8 +1316,11 @@ def metrics(summary, cfg=None, label="", source_video=""):
     return out
 
 
-def to_csv(summary, path, source_video="", cfg=None):
-    """Write the run out in the same spirit as the rig's CSV: a header that says how, then rows."""
+def to_csv(summary, path, source_video="", cfg=None, poisson_rows=None):
+    """Write the run out in the same spirit as the rig's CSV: a header that says how, then rows.
+
+    Extra tracked pairs land as P1_*, P2_* column blocks; pass `poisson_rows` (from
+    poisson_true_stress) to append the Nu / Area / true-stress block beside them."""
     cfg = cfg or Settings()
     with open(path, "w", encoding="utf-8", newline="") as f:
         f.write("# UTM DIC Post-Processing\n#\n")
@@ -1294,17 +1359,107 @@ def to_csv(summary, path, source_video="", cfg=None):
         # markers. What genuinely cannot be measured on this rig is true (Cauchy) STRESS, which
         # needs the current cross-section. Nothing reads this export's header, so it is named for
         # what it actually is.
-        f.write("Frame,Time_s,Ax,Ay,Bx,By,L_px,dx_px,DIC_Cauchy,DIC_LogStrain,"
-                "Correlation,Tracked,Note\n")
-        for r in summary.rows:
-            f.write("%d,%.4f,%.3f,%.3f,%.3f,%.3f,%s,%s,%s,%s,%.4f,%d,%s\n"
+        for i, m in enumerate(summary.extras, 1):
+            f.write("# Extra pair P%d: %s (%s), L0 %.3f px, tracked %d/%d\n"
+                    % (i, m.get("label") or "pair %d" % i, m["kind"], m["l0_px"],
+                       m["tracked"], m["n"]))
+        if poisson_rows is not None:
+            f.write("# Nu           = -eps_lateral / eps_axial, per row (needs |eps_axial| to be\n"
+                    "#                real - early rows where it is ~0 are left blank)\n"
+                    "# Area_mm2     = A0 (1 + eps_lateral)^2 - measured lateral contraction,\n"
+                    "#                isotropic through-thickness assumption (utm_dic.current_area)\n"
+                    "# Sigma_true   = F / current area, MPa - TRUE (Cauchy) stress\n")
+        head = "Frame,Time_s,Ax,Ay,Bx,By,L_px,dx_px,DIC_Cauchy,DIC_LogStrain,Correlation,Tracked"
+        for i in range(1, len(summary.extras) + 1):
+            head += (",P%d_Ax,P%d_Ay,P%d_Bx,P%d_By,P%d_L_px,P%d_strain,P%d_ok"
+                     % ((i,) * 7))
+        if poisson_rows is not None:
+            head += ",Nu,Area_mm2,F_N,Sigma_eng_MPa,Sigma_true_MPa"
+        f.write(head + ",Note\n")
+
+        def _n(v, fmt="%.4f"):
+            return "" if v is None or v != v else fmt % v
+
+        for k, r in enumerate(summary.rows):
+            line = ("%d,%.4f,%.3f,%.3f,%.3f,%.3f,%s,%s,%s,%s,%.4f,%d"
                     % (r.idx, r.t, r.a[0], r.a[1], r.b[0], r.b[1],
-                       "" if r.l_px != r.l_px else "%.4f" % r.l_px,
-                       "" if r.dx_px != r.dx_px else "%.4f" % r.dx_px,
-                       "" if r.cauchy != r.cauchy else "%.8f" % r.cauchy,
-                       "" if r.true != r.true else "%.8f" % r.true,
-                       r.corr, 1 if r.ok else 0, r.note.replace(",", ";")))
+                       _n(r.l_px), _n(r.dx_px), _n(r.cauchy, "%.8f"), _n(r.true, "%.8f"),
+                       r.corr, 1 if r.ok else 0))
+            for (eax, eay, ebx, eby, el, ec, eok) in r.extra:
+                line += (",%.3f,%.3f,%.3f,%.3f,%s,%s,%d"
+                         % (eax, eay, ebx, eby, _n(el), _n(ec, "%.8f"), 1 if eok else 0))
+            if poisson_rows is not None:
+                p = poisson_rows[k] if k < len(poisson_rows) else None
+                if p:
+                    line += ",%s,%s,%s,%s,%s" % (_n(p.get("nu")), _n(p.get("area_mm2")),
+                                                 _n(p.get("F_N"), "%.2f"),
+                                                 _n(p.get("sigma_eng")), _n(p.get("sigma_true")))
+                else:
+                    line += ",,,,,"
+            f.write(line + ",%s\n" % r.note.replace(",", ";"))
     return path
+
+
+def poisson_true_stress(summary, area0_mm2, comp=None, pair_index=None, min_axial=0.002):
+    """nu, area change and TRUE (Cauchy) stress from a tracked TRANSVERSE pair.
+
+    This is FW1's four-marker mathematics (utm_dic) applied offline: the live rig cannot see the
+    transverse contraction of the mini-dogbone (sub-pixel at 20.9 px/mm — the documented FW1
+    blocker), but the post-processor can be pointed at ANY video, including one with a wider
+    specimen, better optics, or another lab's markers.
+
+    Returns (rows, note): `rows` aligned one-to-one with summary.rows, each None (untracked) or
+    {eps_ax, eps_lat, nu, area_mm2, F_N, sigma_eng, sigma_true}; `note` is the honesty line —
+    it SAYS when the measured width change is sub-pixel, because then nu and everything built on
+    it is noise wearing units, exactly what FW1 warned writing the code would produce.
+
+      * nu is left None while |eps_axial| < min_axial (0.2 %): dividing two near-zeros early in
+        the ramp produces spectacular nonsense that would dominate any plot autoscale.
+      * area and sigma_true come straight from utm_dic.current_area / cauchy_stress.
+      * force is interpolated from the companion's load channel at each row's time (the shared-
+        origin convention preload_strain_zero already relies on); without a companion the stress
+        fields stay None and the geometric ones are still returned.
+    """
+    from utm_dic import current_area, cauchy_stress, poisson_ratio
+    idx = pair_index
+    if idx is None:
+        idx = next((i for i, m in enumerate(summary.extras) if m["kind"] == "transverse"), None)
+    if idx is None or idx >= len(summary.extras):
+        return None, "no transverse pair tracked"
+    w0 = summary.extras[idx]["l0_px"]
+    have_f = comp is not None and comp.load is not None and comp.t is not None
+
+    rows, dws = [], []
+    for r in summary.rows:
+        e = r.extra[idx] if idx < len(r.extra) else None
+        if not r.ok or e is None or not e[6] or e[4] != e[4]:
+            rows.append(None)
+            continue
+        eps_lat = e[5]
+        dws.append(abs(e[4] - w0))
+        F = float(np.interp(r.t, comp.t, comp.load)) if have_f else None
+        area = current_area(area0_mm2, eps_lat)
+        rows.append({
+            "eps_ax": r.cauchy, "eps_lat": eps_lat,
+            "nu": (poisson_ratio(r.cauchy, eps_lat)
+                   if abs(r.cauchy) >= min_axial else None),
+            "area_mm2": area,
+            "F_N": F,
+            "sigma_eng": (F / area0_mm2) if F is not None else None,
+            "sigma_true": cauchy_stress(F, area0_mm2, eps_lat) if F is not None else None,
+        })
+
+    got = [r for r in rows if r]
+    if not got:
+        return rows, "transverse pair never tracked"
+    dw_p95 = float(np.percentile(dws, 95)) if dws else 0.0
+    note = ("width change over the run: %.2f px (p95) on a %.1f px width" % (dw_p95, w0))
+    if dw_p95 < 1.0:
+        note += (" — SUB-PIXEL: nu and true stress from this pair are noise wearing units. "
+                 "This needs closer optics or a wider specimen (FW1), not more maths.")
+    if not have_f:
+        note += "  No load channel attached, so only the geometric quantities are computed."
+    return rows, note
 
 
 # ===================================================================================
