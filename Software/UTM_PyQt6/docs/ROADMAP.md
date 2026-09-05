@@ -954,6 +954,19 @@ fails if its guard is removed.
   specimen, its printing and its share of the rig commensurable, and it is the number another lab
   could compare against.
 
+  **2026-09-05 — COMPUTED, at his chosen operational boundary.** Filament cradle-to-gate and all
+  embodied hardware excluded by his decision ("just CF from our work from developing to printing
+  to testing"); the AI collaboration included as its own term. Inputs: printer 105 W (middle of
+  the 80–130 W test-bench range in the Prusa forum thread he supplied), rig 45 W (assumed:
+  2 × NEMA-23 at creep + drivers/ESP32/LED/camera), PC 60 W, 195 h of collaboration time
+  (3 months × 1 h/day + 42 active days × 2.5 h), Swedish grid 0.040 kgCO₂e/kWh, AI at Google's
+  published 0.24 Wh / 0.03 g per median prompt with a 20–80 prompt-equivalents-per-hour band.
+  **Result: ≈ 1.4 kgCO₂e total (band 0.8–2.0), ≈ 36 g per completed test — about a 13 km drive
+  for the whole campaign.** The expectation above held: the pulling is carbon-nothing (13 g);
+  the thinking (AI + PC) is the biggest line. Calculation lives in
+  `documentation/scripts/pcf_figs.py` (single source for chart, tables and verdict); the five
+  Weekly slides and the final deck's fun-facts page are generated from it.
+
   **What would make this publishable rather than an exercise:** the DIC method's own contribution.
   Optical extensometry replaces a contacting extensometer and, on this rig, replaced a stack of
   abandoned runs with re-analysable video — 15 capture runs that can be re-measured without
