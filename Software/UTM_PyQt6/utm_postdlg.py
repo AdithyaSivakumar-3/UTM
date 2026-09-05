@@ -917,8 +917,12 @@ class PostProcTab(QWidget):
                                   "when one is near. For when Auto-detect picks wrong or the "
                                   "markers are hard to see at this size.")
         self.manualBtn.clicked.connect(self.on_manual_main)
-        gl.addWidget(self.autoBtn, 0, 0); gl.addWidget(self.clearBtn, 0, 1)
-        gl.addWidget(self.manualBtn, 1, 0, 1, 2)
+        # One row of three, sharing the group's existing width (an HBox inside the grid row,
+        # so no third grid column widens the page).
+        _pick_row = QHBoxLayout()
+        _pick_row.addWidget(self.autoBtn); _pick_row.addWidget(self.manualBtn)
+        _pick_row.addWidget(self.clearBtn)
+        gl.addLayout(_pick_row, 0, 0, 1, 2)
 
         self.gauge = QDoubleSpinBox(); self.gauge.setRange(0.1, 1000); self.gauge.setValue(80.0)
         self.gauge.setSuffix(" mm"); self.gauge.setDecimals(4)
@@ -969,11 +973,11 @@ class PostProcTab(QWidget):
                                         ("Box half-size", self.boxHalf),
                                         ("Search window", self.search),
                                         ("Min correlation", self.minCorr),
-                                        ("Tracking method", self.method)), start=2):
+                                        ("Tracking method", self.method)), start=1):
             gl.addWidget(QLabel(lab), r, 0); gl.addWidget(wdg, r, 1)
         self.l0Lbl = QLabel("place two boxes to set Px₀")
         self.l0Lbl.setStyleSheet("color:#4dabf7; font-weight:bold;")
-        gl.addWidget(self.l0Lbl, 8, 0, 1, 2)
+        gl.addWidget(self.l0Lbl, 7, 0, 1, 2)
 
         # ---- extra pairs: a second axial extensometer, or a WIDTH pair for Poisson/true stress.
         # They ride the same analysis pass; the width pair is what unlocks the one quantity the
@@ -1002,22 +1006,22 @@ class PostProcTab(QWidget):
         prow = QGridLayout()
         prow.addWidget(self.addAxialBtn, 0, 0); prow.addWidget(self.addTransBtn, 0, 1)
         prow.addWidget(self.clearPairsBtn, 1, 0); prow.addWidget(self.bigViewBtn, 1, 1)
-        gl.addLayout(prow, 10, 0, 1, 2)
+        gl.addLayout(prow, 9, 0, 1, 2)
         self.extraLbl = QLabel("")
         self.extraLbl.setWordWrap(True)
         self.extraLbl.setStyleSheet("color:#b197fc;")
-        gl.addWidget(self.extraLbl, 11, 0, 1, 2)
+        gl.addWidget(self.extraLbl, 10, 0, 1, 2)
         self.area = QDoubleSpinBox(); self.area.setRange(0.01, 100000); self.area.setDecimals(2)
         self.area.setValue(80.0); self.area.setSuffix(" mm²")
         self.area.setToolTip("Nominal cross-section A₀. Consumed ONLY by the true-stress maths "
                              "of a width pair — strain and engineering quantities never touch it.")
-        gl.addWidget(QLabel("Area A₀"), 12, 0); gl.addWidget(self.area, 12, 1)
+        gl.addWidget(QLabel("Area A₀"), 11, 0); gl.addWidget(self.area, 11, 1)
         # An unconfirmed gauge is stated, not hidden. It corrupts no strain — but it does reach
         # px/mm, the extension in mm and the results sheet, where a default is indistinguishable
         # from a measurement.
         self.gaugeWarn = QLabel(""); self.gaugeWarn.setWordWrap(True)
         self.gaugeWarn.setStyleSheet("color:#f39c12;")
-        gl.addWidget(self.gaugeWarn, 9, 0, 1, 2)
+        gl.addWidget(self.gaugeWarn, 8, 0, 1, 2)
         lv.addWidget(g)
 
         g2 = QGroupBox("Timebase"); g2l = QGridLayout(g2)
@@ -2529,12 +2533,16 @@ class PostProcTab(QWidget):
                 cur.e.append(float("nan")); cur.tr.append(float("nan"))
                 for xs in cur.xe:
                     xs.append(float("nan"))
-        self.status.setText(
-            "frame %d   t %.2f s   L %s px   ε %s   corr %.2f%s"
-            % (r.idx, r.t,
-               "—" if r.l_px != r.l_px else "%.2f" % r.l_px,
-               "—" if r.cauchy != r.cauchy else "%.4f %%" % (r.cauchy * 100),
-               r.corr, ("   " + r.note) if r.note else ""))
+        _live = ("frame %d   t %.2f s   L %s px   ε %s   corr %.2f%s"
+                 % (r.idx, r.t,
+                    "—" if r.l_px != r.l_px else "%.2f" % r.l_px,
+                    "—" if r.cauchy != r.cauchy else "%.4f %%" % (r.cauchy * 100),
+                    r.corr, ("   " + r.note) if r.note else ""))
+        self.status.setText(_live)
+        if self._popout is not None and self._popout.isVisible():
+            # it read "waiting for the first frame…" for the entire run — the label was set at
+            # open and only touched again at the end
+            self._popout.status.setText(_live)
         self._redraw_plot(force=False)
 
     def _redraw_plot(self, force=True):

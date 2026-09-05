@@ -99,6 +99,11 @@ class Settings:
     # carrying two useless rows that are dropped anyway.
     stop_on_loss: bool = True
     loss_tolerance: int = 2
+    # After the markers are declared lost, keep decoding for this long, attempting a full-frame
+    # re-acquisition each frame — a snap can throw the specimen sideways past any local search
+    # window while leaving it perfectly trackable (S38 lost 4.2 s of video this way). A marker
+    # that is genuinely gone never re-acquires and the run still stops, just this much later.
+    loss_grace_s: float = 4.0
     # A still image to use as the reference frame instead of the video's own frame `ref_frame`.
     # The zero has to be a frame with the specimen at rest, and a recording does not always hold
     # one. Must match the video's dimensions — see reference_gray().
@@ -974,6 +979,50 @@ class _PairTracker:
         self.off_a = self.off_b = np.zeros(2)
         self.last_a, self.last_b = a0.copy(), b0.copy()
         self.n = self.tracked = self.reseeds = self.centroid_frames = 0
+        self.reacquires = 0
+
+    def reacquire(self, gray):
+        """Search the WHOLE frame for the pair after a violent displacement.
+
+        Why this exists (S38, 2026-09-06): at the snap the specimen recoiled ~100 px sideways
+        and came to rest intact, markers sharp — but every per-frame search is anchored within
+        cfg.search of the LAST position, so 4.2 s of perfectly trackable video were unreachable.
+        This runs only on frames already declared lost, so it costs nothing on a healthy run.
+
+        The pair is re-found by GEOMETRY, the way _choose_marker_pair reasons on the rig: among
+        all detected markers, take the pairing whose separation along the pair's own axis is
+        closest to the last good separation (the specimen may also have RELAXED, so up to 30 %
+        shorter is allowed — that release is real data). Each candidate is then verified by the
+        reference template before it is believed.
+        """
+        marks = find_markers(gray)
+        if len(marks) < 2:
+            return False
+        last_sep = float(abs(np.dot(self.last_b - self.last_a, self.axis)))
+        best = None
+        for i in range(len(marks)):
+            for j in range(i + 1, len(marks)):
+                pa = np.array(marks[i][:2], float)
+                pb = np.array(marks[j][:2], float)
+                if np.dot(pb - pa, self.axis) < 0:
+                    pa, pb = pb, pa
+                sep = float(abs(np.dot(pb - pa, self.axis)))
+                if not (0.7 * last_sep <= sep <= 1.3 * last_sep):
+                    continue
+                err = abs(sep - last_sep)
+                if best is None or err < best[0]:
+                    best = (err, pa, pb)
+        if best is None:
+            return False
+        _e, pa, pb = best
+        ra = _match(gray, self.tmpl_a, pa, self.cfg.search)
+        rb = _match(gray, self.tmpl_b, pb, self.cfg.search)
+        if not (ra and rb and min(ra[2], rb[2]) >= self.cfg.min_corr):
+            return False
+        self.last_a = np.array(ra[:2], float)
+        self.last_b = np.array(rb[:2], float)
+        self.reacquires += 1
+        return True
 
     def step(self, gray):
         """Track one frame. Returns (pa, pb, l_px, dx_px, cauchy, true, corr, ok, note,
@@ -1139,10 +1188,25 @@ def analyse(path, box_a, box_b, cfg=None, progress=None, should_stop=None, previ
             lost_run = 0
         elif cfg.stop_on_loss:
             lost_run += 1
-            if lost_run >= max(1, cfg.loss_tolerance):
-                summary.lost_at_frame = idx
-                summary.lost_at_t = (idx - cfg.ref_frame) / fps if fps > 0 else float(idx)
-                summary.lost_reason = res.note or "no match"
+            if lost_run == 1:
+                # the INSTANT the streak began - with the grace window the stop can land
+                # seconds later, and "markers gone at" must name the loss, not the give-up
+                first_lost = (idx, (idx - cfg.ref_frame) / fps if fps > 0 else float(idx))
+            # Past the tolerance the markers are LOST — but for the grace window the loop keeps
+            # decoding and tries to re-find the pair anywhere in the frame. Success rewinds the
+            # loss and the run continues (the gap stays in the record as untracked rows).
+            grace_frames = max(1, int(round(cfg.loss_grace_s * (fps if fps > 0 else 30.0)
+                                            / max(1, cfg.step))))
+            if lost_run >= max(1, cfg.loss_tolerance) and prim.reacquire(gray):
+                lost_run = 0
+                summary.rows[-1] = replace(res, note=res.note + "  → re-acquired after "
+                                           "displacement")
+                for tr in extra_tr:
+                    tr.reacquire(gray)
+            elif lost_run >= max(1, cfg.loss_tolerance) + grace_frames:
+                summary.lost_at_frame, summary.lost_at_t = first_lost
+                summary.lost_reason = ("no match, and nothing re-acquired within %.1f s"
+                                       % cfg.loss_grace_s)
                 while summary.rows and not summary.rows[-1].ok:
                     summary.rows.pop()
                     summary.n -= 1
