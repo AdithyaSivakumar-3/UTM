@@ -1884,6 +1884,19 @@ class PostProcTab(QWidget):
             r.gauge_mm, r.gauge_confirmed = float(comp.gauge_mm), True
             r.gauge_src = "from %s" % comp.source
             r.scale_anchor = "gauge"
+        if getattr(comp, "px_per_mm", None):
+            # The file carries the session's own DIC calibration - the strongest anchor there
+            # is. With the SCALE known, the gauge box measures whichever pair is picked: his
+            # multi-marker case (45 mm pair, 60 mm pair...) reads the right number with no
+            # typing at all.
+            self.pxmm.blockSignals(True)
+            self.pxmm.setValue(float(comp.px_per_mm))
+            self.pxmm.blockSignals(False)
+            r.scale_anchor = "pxmm"
+            r.gauge_src = "measured from %s calibration" % comp.source
+            msgs.append("Scale anchored to the file's own calibration: %.4f px/mm - the gauge "
+                        "box now MEASURES whichever marker pair you pick." % comp.px_per_mm)
+            self._refresh_l0()
             msgs.append("Gauge set to %.4f mm from the file's own gauge column." % comp.gauge_mm)
 
         if comp.load is not None:

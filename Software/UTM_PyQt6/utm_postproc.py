@@ -291,6 +291,7 @@ class Companion:
     t: object = None                 # np.ndarray, seconds
     load: object = None              # np.ndarray, newtons, or None
     gauge_mm: float = None           # if the file reports one
+    px_per_mm: float = None          # the rig's own DIC calibration, from the CSV header
     columns: list = field(default_factory=list)
     note: str = ""
 
@@ -348,6 +349,22 @@ def read_companion(path, load_col=None, load_scale=1.0):
     body = [ln for ln in raw if ln.strip() and not ln.lstrip().startswith("#")]
     if not body:
         raise ValueError("the file has no data rows")
+
+    # Our own rig's CSVs carry the session's DIC calibration and gauge in "#" header lines
+    # ("# DIC Calibration - px_per_mm: 20.8528", "# ... Gauge Length: 80.0 mm ..."). A scale
+    # read here lets the dialog anchor to px/mm automatically, so on a multi-marker specimen
+    # the gauge box simply MEASURES whichever pair is picked - no typing.
+    import re as _hre
+    hdr_ppm = hdr_gauge = None
+    for ln in raw[:40]:
+        if not ln.lstrip().startswith("#"):
+            continue
+        m = _hre.search(r"px_per_mm[:\s]+([0-9.]+)", ln)
+        if m:
+            hdr_ppm = float(m.group(1))
+        m = _hre.search(r"[Gg]auge\s*[Ll]ength[^0-9]*([0-9.]+)", ln)
+        if m:
+            hdr_gauge = float(m.group(1))
 
     sep = "\t" if body[0].count("\t") >= max(1, body[0].count(",")) else ","
     rows = list(_csv.reader(body, delimiter=sep))
@@ -435,7 +452,8 @@ def read_companion(path, load_col=None, load_scale=1.0):
         got.append("gauge %.4f mm" % gauge)
     return Companion(
         path=path, source=os.path.basename(path), n_rows=len(data), t=t, load=load,
-        gauge_mm=gauge, columns=names,
+        gauge_mm=(gauge if gauge else hdr_gauge), px_per_mm=hdr_ppm,
+        columns=names,
         note=("%d rows over %.3f s" % (len(data), float(t[-1] - t[0]))
               + ("; " + ", ".join(got) if got else "; time only")))
 
