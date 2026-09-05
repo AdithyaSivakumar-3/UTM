@@ -1078,6 +1078,16 @@ it — which is exactly why it belongs here rather than in a list of things to r
 Until it is closed, **gauge share is reported per run and never averaged across runs**, and any
 statement about machine compliance carries the S25/S26 spread beside it.
 
+**The fix (his call, 2026-09-05): design better grips.** The printed jaws are the prime suspect
+for the slack — a joint that beds in over the first millimetres of travel is exactly the
+two-cluster signature above, and it is also what bends the low-strain region of every curve (the
+toe). Redesign the grips so the specimen seats deterministically — positive location and
+preloaded contact faces rather than friction take-up — reprint, and re-run the repeat-seating
+check. Success criteria: the 21 % / 33 % split collapses to one cluster, and the toe visibly
+shortens at low strain. This replaces the bare "run the seating experiment" as the goal on the
+final-presentation future-work slide; the experiment is now step one of the fix, not the end
+point.
+
 ---
 
 ## 7. Key files
