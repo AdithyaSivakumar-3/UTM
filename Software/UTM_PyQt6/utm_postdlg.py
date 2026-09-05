@@ -795,7 +795,16 @@ class PostProcTab(QWidget):
         split = QSplitter(Qt.Orientation.Horizontal)
 
         # ---- LEFT: the video and the measurement setup
-        left = QWidget(); lv = QVBoxLayout(left); lv.setContentsMargins(6, 6, 6, 6)
+        # The left column's setup stack measures ~1050 px of minimum height, and a
+        # QTabWidget's minimum is the MAX over its pages — so this one column was forcing the
+        # OUTER window scroll on EVERY tab (measured 2026-09-06: +314 px overflow at an
+        # 860 px window, identical on all four tabs). The setup groups therefore live in their
+        # own scroll now, and the run controls sit OUTSIDE it, always visible — which is also
+        # exactly the complaint that surfaced it: "I have to scroll to run the analysis."
+        left = QWidget()
+        leftv = QVBoxLayout(left); leftv.setContentsMargins(0, 0, 0, 0); leftv.setSpacing(4)
+        _setup_w = QWidget()
+        lv = QVBoxLayout(_setup_w); lv.setContentsMargins(6, 6, 6, 6)
 
         row = QHBoxLayout()
         self.loadBtn = QPushButton("Add video(s)…")
@@ -978,9 +987,11 @@ class PostProcTab(QWidget):
         self.bigViewBtn.setToolTip("Open the frame in a desk-sized window to place the boxes and "
                                    "pairs — same clicks, same snapping, just visible.")
         self.bigViewBtn.clicked.connect(self.on_big_view)
-        prow = QHBoxLayout()
-        prow.addWidget(self.addAxialBtn); prow.addWidget(self.addTransBtn)
-        prow.addWidget(self.clearPairsBtn); prow.addWidget(self.bigViewBtn)
+        # 2x2, not one row of four: four buttons abreast made this the WIDEST page in the app,
+        # and a QTabWidget's minimum width is the max over its pages — the whole window paid.
+        prow = QGridLayout()
+        prow.addWidget(self.addAxialBtn, 0, 0); prow.addWidget(self.addTransBtn, 0, 1)
+        prow.addWidget(self.clearPairsBtn, 1, 0); prow.addWidget(self.bigViewBtn, 1, 1)
         gl.addLayout(prow, 9, 0, 1, 2)
         self.extraLbl = QLabel("")
         self.extraLbl.setWordWrap(True)
@@ -1051,6 +1062,17 @@ class PostProcTab(QWidget):
         cks.addWidget(self.playChk); cks.addWidget(self.stopLossChk); cks.addStretch(1)
         lv.addLayout(cks)
 
+        lv.addStretch(1)
+        _setup_scroll = QScrollArea()
+        _setup_scroll.setWidgetResizable(True)
+        _setup_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        _setup_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        _setup_scroll.setWidget(_setup_w)
+        # 220 keeps the video pane usable at the floor; everything below it scrolls within the
+        # column instead of pushing the whole window into a scrollbar.
+        _setup_scroll.setMinimumHeight(220)
+        leftv.addWidget(_setup_scroll, 1)
+
         rr = QHBoxLayout()
         self.runBtn = QPushButton("Run this video"); self.runBtn.setEnabled(False)
         self.runBtn.clicked.connect(self.on_run)
@@ -1069,12 +1091,12 @@ class PostProcTab(QWidget):
         self.reportBtn.clicked.connect(self.on_report)
         rr.addWidget(self.runBtn); rr.addWidget(self.runAllBtn)
         rr.addWidget(self.stopBtn); rr.addWidget(self.expBtn); rr.addWidget(self.reportBtn)
-        lv.addLayout(rr)
+        leftv.addLayout(rr)
         self.bar = QProgressBar(); self.bar.setValue(0)
-        lv.addWidget(self.bar)
+        leftv.addWidget(self.bar)
         self.status = QLabel("—"); self.status.setWordWrap(True)
         self.status.setStyleSheet("color:%s;" % self._status_fg())
-        lv.addWidget(self.status)
+        leftv.addWidget(self.status)
 
         # ---- RIGHT: the answer — plot above, the numbers behind it below.
         # A vertical splitter rather than a fixed split: on a short screen the table can be
