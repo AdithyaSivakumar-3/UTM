@@ -643,6 +643,10 @@ class Run:
     # and the gauge box becomes a live MEASUREMENT, re-derived at every placement and drag.
     # Set implicitly by whichever field was typed last; no extra widget to explain.
     scale_anchor: str = "gauge"
+    # The calibrated scale itself, when the anchor is "pxmm" — owned by the RUN for the same
+    # reason the gauge is: the spin box is shared UI, and switching to another video must not
+    # let the previous video's calibration leak into this one's millimetres.
+    px_mm: float = 0.0
     fps_verified: bool = False       # measured from a sidecar or a companion, not merely declared
     fps_override: bool = False       # the operator was warned and chose to proceed anyway
     companion: object = None         # PP.Companion, when a data file has been attached
@@ -1567,6 +1571,25 @@ class PostProcTab(QWidget):
                     box_half=self.boxHalf.value(), search=self.search.value(),
                     min_corr=self.minCorr.value(), step=self.step.value(),
                     refine=self.method.currentData())
+            # The OTHER number a capture folder knows: the session's own DIC calibration. With
+            # the scale known at load, the gauge box measures whichever pair gets picked and the
+            # ASSUMED warning never appears for our own videos — pixels alone carry no mm, so
+            # this sidecar is the one honest way to retire it without the operator typing.
+            sc = PP.scale_from_sidecar(path)
+            if sc:
+                ppm, hdr_gauge, src = sc
+                if ppm:
+                    r.px_mm = float(ppm)
+                    r.scale_anchor = "pxmm"
+                    r.gauge_src = "measured from %s calibration" % src
+                    self.log.emit("[PostProc] %s: scale %.4f px/mm from the capture's own %s — "
+                                  "the gauge box will MEASURE the picked pair."
+                                  % (info["name"], ppm, src))
+                elif hdr_gauge:
+                    r.gauge_mm, r.gauge_confirmed = float(hdr_gauge), True
+                    r.gauge_src = "from %s" % src
+                    self.log.emit("[PostProc] %s: gauge %.2f mm from the capture's own %s."
+                                  % (info["name"], hdr_gauge, src))
             self.runs.append(r)
             added += 1
             self.log.emit("[PostProc] added %s as \"%s\" — %d frames, %.4f fps"
@@ -1790,6 +1813,7 @@ class PostProcTab(QWidget):
         cols = []
         for r in done:
             cfg = PP.Settings(gauge_mm=r.gauge_mm, gauge_confirmed=r.gauge_confirmed,
+                              gauge_src=r.gauge_src,
                               box_half=r.box_half, search=r.search,
                               min_corr=r.min_corr, ref_frame=r.ref_frame, ref_image=r.ref_image,
                               fps=r.fps, step=r.step, refine=r.refine)
@@ -1872,6 +1896,7 @@ class PostProcTab(QWidget):
             out.append({"label": r.label, "colour": r.colour, "path": r.path,
                         "t": r.t, "e": r.e, "tr": r.tr, "summary": r.summary,
                         "cfg": PP.Settings(gauge_mm=r.gauge_mm, gauge_confirmed=r.gauge_confirmed,
+                                           gauge_src=r.gauge_src,
                                             box_half=r.box_half,
                                            search=r.search, min_corr=r.min_corr,
                                            ref_frame=r.ref_frame, ref_image=r.ref_image,
@@ -1950,12 +1975,18 @@ class PostProcTab(QWidget):
         """The operator typed a scale. The gauge follows from Px₀ — the same number, inverted."""
         if self._loading:
             return
+        if val <= 0:
+            return
         l0 = self._l0_now()
         if l0 <= 0:
-            self.gaugeWarn.setText("Place both boxes first — px/mm and the gauge are linked "
-                                   "through Px₀, so neither can set the other until Px₀ exists.")
-            return
-        if val <= 0:
+            # No Px₀ yet, but the typed scale is real knowledge — keep it as this run's anchor
+            # so the gauge is measured the moment boxes exist, instead of throwing it away.
+            r = self.run
+            if r is not None:
+                r.px_mm = float(val)
+                r.scale_anchor = "pxmm"
+                r.gauge_src = "measured from px/mm"
+            self._refresh_gauge_state()
             return
         g = l0 / float(val)
         self.gauge.blockSignals(True)
@@ -1965,16 +1996,24 @@ class PostProcTab(QWidget):
         if r is not None:
             r.gauge_mm = float(g)
             r.gauge_confirmed = True
-            r.gauge_src = "from px/mm"
+            r.gauge_src = "measured from px/mm"
             r.scale_anchor = "pxmm"
+            r.px_mm = float(val)
         self._refresh_gauge_state()
         self._refresh_l0()
 
     def _refresh_gauge_state(self):
-        """Keep px/mm in step with Px₀, and say plainly when the gauge is only a default."""
+        """Keep px/mm in step with Px₀, and say plainly what the mm scale rests on.
+
+        Three states, three colours: nothing (the gauge is confirmed — typed, measured from a
+        known px/mm, or taken from the capture's own record); GREEN when the scale is already
+        known but Px₀ does not exist yet, because that is an instruction, not a doubt; AMBER
+        only when the mm scale genuinely rests on the unconfirmed 80 mm default.
+        """
         r = self.run
+        anchor = getattr(r, "scale_anchor", "gauge") if r is not None else "gauge"
         l0 = self._l0_now()
-        if l0 > 0 and self.gauge.value() > 0:
+        if l0 > 0 and self.gauge.value() > 0 and anchor != "pxmm":
             self.pxmm.blockSignals(True)
             self.pxmm.setValue(l0 / self.gauge.value())
             self.pxmm.blockSignals(False)
@@ -1983,11 +2022,18 @@ class PostProcTab(QWidget):
             return
         if r.gauge_confirmed:
             self.gaugeWarn.setText("")
+        elif anchor == "pxmm" and getattr(r, "px_mm", 0) > 0:
+            self.gaugeWarn.setStyleSheet("color:#2e9e4f;")
+            self.gaugeWarn.setText(
+                "Scale is known: %.4f px/mm (%s). Place or pick the two markers and the gauge "
+                "box MEASURES that pair — nothing to type." % (r.px_mm, r.gauge_src or "typed"))
         else:
+            self.gaugeWarn.setStyleSheet("color:#f39c12;")
             self.gaugeWarn.setText(
                 "Gauge is the default %.2f mm — nobody has confirmed it for this video. Strain is "
                 "unaffected (it is a pixel ratio), but px/mm and the extension in mm are, and the "
-                "results sheet will say ASSUMED until you set it." % r.gauge_mm)
+                "results sheet will say ASSUMED until you set it. Type the real marker distance "
+                "into Gauge, or a known px/mm — either one anchors the other." % r.gauge_mm)
 
     # ------------------------------------------------------------------ companion data file
     def on_attach_companion(self):
@@ -2042,10 +2088,12 @@ class PostProcTab(QWidget):
             self.pxmm.setValue(float(comp.px_per_mm))
             self.pxmm.blockSignals(False)
             r.scale_anchor = "pxmm"
+            r.px_mm = float(comp.px_per_mm)
             r.gauge_src = "measured from %s calibration" % comp.source
             msgs.append("Scale anchored to the file's own calibration: %.4f px/mm - the gauge "
                         "box now MEASURES whichever marker pair you pick." % comp.px_per_mm)
             self._refresh_l0()
+        elif comp.gauge_mm:
             msgs.append("Gauge set to %.4f mm from the file's own gauge column." % comp.gauge_mm)
 
         if comp.load is not None:
@@ -2111,6 +2159,10 @@ class PostProcTab(QWidget):
             self.minCorr.setValue(r.min_corr); self.fps.setValue(r.fps)
             self.step.setValue(r.step)
             self.gauge.setValue(r.gauge_mm)
+            if getattr(r, "px_mm", 0) > 0:
+                # This run's own calibration back into the shared spin — without it, a
+                # px/mm-anchored run inherits whatever scale the PREVIOUS run left behind.
+                self.pxmm.setValue(r.px_mm)
             k = self.method.findData(r.refine)
             if k >= 0:
                 self.method.setCurrentIndex(k)
@@ -2527,9 +2579,11 @@ class PostProcTab(QWidget):
                 self.gauge.blockSignals(False)
                 if r is not None:
                     r.gauge_mm, r.gauge_confirmed = float(g), True
-                    r.gauge_src = "measured from px/mm"
+                    # keep a richer provenance ("measured from S38….csv calibration") if one
+                    # is already on record — this runs at every drag and must not flatten it
+                    r.gauge_src = r.gauge_src or "measured from px/mm"
                 self.l0Lbl.setText("Px₀ = %.2f px    →    gauge MEASURED: %.2f mm at the "
-                                   "typed %.4f px/mm" % (l0, g, self.pxmm.value()))
+                                   "known %.4f px/mm" % (l0, g, self.pxmm.value()))
                 self._refresh_gauge_state()
                 self.runBtn.setEnabled(self.path is not None
                                        and not (self.worker and self.worker.isRunning()))
@@ -2554,6 +2608,7 @@ class PostProcTab(QWidget):
         r = self.run
         return PP.Settings(gauge_mm=self.gauge.value(),
                            gauge_confirmed=bool(r and r.gauge_confirmed),
+                           gauge_src=(r.gauge_src if r else ""),
                            box_half=self.boxHalf.value(),
                            search=self.search.value(), min_corr=self.minCorr.value(),
                            ref_frame=(r.ref_frame if r else 0),
@@ -2974,6 +3029,7 @@ class PostProcTab(QWidget):
         written = []
         for r in done:
             cfg = PP.Settings(gauge_mm=r.gauge_mm, gauge_confirmed=r.gauge_confirmed,
+                              gauge_src=r.gauge_src,
                               box_half=r.box_half, search=r.search,
                               min_corr=r.min_corr, ref_frame=r.ref_frame, ref_image=r.ref_image,
                               fps=r.fps, step=r.step, refine=r.refine)

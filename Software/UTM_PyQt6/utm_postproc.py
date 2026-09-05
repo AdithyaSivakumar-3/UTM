@@ -76,6 +76,10 @@ class Settings:
     # or a value carried over from another run. It changes no arithmetic; it changes what the
     # results sheet claims, which is the part that misled a reader once already.
     gauge_confirmed: bool = False
+    # WHERE a confirmed gauge came from — "typed", "measured from px/mm", "measured from
+    # video.csv calibration"… Display-only provenance for the results sheet; no arithmetic
+    # reads it. Empty when unconfirmed (the ASSUMED stamp is the provenance then).
+    gauge_src: str = ""
     box_half: int = 24            # patch half-size
     search: int = 40              # how far a box may move between reference and current frame
     min_corr: float = 0.55        # below this the match is not trusted
@@ -222,6 +226,53 @@ def true_fps_from_sidecar(video_path):
     return None
 
 
+def scale_from_sidecar(video_path):
+    """The rig's own DIC calibration for one of OUR captures: (px_per_mm, gauge_mm, source_name),
+    or None. Same idea as true_fps_from_sidecar, for the OTHER number a foreign video lacks.
+
+    A capture folder's CSV header records "# DIC Calibration - px_per_mm:" and the gauge the
+    session ran with. Reading it at load time is what lets the gauge box MEASURE the picked pair
+    instead of assuming 80 mm — px alone carry no mm, so this is the one legitimate way the
+    warning can retire itself.
+
+    Only a folder that is demonstrably one of ours is trusted: run.json or frames/ must sit
+    beside the video. A flat folder of several exports (the MOT directory holds three samples'
+    CSVs side by side) must never anchor a video to a neighbouring sample's calibration.
+    """
+    d = os.path.dirname(os.path.abspath(video_path))
+    if not (os.path.isfile(os.path.join(d, "run.json"))
+            or os.path.isdir(os.path.join(d, "frames"))):
+        return None
+    import glob as _glob
+    import re as _hre
+    cands = sorted(_glob.glob(os.path.join(d, "*.csv"))
+                   + _glob.glob(os.path.join(os.path.dirname(d), "*.csv")),
+                   key=lambda p: -os.path.getmtime(p))
+    cands = [p for p in cands if os.path.basename(p) != "index.csv"]
+    fallback = None
+    for path in cands:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                head = [next(fh, "") for _ in range(60)]
+        except OSError:
+            continue
+        ppm = gauge = None
+        for ln in head:
+            if not ln.startswith("#"):
+                continue
+            m = _hre.search(r"px_per_mm[:\s]+([0-9]+(?:\.[0-9]+)?)", ln)
+            if m:
+                ppm = float(m.group(1))
+            m = _hre.search(r"[Gg]auge\s*[Ll]ength\D*?([0-9]+(?:\.[0-9]+)?)", ln)
+            if m:
+                gauge = float(m.group(1))
+        if ppm:
+            return ppm, gauge, os.path.basename(path)
+        if gauge and fallback is None:
+            fallback = (None, gauge, os.path.basename(path))
+    return fallback
+
+
 def fps_warning(info, known_duration_s=None):
     """A sentence when the declared fps looks wrong, else ''."""
     fps = info.get("fps") or 0.0
@@ -359,10 +410,10 @@ def read_companion(path, load_col=None, load_scale=1.0):
     for ln in raw[:40]:
         if not ln.lstrip().startswith("#"):
             continue
-        m = _hre.search(r"px_per_mm[:\s]+([0-9.]+)", ln)
+        m = _hre.search(r"px_per_mm[:\s]+([0-9]+(?:\.[0-9]+)?)", ln)
         if m:
             hdr_ppm = float(m.group(1))
-        m = _hre.search(r"[Gg]auge\s*[Ll]ength[^0-9]*([0-9.]+)", ln)
+        m = _hre.search(r"[Gg]auge\s*[Ll]ength\D*?([0-9]+(?:\.[0-9]+)?)", ln)
         if m:
             hdr_gauge = float(m.group(1))
 
@@ -1382,7 +1433,9 @@ def metrics(summary, cfg=None, label="", source_video=""):
         # nothing else — but "80.00 mm" read off a results sheet is indistinguishable from a
         # measured 80.00 mm, and on the first foreign video this dialog was given it was neither:
         # it was the spin-box default, on a 45 mm specimen.
-        ("Gauge", "%.2f mm%s" % (cfg.gauge_mm, "" if cfg.gauge_confirmed
+        ("Gauge", "%.2f mm%s" % (cfg.gauge_mm,
+                                 ("  (%s)" % cfg.gauge_src if cfg.gauge_src else "")
+                                 if cfg.gauge_confirmed
                                  else "   ** ASSUMED — not confirmed for this video **")),
         ("px per mm", ("%.4f%s" % (summary.px_mm, "" if cfg.gauge_confirmed else "  (assumed)"))
          if summary.px_mm else "-"),
