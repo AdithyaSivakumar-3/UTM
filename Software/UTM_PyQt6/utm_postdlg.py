@@ -55,6 +55,22 @@ except Exception:                                                    # pragma: n
     _theme = None
 
 
+# Extra-pair colours, ONE rule for the frame view and the plot: what you place as purple
+# boxes arrives as the purple curve. Colour says WHICH pair; linestyle on the plot still says
+# what KIND it is (dash-dot axial, dotted width). Indexed within kind so a second axial pair
+# stays tellable from the first.
+PAIR_COLOURS = {"axial": ["#b197fc", "#9775fa", "#7048e8"],
+                "transverse": ["#fcc419", "#f59f00"]}
+
+
+def pair_colour(pairs, j):
+    """Colour for extra pair j of `pairs` — by kind, cycling within kind."""
+    kind = pairs[j][4]
+    k = sum(1 for p in pairs[:j] if p[4] == kind)
+    pal = PAIR_COLOURS.get(kind, PAIR_COLOURS["axial"])
+    return pal[k % len(pal)]
+
+
 class FrameView(QLabel):
     """The video frame, the two tracking boxes, and everything needed to place them precisely.
 
@@ -170,7 +186,7 @@ class FrameView(QLabel):
         # Extra pairs, drawn lighter than the primary so the extensometer that sets L0 stays
         # visually the main event. Purple = a second axial pair, amber = a width (transverse) one.
         for j, (eax, eay, ebx, eby, kind, _lbl) in enumerate(self._extra):
-            col = QColor("#fcc419") if kind == "transverse" else QColor("#b197fc")
+            col = QColor(pair_colour(self._extra, j))
             r = max(3.0, self._half * self._scale)
             p.setPen(QPen(col, 1, Qt.PenStyle.DashLine))
             p.drawLine(int(eax * self._scale), int(eay * self._scale),
@@ -2367,8 +2383,9 @@ class PostProcTab(QWidget):
                     continue
                 kind, lbl = r.extra_pairs[j][4], r.extra_pairs[j][5]
                 n = min(len(r.t), len(xs))
-                self.ax.plot(r.t[:n], [v * 100 for v in xs[:n]], color=r.colour, lw=1.0,
-                             ls=":" if kind == "transverse" else "-.", alpha=0.8,
+                self.ax.plot(r.t[:n], [v * 100 for v in xs[:n]],
+                             color=pair_colour(r.extra_pairs, j), lw=1.4,
+                             ls=":" if kind == "transverse" else "-.", alpha=0.95,
                              label="%s — %s%s" % (r.label, lbl,
                                                   " (lateral ε)" if kind == "transverse" else ""))
             if self._want_true():

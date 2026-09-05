@@ -43,8 +43,11 @@ def _synth_video(nu=NU_TRUE, eps_max=EPS_MAX, n=N_FRAMES, w0=240.0, l0=280.0):
         pts = [(cx, cy - (l0 / 2) * (1 + ea)), (cx, cy + (l0 / 2) * (1 + ea)),       # axial
                (cx - (w0 / 2) * (1 + el), cy), (cx + (w0 / 2) * (1 + el), cy)]       # transverse
         for (x, y) in pts:
-            cv2.circle(frame, (int(round(x)), int(round(y))), 12, (25, 25, 25), -1,
-                       lineType=cv2.LINE_AA)
+            # shift=4 gives sixteenth-pixel centres, so the dots MOVE sub-pixel between frames
+            # the way real markers do — integer centres made every recovered series a staircase
+            # and dominated the tolerances with the synthesis's own quantisation
+            cv2.circle(frame, (int(round(x * 16)), int(round(y * 16))), 12 * 16,
+                       (25, 25, 25), -1, lineType=cv2.LINE_AA, shift=4)
         vw.write(frame)
     vw.release()
     return path
