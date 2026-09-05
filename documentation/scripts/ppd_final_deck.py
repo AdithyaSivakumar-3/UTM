@@ -310,6 +310,12 @@ for i, (t, d) in enumerate(_c):
     rect(s, x, 5.30, 0.07, 1.45, TAN)
     text(s, x + 0.25, 5.47, 3.3, 0.35, t, fs=13.5, font=SEMI, colour=INK)
     text(s, x + 0.25, 5.85, 3.3, 0.85, d, fs=10.5, colour=INK, spacing=1.05)
+# Speaker note he asked for (2026-09-05) - the glued/clipped/camera mnemonic, so the
+# instrument-terminology question has its answer in his pocket. Notes survive rebuilds only
+# if the generator writes them, hence here and not only in the file.
+s.notes_slide.notes_text_frame.text = (
+    "glued = strain gauge, clipped = extensometer, camera = video extensometer "
+    "(XT-205, and our rig)")
 
 # ==================================================================== 04 · what was built
 s = content_slide("02 · the build", "One rig, one application — built together", side="THE BUILD")
