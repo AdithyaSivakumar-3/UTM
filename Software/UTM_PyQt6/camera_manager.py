@@ -214,6 +214,15 @@ class CameraManager(QObject):
         # SEPARATION enters the strain maths; these are kept so the live view can draw the frozen
         # reference beside the moving markers and make the travel visible rather than numeric.
         self.initial_centroids = None
+        # ---- manual blob selection (Mirza's suggestion, 2026-09-05) --------------------------
+        # "auto" runs the gate pipeline (area / circularity / pair choice) unchanged. "manual"
+        # tracks the two components NEAREST the operator-picked seeds instead — for markers the
+        # gates would reject (odd shape, wrong size) or scenes where the chooser keeps picking an
+        # interloper. Seeds FOLLOW the markers: each frame's found centroid becomes the next
+        # frame's seed, so one pick before the pull survives the whole test. Session-only state:
+        # seeds are a property of THIS mounting, so nothing here persists to disk.
+        self.blob_mode = "auto"
+        self.manual_seeds = None                 # [(x, y), (x, y)] in raw-frame pixels, or None
         self._trace_last_n, self._trace_last_t = -1, 0.0    # see _trace_blobs
         # Optional callable(frame) fed EVERY grabbed frame — see utm_capture.CaptureManager.submit.
         # Deliberately hooked here on the camera thread rather than off frame_ready: the display
@@ -693,6 +702,89 @@ class CameraManager(QObject):
                 "mask it (SPECIMEN_PRESETS mask_x) or move it out of the ROI.")
         return sorted(chosen, key=lambda b: b[1])
 
+    # How far (px) a component's centroid may sit from a manual seed and still be taken. Far above
+    # any frame-to-frame marker motion (sub-pixel at test speed, ~tens of px on a fast jog) and far
+    # below the marker separation (940-1680 px on every gauge used), so a seed can never wander
+    # onto the OTHER marker, and a vanished marker becomes a dropout instead of a substitution.
+    MANUAL_SEARCH_R = 150.0
+    MANUAL_MIN_AREA = 20.0        # not a gate, a floor: below this a "component" is sensor noise
+
+    def set_blob_mode(self, mode):
+        """'auto' or 'manual'. Manual without seeds keeps running the auto pipeline (see
+        detect_blobs) so flipping the setting first and picking seeds second is harmless."""
+        if mode not in ("auto", "manual"):
+            raise ValueError(mode)
+        self.blob_mode = mode
+
+    def set_manual_seeds(self, seeds):
+        """Two (x, y) raw-frame points from the picker dialog, or None to clear."""
+        if seeds is not None:
+            seeds = [(float(x), float(y)) for x, y in seeds]
+            if len(seeds) != 2:
+                raise ValueError("need exactly 2 seeds, got %d" % len(seeds))
+            seeds.sort(key=lambda p: p[1])
+        self.manual_seeds = seeds
+
+    def _auto_gate(self, contours):
+        """The gate pipeline, verbatim: area and circularity filters plus near-miss bookkeeping."""
+        valid, near = [], []
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            perimeter = cv2.arcLength(cnt, True)
+            circ = (4 * np.pi * area / (perimeter ** 2)) if perimeter > 0 else 0.0
+            M = cv2.moments(cnt)
+            cy = (M["m01"] / M["m00"]) if M["m00"] > 0 else -1.0
+            if self.MIN_AREA < area < self.MAX_AREA and circ > self.MIN_CIRCULARITY:
+                if M["m00"] > 0:
+                    valid.append((M["m10"] / M["m00"], cy))
+            elif area > 200:
+                # A NEAR MISS: big enough to be a marker, rejected by a gate. Kept so the
+                # badge can say WHY instead of only "1/2". Losing a marker used to be
+                # silent, which is a bad way to spend a specimen.
+                why = ("area %d < %d" % (area, self.MIN_AREA) if area <= self.MIN_AREA else
+                       "area %d > %d" % (area, self.MAX_AREA) if area >= self.MAX_AREA else
+                       "circularity %.2f < %.2f" % (circ, self.MIN_CIRCULARITY))
+                near.append((area, cy, why))
+        return valid, near
+
+    def _manual_pick(self, contours):
+        """Take the component nearest each seed — no area gate, no circularity gate, no chooser.
+
+        This is the whole point of manual mode: the operator has SAID which two things are the
+        markers, so shape and size stop being evidence. Each frame the found centroid becomes the
+        next frame's seed, so the pick follows the marker through the pull. Rules that remain:
+
+          * one component serves one seed — if both seeds resolve to the same component (markers
+            merged, one vanished) that is ONE marker, and the caller's 2-blob requirement turns it
+            into an honest dropout rather than a fabricated pair;
+          * nothing beyond MANUAL_SEARCH_R is taken — a marker that LEFT is lost, not replaced by
+            whatever bright thing is next;
+          * a seed with no find keeps its position, so a one-frame flicker does not strand it.
+        """
+        cands = []
+        for cnt in contours:
+            M = cv2.moments(cnt)
+            if M["m00"] <= 0 or cv2.contourArea(cnt) < self.MANUAL_MIN_AREA:
+                continue
+            cands.append((M["m10"] / M["m00"], M["m01"] / M["m00"]))
+        valid, taken = [], set()
+        new_seeds = list(self.manual_seeds)
+        for si, (sx, sy) in enumerate(self.manual_seeds):
+            best = None
+            for ci, (cx, cy) in enumerate(cands):
+                if ci in taken:
+                    continue
+                d = ((cx - sx) ** 2 + (cy - sy) ** 2) ** 0.5
+                if d <= self.MANUAL_SEARCH_R and (best is None or d < best[0]):
+                    best = (d, ci, cx, cy)
+            if best is not None:
+                _d, ci, cx, cy = best
+                taken.add(ci)
+                valid.append((cx, cy))
+                new_seeds[si] = (cx, cy)
+        self.manual_seeds = new_seeds
+        return valid
+
     def detect_blobs(self, frame) -> list:
         try:
             # Apply mask for black specimen to exclude background wall
@@ -708,24 +800,13 @@ class CameraManager(QObject):
                 binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
 
-            valid, near = [], []
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                perimeter = cv2.arcLength(cnt, True)
-                circ = (4 * np.pi * area / (perimeter ** 2)) if perimeter > 0 else 0.0
-                M = cv2.moments(cnt)
-                cy = (M["m01"] / M["m00"]) if M["m00"] > 0 else -1.0
-                if self.MIN_AREA < area < self.MAX_AREA and circ > self.MIN_CIRCULARITY:
-                    if M["m00"] > 0:
-                        valid.append((M["m10"] / M["m00"], cy))
-                elif area > 200:
-                    # A NEAR MISS: big enough to be a marker, rejected by a gate. Kept so the
-                    # badge can say WHY instead of only "1/2". Losing a marker used to be
-                    # silent, which is a bad way to spend a specimen.
-                    why = ("area %d < %d" % (area, self.MIN_AREA) if area <= self.MIN_AREA else
-                           "area %d > %d" % (area, self.MAX_AREA) if area >= self.MAX_AREA else
-                           "circularity %.2f < %.2f" % (circ, self.MIN_CIRCULARITY))
-                    near.append((area, cy, why))
+            # Manual mode replaces WHICH blobs are taken, never how they are thresholded or how
+            # the pair is sanity-checked — everything after this branch is shared with auto, so
+            # the separation and speed guards below protect both modes identically.
+            if self.blob_mode == "manual" and self.manual_seeds:
+                valid, near = self._manual_pick(contours), []
+            else:
+                valid, near = self._auto_gate(contours)
 
             # Sort by Y so blob 1 is always top, blob 2 always bottom
             valid.sort(key=lambda b: b[1])

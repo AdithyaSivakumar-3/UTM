@@ -16,7 +16,7 @@ CANCEL RESTORES EVERYTHING. Exposure is pushed to the camera live so the feed re
 which means leaving the dialog by any route other than Apply has to put the sensor back.
 """
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
+from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QRadioButton,
                              QDoubleSpinBox, QSpinBox, QCheckBox, QPushButton, QGroupBox,
                              QDialogButtonBox)
 import cv2
@@ -86,6 +86,27 @@ class CameraParamsDialog(QDialog):
         d.addWidget(QLabel("Max blob area"), 3, 0); d.addWidget(self.max_area, 3, 1)
         d.addWidget(QLabel("Min circularity"), 4, 0); d.addWidget(self.min_circ, 4, 1)
         lay.addWidget(det)
+
+        # ---- blob selection (Mirza's suggestion) ---------------------------------------------
+        sel = QGroupBox("Blob selection")
+        sv = QVBoxLayout(sel)
+        self.mode_auto = QRadioButton("Auto detection (default) — gates + pair choice decide")
+        self.mode_manual = QRadioButton("Manual selection — track the two blobs I picked")
+        (self.mode_manual if getattr(cm, "blob_mode", "auto") == "manual"
+         else self.mode_auto).setChecked(True)
+        seeds = getattr(cm, "manual_seeds", None)
+        note = QLabel(
+            "Seeds picked at (%.0f, %.0f) and (%.0f, %.0f) — they follow the markers."
+            % (seeds[0][0], seeds[0][1], seeds[1][0], seeds[1][1]) if seeds else
+            "No blobs picked yet — manual mode keeps running AUTO until you use the "
+            "Select Blobs button next to Calibrate Px₀.")
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #8a8f98;")
+        self.mode_manual.setToolTip(
+            "Skips the area/circularity gates and the pair chooser for the two picked blobs.\n"
+            "Session-only: seeds belong to THIS mounting and are cleared on app restart.")
+        sv.addWidget(self.mode_auto); sv.addWidget(self.mode_manual); sv.addWidget(note)
+        lay.addWidget(sel)
 
         # ---- live feedback -------------------------------------------------------------------
         self.readout = QLabel("—")
@@ -191,6 +212,7 @@ class CameraParamsDialog(QDialog):
         self.cm.MIN_AREA = v["min_area"]
         self.cm.MAX_AREA = v["max_area"]
         self.cm.MIN_CIRCULARITY = v["min_circ"]
+        self.cm.set_blob_mode("manual" if self.mode_manual.isChecked() else "auto")
         self._applied = True
         self.accept()
 

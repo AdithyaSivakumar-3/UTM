@@ -1091,12 +1091,14 @@ class UTMApplication(QMainWindow):
         self.stopCameraButton.clicked.connect(self.on_stop_camera)
         self.tareDICButton.clicked.connect(self.on_calibrate_px0)
         self.tareDICAliasButton.clicked.connect(self.on_tare_dic_now)
+        self.selectBlobsButton.clicked.connect(self.on_select_blobs)
         self.specimenModeCombo.currentTextChanged.connect(self.on_specimen_mode_changed)
         # Load Plot tab's duplicate controls drive the same handlers (state kept in sync)
         self.startCameraButtonLP.clicked.connect(self.on_start_camera)
         self.stopCameraButtonLP.clicked.connect(self.on_stop_camera)
         self.tareDICButtonLP.clicked.connect(self.on_calibrate_px0)
         self.tareDICAliasButtonLP.clicked.connect(self.on_tare_dic_now)
+        self.selectBlobsButtonLP.clicked.connect(self.on_select_blobs)
         self.specimenModeComboLP.currentTextChanged.connect(self.on_specimen_mode_changed)
 
         # Added camera state variables 
@@ -6955,10 +6957,16 @@ class UTMApplication(QMainWindow):
             "live pair pull away from it.")
         self.stopCameraButton.setEnabled(False)
         self.tareDICButton.setEnabled(False)
+        # Manual blob selection (Mirza's suggestion): sits BEFORE Calibrate Px0 because that is
+        # its place in the workflow — pick the markers, then freeze Px0 on the pair you picked.
+        self.selectBlobsButton = QPushButton("Select Blobs")
+        self.selectBlobsButton.setToolTip(self.SELECT_BLOBS_TIP)
+        self.selectBlobsButton.setEnabled(False)
         button_row.addWidget(QLabel("Specimen:"))
         button_row.addWidget(self.specimenModeCombo)
         button_row.addWidget(self.startCameraButton)
         button_row.addWidget(self.stopCameraButton)
+        button_row.addWidget(self.selectBlobsButton)
         button_row.addWidget(self.tareDICButton)
         button_row.addWidget(self.tareDICAliasButton)
         camera_layout.addLayout(button_row)
@@ -7180,10 +7188,14 @@ class UTMApplication(QMainWindow):
         self.stopCameraButtonLP.setEnabled(False)
         self.tareDICButtonLP.setEnabled(False)
         self.tareDICAliasButtonLP.setEnabled(False)
+        self.selectBlobsButtonLP = QPushButton("Select Blobs")
+        self.selectBlobsButtonLP.setToolTip(self.SELECT_BLOBS_TIP)
+        self.selectBlobsButtonLP.setEnabled(False)
         btn_row.addWidget(QLabel("Specimen:"))
         btn_row.addWidget(self.specimenModeComboLP)
         btn_row.addWidget(self.startCameraButtonLP)
         btn_row.addWidget(self.stopCameraButtonLP)
+        btn_row.addWidget(self.selectBlobsButtonLP)
         btn_row.addWidget(self.tareDICButtonLP)
         btn_row.addWidget(self.tareDICAliasButtonLP)
         lay.addLayout(btn_row)
@@ -7357,6 +7369,10 @@ class UTMApplication(QMainWindow):
             color = self.PX0_TEXT_RGB
         else:
             text, color = "Px0 not set - press Calibrate Px0", self.PX0_WARN_RGB
+        # Say so when the gates are off — a feed that looks normal while tracking hand-picked
+        # blobs would hide the one thing the operator most needs to remember about this run.
+        if getattr(self.camera_manager, "blob_mode", "auto") == "manual":
+            text += "   [MANUAL blobs]"
 
         h = rgb.shape[0]
         fs = max(0.45, min(1.4, h / 380.0))
@@ -7484,6 +7500,42 @@ class UTMApplication(QMainWindow):
                       "Px₀ — the reference every strain in the test is measured against — is moved "
                       "only by Calibrate Px₀ and by Prepare test.")
 
+    SELECT_BLOBS_TIP = ("Pick the two markers by hand and OVERRIDE auto detection.\n\n"
+                        "For markers the shape/size gates keep rejecting, or scenes where "
+                        "something else keeps qualifying. Click each marker on a frozen frame; "
+                        "the tracker then follows the component nearest each pick, no "
+                        "circularity or area gate applied to them.\n\n"
+                        "Default mode is auto — switch back any time in "
+                        "Settings ▸ DIC camera setup ▸ Blob selection.")
+
+    def on_select_blobs(self):
+        """The Select Blobs button: pick two markers on a frozen frame, arm manual mode."""
+        cm = self.camera_manager
+        frame = getattr(cm, "latest_frame", None)
+        if frame is None:
+            self.append_to_console("[DIC] Select Blobs needs a live frame — start the camera first.")
+            return
+        from utm_blobpick import BlobPickDialog
+        dlg = BlobPickDialog(frame, seeds=getattr(cm, "manual_seeds", None), parent=self)
+        if not dlg.exec():
+            return
+        picks = dlg.picks()
+        if len(picks) != 2:
+            return
+        cm.set_manual_seeds(picks)
+        cm.set_blob_mode("manual")
+        (top, bot) = sorted(picks, key=lambda p: p[1])
+        self.append_to_console(
+            "[DIC] MANUAL blob selection armed — markers at (%.0f, %.0f) and (%.0f, %.0f), "
+            "%.0f px apart. Shape/size gates no longer apply to them; auto detection is "
+            "back under Settings ▸ DIC camera setup ▸ Blob selection."
+            % (top[0], top[1], bot[0], bot[1], abs(bot[1] - top[1])))
+        if cm.initial_distance:
+            self.append_to_console(
+                "[DIC] Px₀ is still %.0f px from the previous pair — press Calibrate Px₀ "
+                "if the MARKERS changed, leave it if only the detection mode did."
+                % cm.initial_distance)
+
     MARGIN_EVERY_S = 2.0        # contrast-margin recompute interval — see _update_dic_health
 
     def _update_dic_health(self):
@@ -7598,9 +7650,11 @@ class UTMApplication(QMainWindow):
                 start.setEnabled(not running)
         for w in (self.stopCameraButton, self.tareDICButton,
                   getattr(self, "tareDICAliasButton", None),
+                  getattr(self, "selectBlobsButton", None),
                   getattr(self, "stopCameraButtonLP", None),
                   getattr(self, "tareDICButtonLP", None),
-                  getattr(self, "tareDICAliasButtonLP", None)):
+                  getattr(self, "tareDICAliasButtonLP", None),
+                  getattr(self, "selectBlobsButtonLP", None)):
             if w is not None:
                 w.setEnabled(running)
         for combo in (self.specimenModeCombo, getattr(self, "specimenModeComboLP", None)):
