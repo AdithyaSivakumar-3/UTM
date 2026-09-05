@@ -33,7 +33,7 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QSize
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint, QSize, QTimer
 from PyQt6.QtGui import QImage, QPixmap, QPainter, QPen, QColor, QFont
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QPushButton,
                              QFileDialog, QDoubleSpinBox, QSpinBox, QGroupBox, QSplitter,
@@ -1152,6 +1152,7 @@ class PostProcTab(QWidget):
         right.addWidget(tableBox)
         right.setStretchFactor(0, 3); right.setStretchFactor(1, 2)
 
+        self._left_pane = left            # the popout parks exactly over this
         split.addWidget(left); split.addWidget(right)
         split.setStretchFactor(0, 3); split.setStretchFactor(1, 4)
         lay = QVBoxLayout(self); lay.setContentsMargins(0, 0, 0, 0); lay.addWidget(split)
@@ -2406,11 +2407,17 @@ class PostProcTab(QWidget):
                    p[4], p[5]) for p in r.extra_pairs]
         self._run_boxhalf = cfg.box_half
         self._last_extra_pts = []
+        self._popout_gen = getattr(self, "_popout_gen", 0) + 1
         if self.playChk.isChecked():
-            # the pop-out he asked for: a big view of the tracking, parked screen-LEFT so the
-            # plot on the tab's right stays visible while the curve draws
+            # The pop-out covers the LEFT column exactly — the setup pane it hides is idle
+            # during a run, and the plot on the right stays fully visible (sized to the pane
+            # rather than the screen at his request, from the geometry he liked on the rig).
             if self._popout is None:
                 self._popout = TrackPopout(self)
+            pane = getattr(self, "_left_pane", None)
+            if pane is not None and pane.isVisible():
+                g = pane.mapToGlobal(pane.rect().topLeft())
+                self._popout.setGeometry(g.x(), g.y(), pane.width(), pane.height())
             self._popout.setWindowTitle("Tracking — %s" % r.label)
             self._popout.status.setText("waiting for the first frame…")
             self._popout.show()
@@ -2573,11 +2580,16 @@ class PostProcTab(QWidget):
         r = self.run
         self._running = None
         if self._popout is not None and self._popout.isVisible():
-            self._popout.status.setText(
-                "finished — %d frames, %.1f %% tracked%s"
-                % (summary.n, summary.coverage,
-                   "  ·  MARKER LOST at %.2f s" % summary.lost_at_t
-                   if summary.stopped_early else ""))
+            if summary.stopped_early and summary.coverage >= 99.95:
+                tail = "  ·  data ends at %.2f s (markers gone — fracture)" % summary.lost_at_t
+            elif summary.stopped_early:
+                tail = "  ·  MARKER LOST at %.2f s" % summary.lost_at_t
+            else:
+                tail = ""
+            self._popout.status.setText("finished — %d frames, %.1f %% tracked%s"
+                                        % (summary.n, summary.coverage, tail))
+            gen = self._popout_gen
+            QTimer.singleShot(3000, lambda: self._popout_autoclose(gen))
         if r is not None and any(p[4] == "transverse" for p in r.extra_pairs):
             # FW1's maths, offline: nu, area change and true stress from the width pair. The
             # note is printed VERBATIM - it is the honesty line that says when the width change
@@ -2695,9 +2707,20 @@ class PostProcTab(QWidget):
                             "report if you export them: look for the 'Tracking ended' row.")
         box.exec()
 
+    def _popout_autoclose(self, gen):
+        """Hide the tracking pop-out 3 s after ITS run ended — never someone else's.
+
+        Run-all starts the next video inside that window, so the close is tied to a generation
+        counter and stands down if a newer run owns the pop-out or a worker is live."""
+        if (self._popout is not None and gen == getattr(self, "_popout_gen", 0)
+                and not (self.worker and self.worker.isRunning())):
+            self._popout.hide()
+
     def _popout_failed(self, err):
         if self._popout is not None and self._popout.isVisible():
             self._popout.status.setText("FAILED — %s" % err)
+            gen = getattr(self, "_popout_gen", 0)
+            QTimer.singleShot(3000, lambda: self._popout_autoclose(gen))
 
     def on_failed(self, err):
         self._popout_failed(err)

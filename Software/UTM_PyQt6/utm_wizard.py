@@ -98,6 +98,15 @@ def steps(app):
     add("motors", "Enable motors", motors,
         "enabled" if motors else "nothing will move until this is on")
 
+    # Specimen mode BEFORE the camera (moved 2026-09-06 at his request, and rightly:
+    # Start Camera APPLIES the preset — ROI, threshold, polarity — so choosing it after
+    # is choosing it too late).
+    mode = app.specimenModeCombo.currentText() if hasattr(app, "specimenModeCombo") else "?"
+    out.append(["mode", "Choose specimen mode", INFO,
+                f"currently {mode} — pick BEFORE Start Camera: the preset sets the ROI, the "
+                f"threshold and the polarity the moment the camera starts. White = dark dots "
+                f"on light PLA, Black = the reverse."])
+
     live = _camera_live(app)
     nb = _blobs(app)
     add("camera", "Start camera, DIC tracking 2/2", live and nb == 2,
@@ -130,11 +139,6 @@ def steps(app):
     add("streams", "Enable data streams", essential,
         ("on: " + ", ".join(on)) if essential else
         "load cell + position must be streaming or the run records nothing")
-
-    mode = app.specimenModeCombo.currentText() if hasattr(app, "specimenModeCombo") else "?"
-    out.append(["mode", "Choose specimen mode", INFO,
-                f"currently {mode} — pick this BEFORE arming capture, the speckle video "
-                f"follows it. White = dark dots on light PLA, Black = the reverse."])
 
     # Auto-calibrate. OPTIONAL, and placed here because it needs the camera live and the specimen
     # mode already chosen, but nothing later depends on it. It is worth offering rather than

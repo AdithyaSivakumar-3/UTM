@@ -1273,9 +1273,19 @@ def metrics(summary, cfg=None, label="", source_video=""):
                                          np.arange(m.sum()))).std() / summary.l0_px * 1e6)
     span = t[-1] - t[0]
     out += [
+        # Two very different stories share the stopped_early flag, and the table used to shout
+        # MARKER LOST for both. When every kept frame tracked, the loss IS the end of the data -
+        # at fracture the marker physically leaves, and 100 % tracked plus an alarming red row
+        # read as a contradiction (his words, 2026-09-06). The alarm is kept for the case that
+        # earns it: frames dropping BEFORE the loss.
         ("Tracking ended",
-         ("MARKER LOST at frame %d, t %.2f s — %s"
-          % (summary.lost_at_frame, summary.lost_at_t or 0.0, summary.lost_reason))
+         (("markers gone at %.2f s (frame %d) — the normal end at fracture; every frame "
+           "before it tracked"
+           % (summary.lost_at_t or 0.0, summary.lost_at_frame))
+          if summary.coverage >= 99.95 else
+          ("MARKER LOST at frame %d, t %.2f s — %s (%d earlier frames also untracked)"
+           % (summary.lost_at_frame, summary.lost_at_t or 0.0, summary.lost_reason,
+              summary.n - summary.tracked)))
          if summary.stopped_early else "end of video"),
         ("Data ends at", "%.3f s" % (summary.data_ends_t if summary.data_ends_t is not None
                                       else t[-1])),
