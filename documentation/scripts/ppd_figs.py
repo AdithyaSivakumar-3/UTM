@@ -56,9 +56,12 @@ def fig_dic_explain():
         ax.add_patch(Circle((x, y), r * 1.55, fill=False, ec=TAN, lw=3.0))
     ax.add_patch(FancyArrowPatch((x1 + r1 * 1.8, y1), (x2 - r2 * 1.8, y2),
                                  arrowstyle="<|-|>", mutation_scale=26, color=TAN, lw=3.0))
-    ax.annotate("the camera tracks these two dots", xy=(x1, y1 - r1 * 1.6),
-                xytext=(x1 + 150, 46), fontsize=15, color=INK, fontweight="bold",
-                arrowprops=dict(arrowstyle="->", color=INK, lw=1.6))
+    # WHITE, because the label sits over the dark grip region at the top of the frame — ink on
+    # that background was invisible, which he caught on the slide. "Speckle patterns" is his
+    # wording for the sprayed markers.
+    ax.annotate("the camera tracks these speckle patterns", xy=(x1, y1 - r1 * 1.6),
+                xytext=(x1 + 150, 46), fontsize=15, color="white", fontweight="bold",
+                arrowprops=dict(arrowstyle="->", color="white", lw=1.8))
     ax.text((x1 + x2) / 2, (y1 + y2) / 2 - 46, "distance  L", fontsize=17,
             color=TAN, fontweight="bold", ha="center")
     ax.text((x1 + x2) / 2, g.shape[0] - 26,

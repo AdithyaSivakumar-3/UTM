@@ -296,9 +296,14 @@ text(s, 0.85, 1.98, 11.6, 0.4,
      "DIC — Digital Image Correlation — measures how a part deforms by comparing photographs of its surface while it is loaded; here in its simplest two-dot form.",
      fs=12, colour=INK)
 pic(s, os.path.join(FIGS, "ppd_dic_explain.png"), 2.47, 2.52, 8.4, 2.45)
-_c = [("No contact", "nothing touches the specimen — no clip-on gauge to knock off at fracture"),
-      ("No calibration", "strain is a ratio of two pixel distances — mm per pixel cancels out"),
-      ("Every frame", "35 measurements per second, live on screen while the test runs")]
+# Reworded with him 2026-09-05 ("no clip?" - say plainly what touches nothing; "no calibration
+# is misleading" - lead with the live curve instead). The third card is HIS in-file edit, mirrored
+# here so a rebuild cannot regress it.
+_c = [("No contact", "no strain gauge glued on, no clip-on extensometer — nothing touches "
+      "the specimen"),
+      ("Live stress–strain", "the load cell gives force, the camera gives strain — the "
+      "stress–strain curve draws itself live during the pull"),
+      ("Every frame captured", "35 frames per second (FPS), live on screen while the test runs")]
 for i, (t, d) in enumerate(_c):
     x = 0.85 + i * 3.95
     card(s, x, 5.30, 3.70, 1.45)
