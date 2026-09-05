@@ -393,6 +393,142 @@ class TrackPopout(QDialog):
         self.fv.play(gray, a, b, half, extra=extra)
 
 
+class DataCursor:
+    """Hover the plot, read the curve: a dot snaps to the nearest RECORDED point and a small
+    box names its series, time and value. The toolbar's corner (x, y) readout is wherever the
+    mouse happens to be — this is the data, which is what an operator studying a curve wants.
+
+    Built for axes that are redrawn while being watched:
+      · the artists are animated + blitted, so a live run's throttled redraws and the readout
+        never fight, and — because savefig ignores animated artists — "Save plot…" and the
+        report can never carry the cursor into a document;
+      · ax.clear() (which every redraw here does) silently discards the artists, so they are
+        re-created lazily on the next mouse move rather than owned once at start-up;
+      · lines are found at event time from the axes, never held, because every redraw builds
+        new ones. Lines labelled "_…" are ignored — that is matplotlib's own "not for the
+        legend" convention, and it is what keeps the cursor from chasing its own dot.
+
+    Nearest is nearest ON SCREEN (display space), not in data units — with time in seconds and
+    strain in percent, a data-space distance would be dominated by whichever axis has the
+    bigger numbers. While the toolbar is panning or zooming the cursor stays hidden: the zoom
+    rectangle blits too, and two owners of one background tear the canvas.
+    """
+
+    SNAP_PX = 50.0            # how close (screen px) the mouse must be before anything shows
+
+    def __init__(self, canvas, ax, mode=None, colours=None):
+        self.canvas, self.ax = canvas, ax
+        self._mode = mode or (lambda: "")
+        self._colours = colours or (lambda: ("#111111", "#ffffff"))
+        self._bg = None
+        self._dot = None
+        self._note = None
+        self._visible = False
+        canvas.mpl_connect("motion_notify_event", self._on_move)
+        canvas.mpl_connect("draw_event", self._on_draw)
+        canvas.mpl_connect("axes_leave_event", lambda ev: self._hide())
+        canvas.mpl_connect("figure_leave_event", lambda ev: self._hide())
+
+    # ---- artists ----------------------------------------------------------------------------
+    def _alive(self):
+        return self._dot is not None and self._dot in self.ax.get_children()
+
+    def _ensure_artists(self):
+        if self._alive():
+            return
+        import matplotlib.lines as mlines
+        self._dot = mlines.Line2D([], [], marker="o", ms=8, mfc="none", mew=1.8, ls="",
+                                  animated=True, label="_datacursor", zorder=49)
+        self.ax.add_line(self._dot)
+        self._note = self.ax.annotate(
+            "", xy=(0, 0), xytext=(14, 14), textcoords="offset points",
+            fontsize=8.5, animated=True, zorder=50, label="_datacursor",
+            bbox=dict(boxstyle="round,pad=0.45", lw=1.1, alpha=0.94))
+        self._dot.set_visible(False)
+        self._note.set_visible(False)
+
+    # ---- events -----------------------------------------------------------------------------
+    def _on_draw(self, ev):
+        """A real draw happened: cache the clean background, and re-paint the cursor on top if
+        it was showing — otherwise a live run's next throttled redraw would wipe it."""
+        self._bg = self.canvas.copy_from_bbox(self.ax.bbox)
+        if self._visible and self._alive():
+            self.ax.draw_artist(self._dot)
+            self.ax.draw_artist(self._note)
+            self.canvas.blit(self.ax.bbox)
+        elif self._visible:
+            self._visible = False            # ax.clear() took the artists mid-hover
+
+    def _on_move(self, ev):
+        if ev.inaxes is not self.ax or self._mode() or ev.x is None:
+            self._hide()
+            return
+        best = None                          # (d², line, x, y)
+        for ln in self.ax.get_lines():
+            if str(ln.get_label()).startswith("_") or not ln.get_visible():
+                continue
+            xd = np.asarray(ln.get_xdata(), float)
+            yd = np.asarray(ln.get_ydata(), float)
+            if xd.size == 0:
+                continue
+            pts = ln.get_transform().transform(np.column_stack([xd, yd]))
+            d2 = (pts[:, 0] - ev.x) ** 2 + (pts[:, 1] - ev.y) ** 2
+            d2 = np.where(np.isfinite(d2), d2, np.inf)
+            i = int(np.argmin(d2))
+            if np.isinf(d2[i]):
+                continue
+            if best is None or d2[i] < best[0]:
+                best = (d2[i], ln, float(xd[i]), float(yd[i]))
+        if best is None or best[0] > self.SNAP_PX ** 2:
+            self._hide()
+            return
+        _, ln, px, py = best
+        self._ensure_artists()
+        fg, bg = self._colours()
+        c = ln.get_color()
+        self._dot.set_data([px], [py])
+        self._dot.set_markeredgecolor(c)
+        self._note.xy = (px, py)
+        self._note.set_text("\n".join((str(ln.get_label()),
+                                       "t = %.3f s" % px,
+                                       "ε = %.3f %%" % py)))
+        self._note.set_color(fg)
+        patch = self._note.get_bbox_patch()
+        patch.set_facecolor(bg)
+        patch.set_edgecolor(c)
+        # Keep the box inside the axes: flip it to the other side of the point near an edge.
+        xa, ya = self.ax.transAxes.inverted().transform((ev.x, ev.y))
+        self._note.xyann = (14 if xa < 0.62 else -14, 14 if ya < 0.72 else -18)
+        self._note.set_ha("left" if xa < 0.62 else "right")
+        self._note.set_va("bottom" if ya < 0.72 else "top")
+        self._dot.set_visible(True)
+        self._note.set_visible(True)
+        self._visible = True
+        self._blit()
+
+    def _hide(self):
+        if not self._visible:
+            return
+        self._visible = False
+        if self._alive():
+            self._dot.set_visible(False)
+            self._note.set_visible(False)
+        if self._bg is not None:
+            self.canvas.restore_region(self._bg)
+            self.canvas.blit(self.ax.bbox)
+        else:
+            self.canvas.draw_idle()
+
+    def _blit(self):
+        if self._bg is None:                 # nothing cached yet — the first full draw will
+            self.canvas.draw_idle()          # land in _on_draw and paint the cursor itself
+            return
+        self.canvas.restore_region(self._bg)
+        self.ax.draw_artist(self._dot)
+        self.ax.draw_artist(self._note)
+        self.canvas.blit(self.ax.bbox)
+
+
 class Worker(QThread):
     """Runs the analysis off the GUI thread and streams results back a frame at a time."""
     row = pyqtSignal(object)
@@ -1141,6 +1277,11 @@ class PostProcTab(QWidget):
                                     "to return to the full curve.")
         rv.addWidget(self.plotToolbar)
         rv.addWidget(self.canvas, 1)
+        # Hover any curve to read the exact recorded point — series, t, ε — without zooming.
+        # Suppressed while the toolbar is panning/zooming, invisible to Save plot… and reports.
+        self.plotCursor = DataCursor(self.canvas, self.ax,
+                                     mode=lambda: str(getattr(self.plotToolbar, "mode", "") or ""),
+                                     colours=self._cursor_colours)
         prow = QHBoxLayout()
         self.showTrue = QCheckBox("also plot true (log) strain")
         self.showTrue.stateChanged.connect(lambda *_: self._redraw_plot())
@@ -1369,6 +1510,14 @@ class PostProcTab(QWidget):
         if _theme is None:
             return "#c9d1d9"
         return _theme.get(self._theme_name)["text"]
+
+    def _cursor_colours(self):
+        """(text, box) for the hover readout — read per event, so a theme switch mid-session
+        restyles the very next hover without anyone re-wiring the cursor."""
+        if _theme is None:
+            return "#e6edf3", "#20262e"
+        t = _theme.get(self._theme_name)
+        return t["plot_fg"], t["plot_bg"]
 
     def apply_theme(self, name):
         """Follow the application's theme. Called by main.apply_theme, which cannot reach this
