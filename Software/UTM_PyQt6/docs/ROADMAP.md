@@ -958,12 +958,14 @@ fails if its guard is removed.
   embodied hardware excluded by his decision ("just CF from our work from developing to printing
   to testing"); the AI collaboration included as its own term. Inputs: printer 105 W (middle of
   the 80–130 W test-bench range in the Prusa forum thread he supplied), rig 45 W (assumed:
-  2 × NEMA-23 at creep + drivers/ESP32/LED/camera), PC 60 W, 195 h of collaboration time
-  (3 months × 1 h/day + 42 active days × 2.5 h), Swedish grid 0.040 kgCO₂e/kWh, AI at Google's
-  published 0.24 Wh / 0.03 g per median prompt with a 20–80 prompt-equivalents-per-hour band.
-  **Result: ≈ 1.4 kgCO₂e total (band 0.8–2.0), ≈ 36 g per completed test — about a 13 km drive
+  2 × NEMA-23 at creep + drivers/ESP32/LED/camera), PC 60 W over **955 desk-hours** (his stated
+  pattern, 8 h/day × 5 d/week × 5.5 months — corrected 2026-09-05 from the first draft's 195 h,
+  which is only the AI-collaboration subset), AI 195 h at Google's published 0.24 Wh / 0.03 g
+  per median prompt with a 20–80 prompt-equivalents-per-hour band, Swedish grid
+  0.040 kgCO₂e/kWh.
+  **Result: ≈ 3.2 kgCO₂e total (band 2.6–3.8), ≈ 83 g per completed test — about a 30 km drive
   for the whole campaign.** The expectation above held: the pulling is carbon-nothing (13 g);
-  the thinking (AI + PC) is the biggest line. Calculation lives in
+  the PC at the desk is the biggest single line, the AI second. Calculation lives in
   `documentation/scripts/pcf_figs.py` (single source for chart, tables and verdict); the five
   Weekly slides and the final deck's fun-facts page are generated from it.
 
