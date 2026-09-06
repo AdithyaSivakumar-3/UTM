@@ -1030,6 +1030,21 @@ the remaining obstacle is known and quantified, and each would be a genuine exte
 finishing touch. An item moves DOWN here when the blocker is real; it moves back UP to §3 only if
 the blocker is removed.
 
+**The slate as presented (PPD final deck "Future work" slide, 2026-09-06)** — six items, his
+order: 1 · Poisson & true stress (= FW1) · 2 · 2D-DIC strain field · 3 · Feed simulation
+models · 4 · Studying fracture behaviour (= FW3, new) · 5 · Correlation, not binary ·
+6 · Design better grips (= FW2's fix). The line under them on the slide: the 2D-DIC field,
+fracture behaviour and the simulation coupling are each worth a thesis of their own. (The
+rate-matched MOT rerun left the slide to make room for FW3 — it is not retired; it remains
+step one of the §5 rate story.) The Weekly deck carries the same slate as a dated diary slide.
+
+### FW3 — Studying fracture behaviour (added 2026-09-06)
+
+Full-field strain maps around the crack tip, and the crack's propagation speed and direction.
+HOW: film the necking zone at higher magnification and run the 2D-DIC field around the growing
+crack — it builds directly on the 2D-DIC strain-field item (lower exposure first: the white
+specimen body saturates the sensor at today's settings). Thesis-sized, like the field itself.
+
 ### FW1 — Multi-marker Poisson's ratio and true (Cauchy) stress
 **Status: the maths is written and self-tested; the OPTICS are the blocker.**  
 *Was carded as SF14 until 2026-09-02, when it was retired for the same reason as SF17: it is not something the operator can invoke. This is where the work is tracked now.*
