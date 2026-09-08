@@ -159,6 +159,27 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 
 ## 3. Remaining / planned  (checklist)
 
+### 3·0 OPEN ITEMS AT A GLANCE — revised 2026-09-07
+
+Everything not listed here is closed. Seven items remain, and **six of the seven need the rig or
+another party — none is blocked on software.**
+
+| # | Open item | What it needs | Where |
+|---|---|---|---|
+| 1 | **T6.6 — the damage curve** | rig time: one fresh 50 % specimen, 400→1100 N, 12 sine cycles at 0.100 mm/s, ONE uninterrupted run (~40 min). The only route to D = 1 − Eᵢ/E₀ | §3a·1 |
+| 2 | **Live Px₀ overlay — rig validation** | rig time + the lighting fix; built and render-checked against a synthetic frame only | §3a·3 |
+| 3 | **Why DIC delivery slowed on Black runs** | one more Black run to confirm the n = 3 lead; detection is innocent, the loss is downstream | §3a·6 |
+| 4 | **MOT's load or crosshead-displacement channel** | one email to MOT. With either channel the strain comparison can be made at matched force, which cancels compliance and turns it into a real scale check | §3a |
+| 5 | **One pull at 2 mm/min** | rig time: one specimen, one run, no new code — separates the rate effect from specimen scatter in the −7.7 % UTS gap | §5 |
+| 6 | **Camera-parameter sensitivity: exposure, gain, threshold** | analysis time — the only item needing no rig and no third party. px/mm and ROI are done (p304–306); the threshold half now has evidence (Otsu 48.5 % vs fixed 149 → 99.5 % on S29); gain is untouched | §5 |
+| 7 | **Moisture — the controlled experiment** | rig time + a drying step: condition specimens deliberately instead of reading the effect off two batches that differed by accident. The literature half is answered | §5 |
+
+**Closed since the last revision (2026-09-07):** the PETG + TPU campaign (5 PETG runs S29–S32,
+3 TPU runs S35–S37 — trend, published bands and fracture characters all confirmed) · the
+smart-feature deck coverage (SF1–SF20 all carry slides; the operator-screenshot dependency is
+gone) · the moisture question in its literature half · the fracture survey · the carbon footprint ·
+the future-work slate · and both presentation decks (PPD 24 slides, Weekly 388).
+
 ### 3a. Near-term deliverables  ⭐ next up
 
 > ## ▶ NEXT UP — everything above the line was CLEARED on 2026-08-12
@@ -244,7 +265,13 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 >    S26 differ by 52 % on early-strain rate but agree to 1.4 % force-matched. The residual
 >    low-strain compliance is the RIG, not PLA non-linearity.
 >
-> **⬜ NEW CAMPAIGN — PETG and TPU against PLA.** IN PROGRESS.
+> **✅ NEW CAMPAIGN — PETG and TPU against PLA. DONE 2026-09-07.** The registry carries **5 PETG
+>    runs (S29–S32)** and **3 TPU runs (S35–S37)** beside 28 PLA. The trend came out as predicted:
+>    PLA stiffest and quasi-brittle, PETG less stiff and far more ductile (it draws, then tears),
+>    TPU a different class that never fractured — S37 ran to 18.9 % before the test was stopped by
+>    hand. All three land inside their published bands (UTS, E, ε_f), and the fracture survey shows
+>    the two characters at the break. The rig measures polymers, not just PLA. Original entry and
+>    its reasoning kept below.
 >    ▸ ~~DROPPED BY DECISION 2026-09-02.~~ **REDO S29 FIRST — it produced NO valid properties.** Two tracking faults, both now fixed:
 >    attempt 1 tracked at 17 % (Otsu below PETG's window → fixed threshold 149), attempt 2 tracked
 >    at 100 % and was still lost when ONE frame in 1222 read the mount holder as a marker and the
@@ -832,7 +859,14 @@ fails if its guard is removed.
 
 ## 5. Research & documentation to-dos
 - ⬜ **Chacón reference — measurement basis:** confirm whether Chacón et al. measured PLA properties on a **printed specimen** or on **raw filament / bulk material** — decides whether our (infill-corrected) values are directly comparable.
-- ⬜ **Moisture effect:** check whether specimen / ambient **moisture** shifts strength or stiffness vs literature (PLA is mildly hygroscopic) — dry / condition specimens and compare.
+- 🟡 **Moisture effect — LITERATURE HALF ANSWERED 2026-09-05/07; the EXPERIMENT is what remains.**
+  Two peer-reviewed studies read in full (Hamid 2022, Quader 2024) plus our own two-batch evidence:
+  the batch whose filament sat unconditioned 8 days longer prints **4.2 % weaker (45.81 vs 47.82
+  MPa) with HIGHER fracture strain** — weaker but more ductile, the plasticising signature the
+  literature predicts (24 h humid storage ≈ −8.5 % UTS; 150 h ≈ −11 %; ≤65 % RH keeps UTS within
+  3.7 %). Slides: Weekly humidity block + the final deck's moisture column. ⬜ **Still open:** the
+  controlled experiment — dry / condition specimens deliberately and compare, rather than reading
+  the effect off two batches that differed by accident.
 - 🟡 **Camera-parameter sensitivity:** enumerate every camera parameter controlled in software (exposure, gain, threshold, ROI, px/mm, …) and study how varying each affects the DIC results and the **noise floor**. **px/mm and the ROI are done** — deck p304–306 derives px/mm from the lens, the pitch and the working distance, and shows the field-of-view trade that fixes it; the estimator/noise comparison is p285–290. **Exposure, gain and threshold are not.**
 - ✅ **Black-specimen DIC check — ANSWERED 2026-08-16, deck p227–p233.** Both S12 and S13 are 100 % BLACK PLA. S13 is the analysed one: markers found on **99.9 %** of frames, DIC noise **11.9 µε against 14.3** for the white pair (17 % QUIETER, measured over a common 10 s window because this rig's noise floor grows with observation time), and every mechanical property closer to the white mean than the two white runs are to each other — E 3.030 GPa between S25's 3.167 and S26's 3.549. The verdict slide states it outright: *the roadmap's black-specimen DIC check is answered.* Only caveat on record: S13 lost about half its strain rows, which cannot touch E (54 readings still inside the 0.05–0.40 % fit window) but means ε_f should be treated with care. A second black specimen would make it a repeat; nothing is blocked on it.
 - ✅ **Cross-validate the DIC against MOT's extensometer software — DONE 2026-08-30.** Their XT-205
