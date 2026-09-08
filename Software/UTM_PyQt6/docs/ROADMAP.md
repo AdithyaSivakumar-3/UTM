@@ -161,18 +161,23 @@ the E fit window + SF13; 2026-08-11 T6.5 + T9; 2026-07-29 full rig-test campaign
 
 ### 3·0 OPEN ITEMS AT A GLANCE — revised 2026-09-07
 
-Everything not listed here is closed. Seven items remain, and **six of the seven need the rig or
-another party — none is blocked on software.**
+Everything not listed here is closed. **Five items remain** — they are the ones carried onto the
+Weekly deck's closing slide, so the deck and this file say the same thing.
 
 | # | Open item | What it needs | Where |
 |---|---|---|---|
-| 1 | **T6.6 — the damage curve** | rig time: one fresh 50 % specimen, 400→1100 N, 12 sine cycles at 0.100 mm/s, ONE uninterrupted run (~40 min). The only route to D = 1 − Eᵢ/E₀ | §3a·1 |
-| 2 | **Live Px₀ overlay — rig validation** | rig time + the lighting fix; built and render-checked against a synthetic frame only | §3a·3 |
-| 3 | **Why DIC delivery slowed on Black runs** | one more Black run to confirm the n = 3 lead; detection is innocent, the loss is downstream | §3a·6 |
-| 4 | **MOT's load or crosshead-displacement channel** | one email to MOT. With either channel the strain comparison can be made at matched force, which cancels compliance and turns it into a real scale check | §3a |
-| 5 | **One pull at 2 mm/min** | rig time: one specimen, one run, no new code — separates the rate effect from specimen scatter in the −7.7 % UTS gap | §5 |
-| 6 | **Camera-parameter sensitivity: exposure, gain, threshold** | analysis time — the only item needing no rig and no third party. px/mm and ROI are done (p304–306); the threshold half now has evidence (Otsu 48.5 % vs fixed 149 → 99.5 % on S29); gain is untouched | §5 |
-| 7 | **Moisture — the controlled experiment** | rig time + a drying step: condition specimens deliberately instead of reading the effect off two batches that differed by accident. The literature half is answered | §5 |
+| 1 | **Why DIC delivery slowed on Black runs** | one more Black run to confirm the n = 3 lead; detection is innocent, the loss is downstream | §3a·6 |
+| 2 | **MOT's load or crosshead-displacement channel** | one email to MOT. With either channel the strain comparison can be made at matched force, which cancels compliance and turns it into a real scale check | §3a |
+| 3 | **One pull at 2 mm/min** | rig time: one specimen, one run, no new code — separates the rate effect from specimen scatter in the −7.7 % UTS gap | §5 |
+| 4 | **Camera-parameter sensitivity: exposure, gain, threshold** | analysis time — the only item needing no rig and no third party. px/mm and ROI are done (p304–306); the threshold half now has evidence (Otsu 48.5 % vs fixed 149 → 99.5 % on S29); gain is untouched | §5 |
+| 5 | **Moisture — the controlled experiment** | rig time + a drying step: condition specimens deliberately instead of reading the effect off two batches that differed by accident. The literature half is answered | §5 |
+
+**Dropped by decision 2026-09-07 (his call), kept here for the reasoning:** ~~T6.6, the damage
+curve~~ — the D = 1 − Eᵢ/E₀ route needed a dedicated 40-minute cyclic run and the project ends
+without it; the T6.4/T6.5 reasoning about why D is not computable from the existing pair stays in
+§3a. ~~Live Px₀ overlay rig validation~~ — the feature is built and render-checked, and it is
+INFO-only (it draws what the tracker already knows), so an unvalidated overlay blocks nothing;
+it stays 🟢 built rather than ✅ rig-validated, and the deck says so.
 
 **Closed since the last revision (2026-09-07):** the PETG + TPU campaign (5 PETG runs S29–S32,
 3 TPU runs S35–S37 — trend, published bands and fracture characters all confirmed) · the
