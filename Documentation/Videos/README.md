@@ -6,8 +6,13 @@ report can watch what the camera saw without cloning 150 GB.
 | file | specimen | material | what it shows |
 |---|---|---|---|
 | `S26_PLA_80mm_gauge.mp4` | S26 | PLA, 100 % infill | The 80 mm-gauge run used for the laboratory validation: the two sprayed markers separating, then fracture. One half of the S25/S26 pair whose frames the XT-205's software re-processed. |
-| `S32_PETG.mp4` | S32 | PETG | A PETG pull to fracture — the material that yields furthest before breaking of the three. |
+| `S30_PETG.mp4` | S30 | PETG | **The PETG clip used in the final presentation.** It draws, then tears — the fracture is on film. |
+| `S32_PETG.mp4` | S32 | PETG | A second PETG pull, kept for comparison. Its capture **ends with the specimen drawn but unbroken**, which is why S30 was the one shown to an audience. |
 | `S35_TPU.mp4` | S35 | TPU 95A | The TPU run where the DIC channel stopped at 12.6 % strain while the crosshead read 21.5 %: the markers deform and drift out of the gates, which is the coverage limit discussed in the report. |
+
+S26, S30 and S35 are the same three runs the PPD final presentation plays as 12-second
+lapses (`demo_pla`, `demo_petg`, `demo_tpu` in `Documentation/Scripts/ppd_final_deck.py`).
+The copies here run at full length instead, since they are for study rather than for a room.
 
 ## These are NOT measurement data
 
