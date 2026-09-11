@@ -67,6 +67,9 @@ Software/UTM_PyQt6/8.6.20 - Tensile test to Failure/
 
 # Session video / phone photos
 *.mp4
+# ... except the three viewing copies, one per material, that ship with the documentation:
+# lossy H.264 re-encodes small enough for GitHub. See Documentation/Videos/README.md.
+!Documentation/Videos/*.mp4
 Software/UTM_PyQt6/*.jpg
 
 # DIC frame capture / video recording output (huge: ~1.9 GB per minute of PNGs)
