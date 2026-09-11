@@ -16,7 +16,7 @@ Usage:
 # output paths are resolved from:  python tools/check_blobs.py
 # The app modules live one level up, so put that on the path before importing them.
 import os as _os, sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "app"))
 
 
 import sys

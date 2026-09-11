@@ -4,14 +4,14 @@ measured UTS and failure strain (load-collapse analyze, same as v6_compare). Sav
 (V6_fracture_patterns.png) for the comparison slide."""
 import sys, os
 sys.stdout.reconfigure(encoding="utf-8")
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "UTM_PyQt6"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "UTM_PyQt6", "app"))
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from PIL import Image
 from utm_analysis import analyze
 
-ROOT = r"Software\UTM_PyQt6\Test data\8.6.20 - Tensile test to Failure"
+ROOT = r"Software\UTM_PyQt6\Test data\Fracture tests"
 
 # (test, specimen, csv, image, tag)
 SPECS_50 = [
@@ -63,6 +63,6 @@ for k, spec in enumerate(SPECS_100):
 
 fig.text(0.055, 0.945, "50 % INFILL — V5 group (LED off)", fontsize=13, fontweight="bold", color=C50)
 fig.text(0.055, 0.475, "100 % INFILL — V6 quintet (LED on)", fontsize=13, fontweight="bold", color=C100)
-fig.savefig("images/V6/V6_fracture_patterns.png", dpi=150, bbox_inches="tight")
+fig.savefig("documentation/figures/V6/V6_fracture_patterns.png", dpi=150, bbox_inches="tight")
 plt.close()
 print("saved V6_fracture_patterns.png")

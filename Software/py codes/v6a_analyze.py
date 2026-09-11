@@ -13,11 +13,11 @@ from statistics import mean, stdev, median
 # someone fixes one of them.
 _APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "UTM_PyQt6")
 if _APP not in sys.path:
-    sys.path.insert(0, _APP)
+    sys.path.insert(0, os.path.join(_APP, "app"))
 from utm_analysis import read_csv, linfit                             # noqa: E402
 
 AREA = 80.0; GAUGE = 80.0
-ROOT = r"Software\UTM_PyQt6\Test data\8.6.20 - Tensile test to Failure"
+ROOT = r"Software\UTM_PyQt6\Test data\Fracture tests"
 FILES = {
     "V5 (S4, 50%)":  ROOT + r"\Specimen_S4_V1_Spray\UTM_Test_20260612_172333_V5_TensionFailure.csv",
     "V6a (S7, 100%)": ROOT + r"\Specimen_S7_V2_Spray\UTM_Test_20260617_165405_V6a_TensionFailure.csv",

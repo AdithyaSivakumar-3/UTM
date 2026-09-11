@@ -1,49 +1,61 @@
 # Software/UTM_PyQt6/
 
-The UTM DIC application. `python main.py` from **this** directory starts it.
+The UTM DIC application. Start it from the **repository root**:
 
-## Why the modules are flat
+```
+python "Software/UTM_PyQt6/app/main.py"
+```
 
-The 15 `.py` files beside `main.py` are the application. They import each other by bare module
-name — `from camera_manager import CameraManager` — so they have to sit together on the path.
-That is why they were left loose when everything else was filed away in 2026-08-25: putting them
-in a subfolder would mean turning the app into a package and rewriting every import, which is a
-different job with a different risk.
+## Where the Python is
+
+All 20 modules live in `app/`. They import each other by bare module name — `from
+camera_manager import CameraManager` — which keeps working because Python puts the running
+script's own directory on the path, and they all sit together in `app/`. They were loose in
+this folder until September 2026; moving them into `app/` meant re-basing seven paths that
+climb from `__file__` and repointing every `sys.path` line outside the app, but no import
+inside it had to change.
 
 | module | role |
 |---|---|
-| `main.py` | the window, the control loop, the CSV writer |
-| `camera_manager.py` | Basler capture, blob detection, DIC strain |
-| `serial_manager.py` | the link to the rig firmware |
-| `control_policies.py` | closed-loop test modes (strain rate, cyclic, staircase, …) |
-| `utm_analysis.py` | the shared analyser: E, σ_y, UTS, ε_f, force anchor, fracture detection |
-| `utm_registry.py` · `utm_report.py` | the test registry and the one-click per-test report |
-| `utm_recipes.py` | saved settings profiles (`recipes/`) — Default, TPU |
-| `utm_capture.py` · `utm_capdlg.py` | frame/video capture and its setup dialog |
-| `utm_camdlg.py` · `utm_autocal.py` | DIC camera setup and auto-calibration |
-| `utm_dic.py` · `utm_wizard.py` | DIC health readout and the guided wizard |
-| `utm_postproc.py` · `utm_postdlg.py` | DIC post-processing: strain from a RECORDED video, and its tab |
-| `theme.py` · `widgets.py` | look and custom controls |
+| `app/main.py` | the window, the state machine, the control loop, the live plots and HUD, the CSV writer, the guards, and the UI of all twenty smart features |
+| `app/camera_manager.py` | Basler capture, blob detection, DIC strain |
+| `app/control_policies.py` | closed-loop test modes (strain rate, cyclic, staircase, …) |
+| `app/serial_manager.py` | the link to the rig firmware |
+| `app/theme.py` · `app/widgets.py` | look and custom controls |
+| `app/utm_analysis.py` | the shared analyser: E, σ_y, UTS, ε_f, force anchor, fracture detection |
+| `app/utm_autocal.py` · `app/utm_camdlg.py` | auto-calibration and DIC camera setup |
+| `app/utm_blobpick.py` | manual marker selection, for when automatic detection cannot win |
+| `app/utm_capture.py` · `app/utm_capdlg.py` | frame/video capture and its setup dialog |
+| `app/utm_dic.py` · `app/utm_wizard.py` | the pixel-to-strain rule and the guided wizard |
+| `app/utm_noisedlg.py` | the noise-floor measurement |
+| `app/utm_postproc.py` · `app/utm_postdlg.py` | DIC post-processing: strain from a RECORDED video, and its tab |
+| `app/utm_recipes.py` | saved settings profiles (`recipes/`) — Default, TPU |
+| `app/utm_registry.py` · `app/utm_report.py` | the test registry and the one-click per-test report |
 
 ## Folders
 
 | folder | what |
 |---|---|
-| `tools/` | diagnostic and build scripts — ROI picker, blob checker, DIC replay, exe build |
-| `tests script/` | camera and phase-8.6 test scripts |
-| `docs/` | ROADMAP, TESTING_TODO, TEST_FAILURES, RECALIBRATE_ROI, COMMANDS |
-| `ui/` | the Qt Designer `.ui` file, and `ui/help/` — the mode-help images |
-| `recipes/` | saved settings profiles, seeded on first launch (Default, TPU) |
-| `output/` | everything the app and its tools WRITE: `captures/`, `diagnostics/`, `setup_output/`, `full_frame_output/`, `test_images/`. Gitignored in one line |
 | `Test data/` | every test CSV and its per-specimen folder — see below |
+| `Test Scripts/` | 15 test scripts; five run offline, the rest need the camera or the rig |
+| `app/` | the 20 application modules, above |
+| `output/` | everything the app and its tools WRITE: `captures/`, `diagnostics/`, `full_frame_output/`, `setup_output/`, `test_images/`. Gitignored in one line |
+| `recipes/` | saved settings profiles, seeded on first launch (Default, TPU) |
+| `tools/` | diagnostic and build scripts — ROI picker, blob checker, DIC replay, control-loop simulation, exe build |
+| `ui/` | the Qt Designer `.ui` file, and `ui/help/` — the six mode-help images |
+| `workflow/` | ROADMAP, TESTING_TODO, TEST_FAILURES, RECALIBRATE_ROI, COMMANDS, PYTHON_WORKFLOW, and the code summary |
 
-`CAPTURE_ROOT`, the `.ui` path, `ui/help` and `RECIPES_DIR` are all built from `__file__`, so they
-follow the module — but they do NOT follow a folder that moves underneath them. A wrong one does
-not raise; it points at a directory that is not there, and the symptom is a capture that never
-appears or a help image that is blank. If you move any of these, check
-`main.py` (`UI_FILE`, `CAPTURE_ROOT`, the `ui/help` lookup) and `utm_recipes.RECIPES_DIR`.
+`registry.json` and `requirements.txt` sit at this folder's root, beside this file.
 
-## Running anything in `tools/` or `tests script/`
+`CAPTURE_ROOT`, the `.ui` path, `ui/help` and `RECIPES_DIR` are all built from `__file__`, and
+since the modules moved into `app/` each of them now climbs one level first — the resources
+did **not** move. A wrong one does not raise; it points at a directory that is not there, and
+the symptom is a capture that never appears or a help image that is blank. If you move any of
+these, check `app/main.py` (`UI_FILE`, `CAPTURE_ROOT`, the `ui/help` lookup),
+`app/utm_recipes.py` (`RECIPES_DIR`), `app/utm_registry.py` (`DEFAULT_REGISTRY`, `REPO_ROOT`)
+and `app/utm_report.py` (the reports folder).
+
+## Running anything in `tools/` or `Test Scripts/`
 
 From **this** directory, not from inside the subfolder:
 
@@ -52,8 +64,12 @@ cd Software/UTM_PyQt6
 python tools/dic_replay.py
 ```
 
-Their data and output paths are relative to this directory, and the ones that import app modules
-carry a two-line header putting the parent on `sys.path`.
+Their data and output paths are relative to this directory, and the ones that import app
+modules carry a two-line header putting `app/` on `sys.path`.
+
+The five that run with no hardware at all: `test_threshold.py`, `test_postproc_guards.py`,
+`test_scale_sidecar.py`, `test_multipair_postproc.py`, `test_plot_cursor.py`. There is no
+pytest suite — each is a script that exits non-zero on failure.
 
 ## DIC post-processing (the fourth tab)
 
@@ -103,28 +119,31 @@ Validated against S26: post-processing its `video.avi` reproduces that run's own
 
 ## Test data
 
-Everything lives under **`Test data/`**, in two folders:
+Everything lives under **`Test data/`**, in three folders:
 
-| folder | what | registry rows |
-|---|---|---|
-| `Test data/8.6.20 - Tensile test to Failure/` | the tensile-to-fracture campaign — one folder per specimen (`Specimen_S<n>_…`), each holding the CSV, its generated report/plots, and the frame-capture folder if the run recorded one | 27 |
-| `Test data/Smart Features - Advanced Test Modes/` | the closed-loop protocol runs (cyclic, staircase, relaxation, creep) plus the older `8.6.3/` set | 7 |
+| folder | what |
+|---|---|
+| `Test data/Fracture tests/` | the tensile-to-fracture campaign — 29 runs, one folder per specimen (`Specimen_S<n>_…`), each holding the CSV, its generated report/plots, and the frame-capture folder if the run recorded one |
+| `Test data/Smart Features - Advanced Test Modes data/` | the closed-loop protocol runs — 12 of them: cyclic, staircase, relaxation, creep, progressive cyclic |
+| `Test data/Trial for lateral strain/` | the Poisson's-ratio trial, `S38` and `S39` |
 
-They were gathered under one parent in the 2026-08 reorganisation; before that they sat loose in
-this directory. **`registry.json` records every test by path**, and the deck builders in
-`documentation/` read those same paths, so a move here invalidates both. Both were repointed at
-the time, and the check is one line:
-
-Run it **from the repository root**, not from this directory — the paths in `registry.json` are
-stored relative to the root, so from here every one of them looks missing:
+**`registry.json` records every test by path**, and the deck builders and the poster read those
+same paths, so a rename here invalidates all of them at once. The check is one line, run
+**from the repository root** — the paths in `registry.json` are stored relative to the root, so
+from this directory every one of them looks missing:
 
 ```
 python -c "import json,os; r=json.load(open('Software/UTM_PyQt6/registry.json')); print(sum(1 for x in r if not os.path.isfile(x['csv'])),'unresolved of',len(r))"
 ```
 
-That must print `0 unresolved`. If it does not, repoint by searching for each CSV's **basename**
-rather than assuming where the folder went — specimen folders get renamed too (S37's gained a
-`_Video15` suffix after its run, which broke its row and a hard-coded path in the deck scripts).
+That must print `0 unresolved`, and as of 2026-09-10 it does. It printed `36 unresolved of
+36` earlier that day: the three series folders had been renamed (`8.6.20 - Tensile test to
+Failure` → `Fracture tests`, `Smart Features - Advanced Test Modes` → `… data`,
+`Trial for traverse markers` → `Trial for lateral strain`) while the rows still pointed at
+the old names. All 36 were repointed by basename. Repoint the same way if it ever breaks
+again — by searching for each CSV's **basename** rather than assuming where the folder went — specimen folders get renamed too
+(S37's gained a `_Video15` suffix after its run, which broke its row and a hard-coded path in
+the deck scripts).
 
 **The CSVs themselves are gitignored** (`*.csv`), as are the capture folders (`**/frames*/`,
 `*.avi`, `*.mkv`, `*.tif`) — one specimen's stills run to 1.7 GB, and the tree as a whole is 54 GB.

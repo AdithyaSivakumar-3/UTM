@@ -1,6 +1,6 @@
 [
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S4_V1_Spray/UTM_Test_20260612_172333_V5_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S4_V1_Spray/UTM_Test_20260612_172333_V5_TensionFailure.csv",
     "specimen": "S4",
     "test": "V5",
     "date": "2026-06-12 17:23:33",
@@ -17,7 +17,7 @@
     "anchor_N": 463
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S3_V1_Spray/UTM_Test_20260617_122450__V5b_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S3_V1_Spray/UTM_Test_20260617_122450__V5b_TensionFailure.csv",
     "specimen": "S3",
     "test": "V5b",
     "date": "2026-06-17 12:24:50",
@@ -34,7 +34,7 @@
     "anchor_N": 472
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S2_V1_Spray/UTM_Test_20260617_130559_V5c_0_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S2_V1_Spray/UTM_Test_20260617_130559_V5c_0_TensionFailure.csv",
     "specimen": "S2",
     "test": "V5c_0",
     "date": "2026-06-17 13:05:59",
@@ -51,7 +51,7 @@
     "anchor_N": 466
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S2_V1_Spray/UTM_Test_20260617_154953_V5c2_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S2_V1_Spray/UTM_Test_20260617_154953_V5c2_TensionFailure.csv",
     "specimen": "S2",
     "test": "V5c2",
     "date": "2026-06-17 15:49:53",
@@ -68,7 +68,7 @@
     "anchor_N": 471
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S7_V2_Spray/UTM_Test_20260617_165405_V6a_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S7_V2_Spray/UTM_Test_20260617_165405_V6a_TensionFailure.csv",
     "specimen": "S7",
     "test": "V6a",
     "date": "2026-06-17 16:54:05",
@@ -85,7 +85,7 @@
     "anchor_N": 475
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S8_V2_Spray/UTM_Test_20260625_144903_V6b_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S8_V2_Spray/UTM_Test_20260625_144903_V6b_TensionFailure.csv",
     "specimen": "S8",
     "test": "V6b",
     "date": "2026-06-25 14:49:03",
@@ -102,7 +102,7 @@
     "anchor_N": 476
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S10_V2_Spray/UTM_Test_20260625_151046_V6c_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S10_V2_Spray/UTM_Test_20260625_151046_V6c_TensionFailure.csv",
     "specimen": "S10",
     "test": "V6c",
     "date": "2026-06-25 15:10:46",
@@ -119,7 +119,7 @@
     "anchor_N": 470
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S11_V2_Spray/UTM_Test_20260625_154219_V6d_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S11_V2_Spray/UTM_Test_20260625_154219_V6d_TensionFailure.csv",
     "specimen": "S11",
     "test": "V6d",
     "date": "2026-06-25 15:42:19",
@@ -136,7 +136,7 @@
     "anchor_N": 470
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S9_V2_Spray/UTM_Test_20260625_160032_V6e_TensionFailure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S9_V2_Spray/UTM_Test_20260625_160032_V6e_TensionFailure.csv",
     "specimen": "S9",
     "test": "V6e",
     "date": "2026-06-25 16:00:32",
@@ -153,7 +153,7 @@
     "anchor_N": 475
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S16_V2_Spray/UTM_Test_20260728_200615.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S16_V2_Spray/UTM_Test_20260728_200615.csv",
     "specimen": "S16",
     "test": "S16",
     "date": "2026-07-28 20:04:23",
@@ -171,7 +171,7 @@
     "note": "auto-stop caught fracture + stall-guard validation (first post-stall-guard fracture)"
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S18_V1_Spray_Staircase-Fracture/UTM_Test_20260809_154041_T7.2_Staircase-Failure.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S18_V1_Spray_Staircase-Fracture/UTM_Test_20260809_154041_T7.2_Staircase-Failure.csv",
     "specimen": "S18",
     "test": null,
     "date": "2026-08-09 15:37:17",
@@ -190,7 +190,7 @@
     "note": "Interrogation protocol (11 ramp+dwell levels), NOT a monotonic pull. E_GPa/sy_MPa/tough_kJm3 nulled: the monotonic analyser fits an elastic region across the stepped loading path, so those numbers were not physical (it reported E=1.399 GPa). UTS/ef/anchor ARE valid (peak- and fracture-based). Yield knee from the dwell relaxation-drop minimum: ~694 N tared."
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S21_V1_Spray_ProgressiveCyclic-Fracture/UTM_Test_20260809_173857_T8_Progressive-Fracture.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S21_V1_Spray_ProgressiveCyclic-Fracture/UTM_Test_20260809_173857_T8_Progressive-Fracture.csv",
     "specimen": "S21",
     "test": null,
     "date": "2026-08-09 17:34:04",
@@ -217,7 +217,7 @@
     "specimen": "S22",
     "test": "T6.4_CyclicTest_Sine",
     "date": "2026-08-11",
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S22_V1_Spray_CyclicTest_Sine/UTM_Test_20260811_141121_T6.4_CyclicTest_Sine.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S22_V1_Spray_CyclicTest_Sine/UTM_Test_20260811_141121_T6.4_CyclicTest_Sine.csv",
     "material": "PLA",
     "infill_pct": 50.0,
     "area_mm2": 80.0,
@@ -234,7 +234,7 @@
     "specimen": "S22",
     "test": "T6.5_CyclicTest_Sine",
     "date": "2026-08-11",
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S22_V1_Spray_CyclicTest_Sine/UTM_Test_20260811_145039_T6.5_CyclicTest_Sine.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S22_V1_Spray_CyclicTest_Sine/UTM_Test_20260811_145039_T6.5_CyclicTest_Sine.csv",
     "material": "PLA",
     "infill_pct": 50.0,
     "area_mm2": 80.0,
@@ -251,7 +251,7 @@
     "specimen": "S22",
     "test": "T7.3_Staircase-Failure",
     "date": "2026-08-11",
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S22_V1_Spray_Staircase-Fracture/UTM_Test_20260811_151515_T7.3.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S22_V1_Spray_Staircase-Fracture/UTM_Test_20260811_151515_T7.3.csv",
     "material": "PLA",
     "infill_pct": 50.0,
     "area_mm2": 80.0,
@@ -278,7 +278,7 @@
     "date": "2026-08-11",
     "test": "T9a_Creep_Baseline",
     "anchor_N": null,
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S23_V1_Spray_CreepTest_T9/UTM_Test_20260811_160552_T9_Baseline.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S23_V1_Spray_CreepTest_T9/UTM_Test_20260811_160552_T9_Baseline.csv",
     "comment": "ZERO-LOAD DRIFT BASELINE for T9, run FIRST in the same mounting. 928 s at 20.57 +- 0.23 N with the crosshead frozen at 0.1373 mm, so everything the DIC reports is instrument drift. Least-squares drift +0.2893 ue/s (R2 0.896) = +268 ue over the run; slope 95 pct CI +-0.0019 ue/s, so subtracting it over a 900 s hold costs only +-2 ue. Half-slopes 0.345 / 0.277 (ratio 0.80) = LINEAR, which is the drift signature; creep would decelerate. DIC NOISE FLOOR RE-MEASURED: 26 ue scatter about the trend over a full 900 s window (the +-12 ue quoted elsewhere is a 40 s window and understates long-hold noise). 9971 of 10854 rows DIC-valid. NOTE the CSV header says Infill 100 % - the specimen is 50 %; label only, no number affected."
   },
   {
@@ -295,11 +295,11 @@
     "date": "2026-08-11",
     "test": "T9b_Creep_600N_900s",
     "anchor_N": 307.1,
-    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes/Specimen_S23_V1_Spray_CreepTest_T9/UTM_Test_20260811_16461b2_T9_Creep_600N_900s.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Smart Features - Advanced Test Modes data/Specimen_S23_V1_Spray_CreepTest_T9/UTM_Test_20260811_16461b2_T9_Creep_600N_900s.csv",
     "comment": "CREEP RESOLVED - closes the T1 negative result. Held 596.55 +- 1.30 N (594.1-610.9 N) for 877 s = 7.46 MPa engineering / 11.30 MPa true on the 307.1 N anchor = 53 pct of the 21.2 MPa UTS. Raw DIC rise +1334 ue; minus the T9a drift (0.2893 ue/s x 877 s = 254 ue, 19 pct of raw) gives NET CREEP +1080 ue = 41x the 26 ue noise floor. SHAPE PASSES THE PRE-SET DISCRIMINATOR: Findley n = 0.484 (<1) and half-slopes 1.48 -> 0.59 ue/s (ratio 0.40) - decelerating primary creep, not linear drift. Creep compliance J 0.863 -> 1.008 1/GPa (+16.7 pct). Creep/instantaneous 16.8 pct is an UPPER bound (e_inst is tared at preload). To hold the load the crosshead advanced +172 um while the DIC gauge extended only +107 um, so just 62 pct of crosshead motion was specimen - the DIC channel is what makes the number right. BONUS after the policy released: fixed-grip relaxation 598 -> 582 N over 300 s (-2.8 pct). DIC 100 pct frames. E/sy/UTS/ef nulled - this is a hold, not a monotonic pull. NOTE the CSV header says Infill 100 % - the specimen is 50 %; label only, no number affected."
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S24_V2_Spray_Video1/UTM_Test_20260814_120352_100%infill_Videocapture.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S24_V2_Spray_Video1/UTM_Test_20260814_120352_100%infill_Videocapture.csv",
     "specimen": "S24",
     "test": "VC1",
     "date": "2026-08-14 12:01:18",
@@ -316,7 +316,7 @@
     "anchor_N": 307
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S25_V2_Spray_Video2/UTM_Test_20260817_103930_100%infill_Videocapture_2.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S25_V2_Spray_Video2/UTM_Test_20260817_103930_100%infill_Videocapture_2.csv",
     "specimen": "S25",
     "test": "VC2",
     "date": "2026-08-17 10:37:38",
@@ -333,7 +333,7 @@
     "anchor_N": 280
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S26_V2_Spray_Video3/UTM_Test_20260817_111700_100%infill_Videocapture3.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S26_V2_Spray_Video3/UTM_Test_20260817_111700_100%infill_Videocapture3.csv",
     "specimen": "S26",
     "test": "VC3",
     "date": "2026-08-17 11:15:15",
@@ -350,7 +350,7 @@
     "anchor_N": 308
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S27_V1_Spray_Video4/UTM_Test_20260817_155639.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S27_V1_Spray_Video4/UTM_Test_20260817_155639.csv",
     "specimen": "S27",
     "test": "VC4",
     "date": "2026-08-17 15:54:02",
@@ -367,7 +367,7 @@
     "anchor_N": 305
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S28_V1_Spray_Video5/UTM_Test_20260817_161046.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S28_V1_Spray_Video5/UTM_Test_20260817_161046.csv",
     "specimen": "S28",
     "test": "VC5",
     "date": "2026-08-17 16:07:52",
@@ -384,7 +384,7 @@
     "anchor_N": 302
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S12_V2_Spray_Video6/UTM_Test_20260817_171215.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S12_V2_Spray_Video6/UTM_Test_20260817_171215.csv",
     "specimen": "S12",
     "test": "VC6",
     "date": "2026-08-17 17:09:50",
@@ -401,7 +401,7 @@
     "anchor_N": 317
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S13_V2_Spray_Video7/UTM_Test_20260818_111324.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S13_V2_Spray_Video7/UTM_Test_20260818_111324.csv",
     "specimen": "S13",
     "test": "VC7",
     "date": "2026-08-18 11:11:26",
@@ -418,7 +418,7 @@
     "anchor_N": 307
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S29_V3_PETG_Spray_Video8_IGNORE/Failed/UTM_Test_20260819_113054.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S29_V3_PETG_Spray_Video8_IGNORE/Failed/UTM_Test_20260819_113054.csv",
     "specimen": "S29",
     "test": null,
     "date": "2026-08-19 11:29:26",
@@ -435,7 +435,7 @@
     "anchor_N": null
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S29_V3_PETG_Spray_Video8_IGNORE/UTM_Test_20260821_171412.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S29_V3_PETG_Spray_Video8_IGNORE/UTM_Test_20260821_171412.csv",
     "specimen": "S29",
     "test": null,
     "date": "2026-08-21 17:12:01",
@@ -452,7 +452,7 @@
     "anchor_N": null
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S30_V3_PETG_Spray_Video9/UTM_Test_20260822_180547.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S30_V3_PETG_Spray_Video9/UTM_Test_20260822_180547.csv",
     "specimen": "S30",
     "test": null,
     "date": "2026-08-22 18:02:30",
@@ -469,7 +469,7 @@
     "anchor_N": 311
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S31_V3_PETG_Spray_Video10/UTM_Test_20260822_181957.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S31_V3_PETG_Spray_Video10/UTM_Test_20260822_181957.csv",
     "specimen": "S31",
     "test": null,
     "date": "2026-08-22 18:18:04",
@@ -486,7 +486,7 @@
     "anchor_N": 301
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S32_V3_PETG_Spray_Video11/UTM_Test_20260824_104255.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S32_V3_PETG_Spray_Video11/UTM_Test_20260824_104255.csv",
     "specimen": "S32",
     "test": null,
     "date": "2026-08-24 10:40:17",
@@ -503,7 +503,7 @@
     "anchor_N": null
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S33_V4_Spray_Video12/UTM_Test_20260824_111931.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S33_V4_Spray_Video12/UTM_Test_20260824_111931.csv",
     "specimen": "S33",
     "test": null,
     "date": "2026-08-24 11:17:56",
@@ -520,7 +520,7 @@
     "anchor_N": 310
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S34_V4_Spray_Video13/UTM_Test_20260824_113342.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S34_V4_Spray_Video13/UTM_Test_20260824_113342.csv",
     "specimen": "S34",
     "test": null,
     "date": "2026-08-24 11:32:07",
@@ -537,7 +537,7 @@
     "anchor_N": 318
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S35_V5_TPU_Spray_Video14/UTM_Test_20260824_151910.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S35_V5_TPU_Spray_Video14/UTM_Test_20260824_151910.csv",
     "specimen": "S35",
     "test": null,
     "date": "2026-08-24 15:15:56",
@@ -554,7 +554,7 @@
     "anchor_N": 20
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S36_V5_TPU_Spray/UTM_Test_20260824_184604.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S36_V5_TPU_Spray/UTM_Test_20260824_184604.csv",
     "specimen": "S36",
     "test": null,
     "date": "2026-08-24 18:42:25",
@@ -571,7 +571,7 @@
     "anchor_N": 20
   },
   {
-    "csv": "Software/UTM_PyQt6/Test data/8.6.20 - Tensile test to Failure/Specimen_S37_V5_TPU_Spray_Video15/UTM_Test_20260826_123524.csv",
+    "csv": "Software/UTM_PyQt6/Test data/Fracture tests/Specimen_S37_V5_TPU_Spray_Video15/UTM_Test_20260826_123524.csv",
     "specimen": "S37",
     "test": null,
     "date": "2026-08-26 12:30:26",
@@ -586,5 +586,39 @@
     "ef": 0.1849,
     "tough_kJm3": 601,
     "anchor_N": 19
+  },
+  {
+    "csv": "Software/UTM_PyQt6/Test data/Trial for lateral strain/S38/UTM_Test_20260905_152053.csv",
+    "specimen": null,
+    "test": null,
+    "date": "2026-09-05 15:19:13",
+    "material": "PLA",
+    "infill_pct": 100.0,
+    "area_mm2": 80.0,
+    "gauge_mm": 80.0,
+    "comment": null,
+    "UTS_MPa": 53.4,
+    "sy_MPa": 52.69,
+    "E_GPa": 2.859,
+    "ef": 0.0329,
+    "tough_kJm3": 1551,
+    "anchor_N": 306
+  },
+  {
+    "csv": "Software/UTM_PyQt6/Test data/Trial for lateral strain/S39/UTM_Test_20260905_160536.csv",
+    "specimen": null,
+    "test": null,
+    "date": "2026-09-05 16:04:11",
+    "material": "PLA",
+    "infill_pct": 100.0,
+    "area_mm2": 80.0,
+    "gauge_mm": 80.0,
+    "comment": null,
+    "UTS_MPa": 42.96,
+    "sy_MPa": 4.05,
+    "E_GPa": 2.008,
+    "ef": 0.0135,
+    "tough_kJm3": 601,
+    "anchor_N": 319
   }
 ]

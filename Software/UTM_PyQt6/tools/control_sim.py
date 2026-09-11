@@ -14,7 +14,7 @@ to check its stop conditions against real data.
 # output paths are resolved from:  python tools/control_sim.py
 # The app modules live one level up, so put that on the path before importing them.
 import os as _os, sys as _sys
-_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))), "app"))
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

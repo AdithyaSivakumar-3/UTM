@@ -1,0 +1,346 @@
+[
+ {
+  "n": 1,
+  "url": "https://idics.org/guide/",
+  "slides": [
+   "W3"
+  ],
+  "anchors": [
+   "Good Practices Guide for DIC"
+  ]
+ },
+ {
+  "n": 2,
+  "url": "https://docs.baslerweb.com/aca2440-35um?_gl=1*6nk3dd*_gcl_au*MTc4NjA3OTA5LjE3NzE5NDUxMDg.*_ga*MTM0NjEwMTgwMi4xNzcxOTQ1MTA1*_ga_5KSFYEQ7CY*czE3NzMxNzMwOTUkbzIkZzEkdDE3NzMxNzMyNDIkajYwJGwwJGgw",
+  "slides": [
+   "W3"
+  ],
+  "anchors": [
+   "specifications"
+  ]
+ },
+ {
+  "n": 3,
+  "url": "https://www.baslerweb.com/en/shop/aca2440-35um/?downloadCategory.data=cad",
+  "slides": [
+   "W27"
+  ],
+  "anchors": [
+   "Basler",
+   "Basler ace acA2440-35um CAD model",
+   "acA2440-35um CAD",
+   "ace",
+   "model"
+  ]
+ },
+ {
+  "n": 4,
+  "url": "https://tonerplastics.com/tesile-testing-results-of-toner-plastics-3d-filament/",
+  "slides": [
+   "W35"
+  ],
+  "anchors": [
+   "Tensile Testing Results of Toner Plastics 3D Filament - Toner Plastics"
+  ]
+ },
+ {
+  "n": 5,
+  "url": "https://www.researchgate.net/publication/381733916_Optimizing_Milling_Parameters_for_Enhanced_Machinability_of_3D-Printed_Materials_An_Analysis_of_PLA_PETG_and_Carbon-Fiber-Reinforced_PETG",
+  "slides": [
+   "W35"
+  ],
+  "anchors": [
+   "(PDF) Optimizing Milling Parameters for Enhanced Machinability of 3D-Printed Mat"
+  ]
+ },
+ {
+  "n": 6,
+  "url": "https://www.dold-mechatronik.de/CAD-Data",
+  "slides": [
+   "W51"
+  ],
+  "anchors": [
+   "CAD source: DOLD Mechatronics - Everything for makers, engineers and visionaries"
+  ]
+ },
+ {
+  "n": 7,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/camera_manager.py#L272",
+  "slides": [
+   "W106"
+  ],
+  "anchors": [
+   "camera_manager.py:272"
+  ]
+ },
+ {
+  "n": 8,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/main.py#L2520",
+  "slides": [
+   "W106"
+  ],
+  "anchors": [
+   "main.py:2520"
+  ]
+ },
+ {
+  "n": 9,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/main.py#L2522",
+  "slides": [
+   "W106"
+  ],
+  "anchors": [
+   "main.py:2522"
+  ]
+ },
+ {
+  "n": 10,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/camera_manager.py#L276",
+  "slides": [
+   "W106"
+  ],
+  "anchors": [
+   "camera_manager.py:276"
+  ]
+ },
+ {
+  "n": 11,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/camera_manager.py#L279",
+  "slides": [
+   "W106"
+  ],
+  "anchors": [
+   "camera_manager.py:279"
+  ]
+ },
+ {
+  "n": 12,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/ui/utm_mainwindow.ui#L392",
+  "slides": [
+   "W107"
+  ],
+  "anchors": [
+   "utm_mainwindow.ui:392"
+  ]
+ },
+ {
+  "n": 13,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/ui/utm_mainwindow.ui#L375",
+  "slides": [
+   "W107"
+  ],
+  "anchors": [
+   "utm_mainwindow.ui:375"
+  ]
+ },
+ {
+  "n": 14,
+  "url": "vscode-webview://0dmfh4srnd16r6977l1knfi76ofjvr1mgfmhrb0024d4l95i70h0/Software/UTM_PyQt6/camera_manager.py#L259",
+  "slides": [
+   "W107"
+  ],
+  "anchors": [
+   "camera_manager.py:259"
+  ]
+ },
+ {
+  "n": 15,
+  "url": "https://storage.googleapis.com/addnorth-com.appspot.com/imgix/assets/production/epla_tds_rev21_XTkw2P.pdf",
+  "slides": [
+   "W166",
+   "W169"
+  ],
+  "anchors": [
+   "E-PLA TDS (PDF, ISO 527 / 178)",
+   "Spec sheet —",
+   "add:north",
+   "add:north E-PLA TDS (ISO 527 / 178)"
+  ]
+ },
+ {
+  "n": 16,
+  "url": "https://addnorth.com/product/PLA%20Economy/PLA%20Economy%20-%201.75mm%20-%201000g%20-%20Light%20Grey",
+  "slides": [
+   "W166"
+  ],
+  "anchors": [
+   "PLA Economy — product page",
+   "add:north"
+  ]
+ },
+ {
+  "n": 17,
+  "url": "https://ieeexplore.ieee.org/document/4310076",
+  "slides": [
+   "W233"
+  ],
+  "anchors": [
+   "Otsu 1979 — “A Threshold Selection Method from Gray-Level Histograms”, IEEE Tran"
+  ]
+ },
+ {
+  "n": 18,
+  "url": "https://doi.org/10.1007/978-981-16-8954-3_47",
+  "slides": [
+   "W369",
+   "P14",
+   "P18"
+  ],
+  "anchors": [
+   "A · Hamid 2022 — doi 10.1007/978-981-16-8954-3_47",
+   "Hamid et al. 2022 (doi)",
+   "Hamid et al. 2022 · doi 10.1007/978-981-16-8954-3_47"
+  ]
+ },
+ {
+  "n": 19,
+  "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11442157/",
+  "slides": [
+   "W369"
+  ],
+  "anchors": [
+   "B · Quader 2024 — doi 10.1089/3dp.2022.0222 (open at PMC)"
+  ]
+ },
+ {
+  "n": 20,
+  "url": "https://doi.org/10.1089/3dp.2022.0222",
+  "slides": [
+   "W369",
+   "P18"
+  ],
+  "anchors": [
+   "Quader et al. 2024 (doi)"
+  ]
+ },
+ {
+  "n": 21,
+  "url": "https://www.acotoner.com/mn/impact-humidity-3d-printing-filament-performance.html",
+  "slides": [
+   "W369"
+  ],
+  "anchors": [
+   "C · ACO vendor note on filament humidity"
+  ]
+ },
+ {
+  "n": 22,
+  "url": "https://www.eea.europa.eu/en/analysis/indicators/greenhouse-gas-emission-intensity-of-1",
+  "slides": [
+   "W374"
+  ],
+  "anchors": [
+   "EEA — grid intensity of electricity generation (Sweden lowest tier)"
+  ]
+ },
+ {
+  "n": 23,
+  "url": "https://cloud.google.com/blog/products/infrastructure/measuring-the-environmental-impact-of-ai-inference",
+  "slides": [
+   "W374"
+  ],
+  "anchors": [
+   "Google Cloud — measuring the environmental impact of AI inference (0.24 Wh / 0.0"
+  ]
+ },
+ {
+  "n": 24,
+  "url": "https://forum.prusa3d.com/forum/english-forum-original-prusa-i3-mk4-general-discussion-announcements-and-releases/power-consumption-2/",
+  "slides": [
+   "W375"
+  ],
+  "anchors": [
+   "Prusa forum — MK4 power consumption thread (the 80–130 W bench numbers)"
+  ]
+ },
+ {
+  "n": 25,
+  "url": "https://www.eea.europa.eu/en/analysis/indicators/co2-performance-of-new-passenger",
+  "slides": [
+   "W377"
+  ],
+  "anchors": [
+   "EEA — average CO₂ of new passenger cars (107 g/km, 2023 WLTP)"
+  ]
+ },
+ {
+  "n": 26,
+  "url": "mailto:adithya.sivakumar@ju.se",
+  "slides": [
+   "P19"
+  ],
+  "anchors": [
+   "adithya.sivakumar@ju.se"
+  ]
+ },
+ {
+  "n": 27,
+  "url": "mailto:adithyasvk@outlook.com",
+  "slides": [
+   "P19"
+  ],
+  "anchors": [
+   "adithyasvk@outlook.com"
+  ]
+ },
+ {
+  "n": 28,
+  "url": "https://doi.org/10.1016/j.matdes.2017.03.065",
+  "slides": [
+   "P22"
+  ],
+  "anchors": [
+   "Chacón et al. 2017"
+  ]
+ },
+ {
+  "n": 29,
+  "url": "https://doi.org/10.1016/j.matdes.2014.02.038",
+  "slides": [
+   "P22"
+  ],
+  "anchors": [
+   "Tymrak et al. 2014"
+  ]
+ },
+ {
+  "n": 30,
+  "url": "https://prusament.com/materials/prusament-pla/",
+  "slides": [
+   "P22"
+  ],
+  "anchors": [
+   "Prusament PLA TDS"
+  ]
+ },
+ {
+  "n": 31,
+  "url": "https://doi.org/10.1016/j.matpr.2019.06.082",
+  "slides": [
+   "P22"
+  ],
+  "anchors": [
+   "Durgashyam et al. 2019"
+  ]
+ },
+ {
+  "n": 32,
+  "url": "https://doi.org/10.3390/polym13111758",
+  "slides": [
+   "P22"
+  ],
+  "anchors": [
+   "Hsueh et al. 2021"
+  ]
+ },
+ {
+  "n": 33,
+  "url": "https://prusament.com/materials/prusament-petg/",
+  "slides": [
+   "P22"
+  ],
+  "anchors": [
+   "Prusament PETG TDS"
+  ]
+ }
+]

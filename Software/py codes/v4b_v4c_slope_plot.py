@@ -7,8 +7,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-V4B = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes\8.6.3\UTM_Test_20260605_152501_V4b_Staricase_Tension.csv"
-V4C = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes\8.6.3\UTM_Test_20260605_164908_V4c_Staircase_Tension_350N.csv"
+V4B = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes data\8.6.3\UTM_Test_20260605_152501_V4b_Staricase_Tension.csv"
+V4C = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes data\8.6.3\UTM_Test_20260605_164908_V4c_Staircase_Tension_350N.csv"
 
 
 def read_csv(path):
@@ -139,7 +139,7 @@ ax.set_xlim(-0.05, 1.05)
 ax.set_ylim(-0.0009, 0.0017)
 
 plt.tight_layout()
-plt.savefig("images/V4/V4b_V4c_linearity_slide.png", dpi=160, bbox_inches="tight")
+plt.savefig("documentation/figures/V4/V4b_V4c_linearity_slide.png", dpi=160, bbox_inches="tight")
 print("Saved: V4b_V4c_linearity_slide.png")
 print(f"V4b engaged: slope = {sb:.6f}/mm, R² = {rb:.4f}")
 print(f"V4c clean:   slope = {sc:.6f}/mm, R² = {rc:.4f}")

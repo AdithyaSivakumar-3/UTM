@@ -19,8 +19,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-V4B = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes\8.6.3\UTM_Test_20260605_152501_V4b_Staricase_Tension.csv"
-V4C = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes\8.6.3\UTM_Test_20260605_164908_V4c_Staircase_Tension_350N.csv"
+V4B = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes data\8.6.3\UTM_Test_20260605_152501_V4b_Staricase_Tension.csv"
+V4C = r"Software\UTM_PyQt6\Test data\Smart Features - Advanced Test Modes data\8.6.3\UTM_Test_20260605_164908_V4c_Staircase_Tension_350N.csv"
 
 GAUGE_AREA_MM2 = 80.0
 V4C_PRELOAD = 350.0  # N — tared out, must be added back for true stress
@@ -226,5 +226,5 @@ ax.axhline(0, color="gray", linewidth=0.5)
 ax.axvline(0, color="gray", linewidth=0.5)
 
 plt.tight_layout()
-plt.savefig("images/V4/V4_8_6_19_stress_strain.png", dpi=160, bbox_inches="tight")
+plt.savefig("documentation/figures/V4/V4_8_6_19_stress_strain.png", dpi=160, bbox_inches="tight")
 print(f"\nSaved plot: V4_8_6_19_stress_strain.png")

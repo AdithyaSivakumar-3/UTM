@@ -18,7 +18,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-CSV = r"Software\UTM_PyQt6\Test data\8.6.20 - Tensile test to Failure\Specimen_S4_V1_Spray\UTM_Test_20260612_172333_V5_TensionFailure.csv"
+CSV = r"Software\UTM_PyQt6\Test data\Fracture tests\Specimen_S4_V1_Spray\UTM_Test_20260612_172333_V5_TensionFailure.csv"
 AREA = 80.0  # mm^2 nominal (10 x 8 mm, CAD-verified)
 
 
@@ -158,5 +158,5 @@ ax.legend(loc="lower right", fontsize=10)
 ax.set_xlim(left=-0.0005)
 ax.set_ylim(bottom=0)
 plt.tight_layout()
-plt.savefig("images/V5/V5_tensile_failure_curve.png", dpi=150, bbox_inches="tight")
+plt.savefig("documentation/figures/V5/V5_tensile_failure_curve.png", dpi=150, bbox_inches="tight")
 print("\nSaved plot: V5_tensile_failure_curve.png")

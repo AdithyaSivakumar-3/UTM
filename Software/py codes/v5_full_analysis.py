@@ -16,7 +16,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-CSV = r"Software\UTM_PyQt6\Test data\8.6.20 - Tensile test to Failure\Specimen_S4_V1_Spray\UTM_Test_20260612_172333_V5_TensionFailure.csv"
+CSV = r"Software\UTM_PyQt6\Test data\Fracture tests\Specimen_S4_V1_Spray\UTM_Test_20260612_172333_V5_TensionFailure.csv"
 AREA = 80.0          # nominal mm^2 (10 x 8, CAD-verified)
 GAUGE = 80.0         # mm
 INFILL = 0.50        # slicer infill fraction (user-confirmed)
@@ -232,5 +232,5 @@ ax.grid(alpha=0.3); ax.legend(fontsize=9, loc="upper left")
 plt.suptitle("8.6.20 - V5 tensile failure, fresh PLA S4 (50% infill), preload anchor +463 N",
              fontsize=14, fontweight="bold")
 plt.tight_layout()
-plt.savefig("images/V5/V5_full_analysis.png", dpi=140, bbox_inches="tight")
+plt.savefig("documentation/figures/V5/V5_full_analysis.png", dpi=140, bbox_inches="tight")
 print("\nSaved plot: V5_full_analysis.png")

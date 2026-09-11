@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Jönköping University Master Search</title>
+    <script>
+        function goToProgram() {
+            var select = document.getElementById('programSelect');
+            var url = select.value;
+            if (url) {
+                window.open(url, '_blank');
+            }
+        }
+    </script>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        label, select, button { display: block; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Search Master's Programs at Jönköping University</h1>
+    <label for="programSelect">Choose a program:</label>
+    <select id="programSelect">
+        <option value="">-- select --</option>
+        <option value="https://ju.se/en/study-at-ju/masters.html">All master programs</option>
+        <option value="https://ju.se/en/study-at-ju/masters/international-business.html">International Business</option>
+        <option value="https://ju.se/en/study-at-ju/masters/software-engineering.html">Software Engineering</option>
+        <option value="https://ju.se/en/study-at-ju/masters/industrial-design.html">Industrial Design</option>
+        <!-- add more options as needed -->
+    </select>
+    <button onclick="goToProgram()">Go</button>
+</body>
+</html>

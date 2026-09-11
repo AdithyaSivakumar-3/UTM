@@ -1,0 +1,548 @@
+"""The MOT video measured by OUR calculation, against the MOT's own answer and against S25/S26.
+
+WHY THIS EXISTS, and why it is not the same comparison as mot_compare.py
+    mot_compare.py sets the XT-205's strain against our rig's. Two things differ at once there —
+    the instrument AND the specimen — so a disagreement cannot be attributed to either. Running the
+    XT-205's OWN VIDEO through our pixel-to-strain path adds the leg that separates them:
+
+        XT-205 log      vs   our calc on the XT-205 video     -> isolates the CALCULATION
+                                                                 (same footage, same specimen,
+                                                                  same instant; only the maths
+                                                                  differs)
+        our calc on that video vs our calc on S25/S26         -> isolates the SPECIMEN and the rig
+
+THE FRAME RATE HAD TO BE RECOVERED, NOT READ
+    test2.chan 0.avi declares 1000 fps and 117497 frames. It really holds 2281 frames, and our own
+    fps_warning() already calls 1000 fps implausible. Nothing in the file or its sidecars carries
+    the truth, so the rate is recovered by matching the two strain records at the strain levels
+    they share: each crossing gives a (frame, time) pair, and the straight line through those pairs
+    has the frame rate as its slope. That uses the SHAPE of the curves, not their scale, so it does
+    not assume the answer being tested.
+
+A TRAP THAT ALREADY COST A WRONG CONCLUSION IN THIS PROJECT
+    Frames must be read SEQUENTIALLY from this file. cv2 seeking silently returns a stale frame for
+    it, so sampling with read_frame() showed markers that never moved and led to "the video contains
+    no deformation", which is false. Anything here that walks the video decodes straight through.
+"""
+import csv
+import glob
+import io
+import json
+import os
+import sys
+
+import numpy as np
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt                                       # noqa: E402
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(HERE))
+FIGS = os.path.abspath(os.path.join(HERE, "..", "figures"))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(REPO, "Software", "UTM_PyQt6", "app"))
+
+import mot_compare as MC                                              # noqa: E402
+
+# The strain interval the deck already uses everywhere. It sits comfortably inside the XT-205's
+# valid range (it goes invalid at 0.4015 %), so all four records can be fitted over the same span.
+LO, HI = 0.0005, 0.0035
+
+# Taken from mot_compare, which defines it for the whole MOT family — one name, one place.
+RIG = MC.RIG
+
+# The four records: (key, full label, short two-line label for an axis tick).
+#
+# Keyed, and looked up by key everywhere. They used to be phrased one way here, another in the
+# figure and a third on the slides, with the slide block matching on a substring of the prose — so
+# a reworded label broke a lookup in a different file and nothing said so.
+RECORDS = (
+    ("pp",  "XT-205 footage, %s DIC" % RIG,      "XT-205 footage\n%s DIC" % RIG),
+    ("mot", "XT-205 footage, XT-205 extensometer", "XT-205 footage\nXT-205 extensometer"),
+    ("S25", "S25, %s" % RIG,                     "S25\n%s" % RIG),
+    ("S26", "S26, %s" % RIG,                     "S26\n%s" % RIG),
+)
+LABEL = {k: full for k, full, _ in RECORDS}
+SHORT = {k: sh for k, _, sh in RECORDS}
+C_MOT, C_PP, C_S25, C_S26 = "#d62728", "#7048e8", "#1f77b4", "#e8590c"
+INK, GRID, MUTED = "#212529", "#DDDDDD", "#666666"
+
+
+def _postproc_csv():
+    """The per-frame export from the post-processing tab, wherever it was filed."""
+    for pat in ("**/DIC post processing data/*test2*.csv", "**/*test2_chan*.csv",
+                "**/dic_postproc_*test2*.csv"):
+        hits = [h for h in glob.glob(os.path.join(MC.DATA, pat), recursive=True)
+                if "results" not in os.path.basename(h)]
+        if hits:
+            return sorted(hits)[-1]
+    raise SystemExit("no post-processing CSV for the MOT video found under %s" % MC.DATA)
+
+
+def read_postproc(path=None):
+    """(frame, eps, l_px, header) from a post-processing export. Time is NOT read.
+
+    The Time_s column in that file was written from the container's 1000 fps and is wrong by a
+    factor of about 45. Frame number is the only honest abscissa the file carries, and the rate is
+    recovered separately.
+    """
+    path = path or _postproc_csv()
+    head = {}
+    lines = []
+    for ln in io.open(path, encoding="utf-8", errors="replace"):
+        if ln.startswith("#"):
+            if ":" in ln:
+                k, v = ln[1:].split(":", 1)
+                head[k.strip()] = v.strip()
+            continue
+        if ln.strip():
+            lines.append(ln)
+    rows = list(csv.DictReader(lines))
+    keep = [r for r in rows if r.get("Tracked") == "1"]
+    f = np.array([float(r["Frame"]) for r in keep])
+    e = np.array([float(r["DIC_Cauchy"]) for r in keep])
+    L = np.array([float(r["L_px"]) for r in keep])
+    return f, e, L, head, os.path.basename(path)
+
+
+def read_daq_times():
+    """Per-frame timestamps for the video, from the acquisition log beside it.
+
+    test2.daq holds EXACTLY 2281 data rows and the video holds exactly 2281 frames, one row per
+    frame, each stamped with its own time. That makes the video's time base something to read
+    rather than something to fit — which matters more than it sounds, because a fitted rate can
+    silently absorb a strain-scale error and then report that the scales agree.
+
+    Its interval is not quite constant (0.0515 s nominal, jittering), so the per-frame stamps are
+    used directly rather than an average rate.
+    """
+    d = os.path.dirname(MC.MOT)
+    daq = os.path.join(d, "test2.daq")
+    if not os.path.exists(daq):
+        return None
+    t = []
+    for ln in io.open(daq, encoding="utf-8", errors="replace"):
+        if ln.startswith("#") or not ln.strip():
+            continue
+        try:
+            t.append(float(ln.split("\t")[0]))
+        except ValueError:
+            continue
+    return np.array(t)
+
+
+def trim_to_physical(f, e, L, fps_guess=19.4, rate_guess=7.5e-4, tol=6.0):
+    """Cut the series at the first frame-to-frame jump the specimen could not physically make.
+
+    Needed because the tracker eventually loses this video for a reason that has nothing to do with
+    the estimator: box half-size 105 px with marker B only 121 px from the right edge, so once the
+    marker travels far enough the box hits Box.clamp()'s limit at 2357 px and cannot follow. 184
+    rows sit at exactly that value, after which the centroid flip-flops by several pixels a frame.
+
+    The threshold is derived, not chosen: at 7.5e-4 /s on a 2234 px baseline at 19.4 fps the
+    separation grows 0.085 px per frame, so anything past a few times that is not the specimen. The
+    cut lands at 0.52 % strain — comfortably ABOVE the 0.05-0.35 % window everything is fitted
+    over, so no fitted point is discarded by it.
+    """
+    step = rate_guess * L[0] / fps_guess
+    bad = np.where(np.abs(np.diff(L)) > tol * step)[0]
+    cut = int(bad[0]) if len(bad) else len(L)
+    return f[:cut], e[:cut], L[:cut], cut, float(tol * step)
+
+
+def crossings(x, y, levels):
+    """Where a rising series first reaches each level, by linear interpolation.
+
+    First crossing, not any crossing: both records hold a long flat approach where noise crosses a
+    low level repeatedly, and taking the last one would put the pair seconds away from the first.
+    """
+    out = []
+    for lv in levels:
+        idx = np.where(y >= lv)[0]
+        if not len(idx) or idx[0] == 0:
+            out.append(np.nan)
+            continue
+        i = idx[0]
+        y0, y1 = y[i - 1], y[i]
+        out.append(x[i - 1] + (x[i] - x[i - 1]) * ((lv - y0) / (y1 - y0)) if y1 != y0 else x[i])
+    return np.array(out)
+
+
+def recover_fps(f_pp, e_pp, t_mot, e_mot, levels=None):
+    """Frame rate and time offset, from the strain levels the two records share.
+
+    frame = fps * time + c. Fitting crossings rather than the curves themselves means the result
+    depends on WHEN each record reaches a strain, not on how big the strains are — so a scale
+    disagreement between the instruments cannot leak into the recovered rate.
+    """
+    if levels is None:
+        top = min(e_pp.max(), e_mot.max()) * 0.95
+        levels = np.linspace(max(0.0004, top * 0.15), top, 9)
+    fx = crossings(f_pp, e_pp, levels)
+    tx = crossings(t_mot, e_mot, levels)
+    ok = np.isfinite(fx) & np.isfinite(tx)
+    if ok.sum() < 3:
+        raise SystemExit("not enough shared strain levels to recover the frame rate")
+    fps, c = np.polyfit(tx[ok], fx[ok], 1)
+    r2 = np.corrcoef(tx[ok], fx[ok])[0, 1] ** 2
+    return float(fps), float(c), float(r2), levels[ok], tx[ok], fx[ok]
+
+
+GAUGE_MM = 80.0
+COMMANDED_MM_S = 0.100      # set on BOTH machines
+
+
+def read_ours_full(pat):
+    """Time, strain AND crosshead position together, on the loading ramp only.
+
+    MC.read_ours drops the position column, and position is the whole point here: it is what says
+    how much of the commanded travel the gauge actually received.
+    """
+    p = glob.glob(os.path.join(MC.DATA, pat))[0]
+    rows = [ln.rstrip().split(",") for ln in io.open(p, encoding="utf-8", errors="replace")
+            if not ln.startswith("#") and ln.strip()]
+    h = rows[0]
+    d = [dict(zip(h, r)) for r in rows[1:]]
+
+    def col(k):
+        out = []
+        for r in d:
+            try:
+                out.append(float(r[k]))
+            except Exception:
+                out.append(np.nan)
+        return np.array(out)
+
+    t, e, F, pos, L, B = (col("Time_s"), col("DIC_Cauchy"), col("Force_N"),
+                          col("Position_mm"), col("L_px"), col("DIC_Blobs"))
+    ipk = int(np.nanargmax(F))
+    keep = (np.arange(len(F)) < ipk) & np.isfinite(e) & (L > 100) & (B == 2)
+    return t[keep], e[keep], pos[keep], F[keep]
+
+
+def gauge_share(rate_mot):
+    """What fraction of the commanded crosshead travel each machine's GAUGE actually sees.
+
+    The slope difference reduces to this one number. Both machines were set to 0.1 mm/s, so if the
+    gauge received all of it both would show d(eps)/dt = 0.1/80 = 1.25e-3 /s. Neither does.
+
+    For our rig both ends are logged in the same file, so the loss is measured. For the MOT only
+    the gauge end exists — it logs no position channel — so its share rests on the commanded speed
+    having been met, and is labelled that way wherever it appears.
+    """
+    out = {}
+    for spec, pat in (("S25", "Specimen_S25_V2_Spray_Video2/*.csv"),
+                      ("S26", "Specimen_S26_V2_Spray_Video3/*.csv")):
+        t, e, pos, F = read_ours_full(pat)
+        m = (e >= LO) & (e <= HI)
+        rate = float(np.polyfit(t[m], e[m], 1)[0])
+        # Crosshead speed over the SAME rows, so the two are not taken from different parts of
+        # the test.
+        vx = float(np.polyfit(t[m], pos[m], 1)[0])
+        out[spec] = {"rate": rate, "crosshead_mm_s": vx, "gauge_mm_s": rate * GAUGE_MM,
+                     "share": rate * GAUGE_MM / vx, "measured_crosshead": True}
+    out["MOT"] = {"rate": rate_mot, "crosshead_mm_s": COMMANDED_MM_S,
+                  "gauge_mm_s": rate_mot * GAUGE_MM,
+                  "share": rate_mot * GAUGE_MM / COMMANDED_MM_S, "measured_crosshead": False}
+    return out
+
+
+def matched_table(t_pp, e_pp, t_mot, e_mot):
+    """Every matched point in the comparison window: both raw strains, and the offset.
+
+    Both instruments sit on the same clock, so the XT-205's record is interpolated onto OUR sample
+    times rather than either being resampled onto a common grid — interpolating one series is a
+    smaller intervention than rebuilding both, and it leaves our column exactly as measured.
+
+    Offset is given in microstrain AND per cent because they say different things here: at 0.05 %
+    strain a 10 ue difference is 2 % of the reading, and at 0.35 % the same 10 ue is 0.3 %. Reading
+    only the percentage makes the early points look far worse than they are.
+    """
+    m = (t_pp >= t_mot[0]) & (t_pp <= t_mot[-1])
+    ei = np.interp(t_pp[m], t_mot, e_mot)
+    w = (ei >= LO) & (ei <= HI)
+    tt, ours, theirs = t_pp[m][w], e_pp[m][w], ei[w]
+    return [{"t": float(a), "ours": float(b), "theirs": float(c),
+             "off_ue": float((b - c) * 1e6), "off_pc": float((b / c - 1) * 100)}
+            for a, b, c in zip(tt, ours, theirs)]
+
+
+def write_matched_csv(rows, path):
+    """The full point list as a file, because 83 rows is more than a slide should carry."""
+    with io.open(path, "w", encoding="utf-8", newline="") as f:
+        f.write("# Per-point comparison over the %.2f-%.2f %% strain window.\n"
+                "# %s_strain_pct is RAW: no smoothing anywhere in the post-processor, and the\n"
+                "#   source column is exactly (L_px - Px0)/Px0.\n"
+                "# XT205_strain_pct is the XT-205's own output, interpolated onto our sample\n"
+                "#   times. Whatever it does internally before writing strain.csv is not\n"
+                "#   knowable from the file.\n"
+                "# offset_ue = ours - theirs;  offset_pct = ours/theirs - 1\n"
+                % (LO * 100, HI * 100, RIG.replace("-", "_")))
+        f.write("Time_s,%s_strain_pct,XT205_strain_pct,offset_ue,offset_pct\n"
+                % RIG.replace("-", "_"))
+        for r in rows:
+            f.write("%.4f,%.6f,%.6f,%.2f,%.4f\n"
+                    % (r["t"], r["ours"] * 100, r["theirs"] * 100, r["off_ue"], r["off_pc"]))
+
+
+def scale_sensitivity(f_pp, e_pp, t_mot, e_mot, daq_fps, ks=(0.90, 0.95, 1.00, 1.05, 1.10)):
+    """Stretch our strain by a known k and check the test reports k back.
+
+    This is what makes the scale check an argument rather than an assertion. If the inferred rate
+    simply always came out near the recorded one, the check would prove nothing; showing that a
+    deliberate 10 % error moves it by 10 % is what establishes that agreement is informative.
+
+    Why it works: the inferred rate comes from WHEN each record reaches a given strain. Multiply
+    our strain by k and it reaches every level earlier, by a factor k — so the fitted rate comes
+    back as fps/k. The recorded rate cannot move, because it never looks at strain.
+    """
+    out = []
+    for k in ks:
+        fps, _c, r2, _lv, _tx, _fx = recover_fps(f_pp, e_pp * k, t_mot, e_mot)
+        out.append({"k": float(k), "inferred_fps": float(fps),
+                    "recovered_k": float(daq_fps / fps), "r2": float(r2)})
+    return out
+
+
+def build():
+    # ---- the three records ------------------------------------------------------------------
+    f_pp, e_pp, L_pp, head, pp_name = read_postproc()
+    n_raw = len(f_pp)
+    f_pp, e_pp, L_pp, cut, thr = trim_to_physical(f_pp, e_pp, L_pp)
+    t_mot, e_mot, gl = MC.read_mot()
+    print("XT-205 log        : %d valid rows, %.3f-%.3f s, peak %.4f %%, gauge %.4f mm"
+          % (len(t_mot), t_mot[0], t_mot[-1], e_mot.max() * 100, gl))
+    print("our post-proc     : %s" % pp_name)
+    print("                    %d tracked frames, Px0 %s, peak %.4f %%"
+          % (len(f_pp), head.get("L0 (Px0)", "?"), e_pp.max() * 100))
+    if head.get("Tracking ended", "").startswith("MARKER LOST"):
+        print("                    NOTE: %s" % head["Tracking ended"])
+    print("                    trimmed %d -> %d rows at the first jump > %.2f px/frame "
+          "(strain %.3f %%)" % (n_raw, cut, thr, e_pp[-1] * 100))
+
+    # ---- the time base: READ from the acquisition log, not fitted ---------------------------
+    t_frame = read_daq_times()
+    if t_frame is None or len(t_frame) < int(f_pp.max()) + 1:
+        raise SystemExit("test2.daq is missing or too short to time the video")
+    t_pp = t_frame[f_pp.astype(int)]
+    daq_fps = (len(t_frame) - 1) / (t_frame[-1] - t_frame[0])
+    print("\ntime base from test2.daq: %d rows for %d frames, %.4f-%.4f s -> %.4f fps"
+          % (len(t_frame), len(t_frame), t_frame[0], t_frame[-1], daq_fps))
+    print("   the video file declares %s — wrong by %.0fx"
+          % (head.get("Frame rate used", "?"), 1000.0 / daq_fps))
+
+    # ---- the cross-check that closes the circularity -----------------------------------------
+    # Matching strain CROSSINGS recovers fps/k, where k is any constant scale error between the two
+    # records. Comparing that against the DAQ's real rate therefore measures k directly — and it is
+    # the one number that says whether the strain SCALES agree, independently of any slope fit.
+    fps, c, r2, lv, tx, fx = recover_fps(f_pp, e_pp, t_mot, e_mot)
+    k = daq_fps / fps
+    print("\nscale check (this is what a slope fit alone cannot tell you):")
+    print("   rate recovered by matching %d strain levels : %.4f fps  (R2 %.5f)"
+          % (len(lv), fps, r2))
+    print("   rate the acquisition log actually recorded  : %.4f fps" % daq_fps)
+    print("   => strain-scale factor, %s DIC / XT-205     : %.5f  (%.2f %% apart)" % (RIG,
+             k, abs(k - 1) * 100))
+
+    # ---- the four slopes, over one shared strain interval ------------------------------------
+    rows = []
+    r = MC.rate_over_strain(t_pp, e_pp, LO, HI)
+    n_pp = MC.noise_over_strain(t_pp, e_pp, LO, HI)
+    rows.append(("pp", r, n_pp, C_PP))
+    r = MC.rate_over_strain(t_mot, e_mot, LO, HI)
+    n_mot = MC.noise_over_strain(t_mot, e_mot, LO, HI)
+    rows.append(("mot", r, n_mot, C_MOT))
+    ours = {}
+    # The same two runs, and the same patterns, mot_compare.py already uses — so this leg and the
+    # existing MOT-vs-rig slides cannot quietly diverge onto different files.
+    for spec, pat, col in (("S25", "Specimen_S25_V2_Spray_Video2/*.csv", C_S25),
+                           ("S26", "Specimen_S26_V2_Spray_Video3/*.csv", C_S26)):
+        t, e, F, name = MC.read_ours(pat)
+        ours[spec] = (t, e)
+        rows.append((spec, MC.rate_over_strain(t, e, LO, HI),
+                     MC.noise_over_strain(t, e, LO, HI), col))
+
+    print("\n%-38s %12s %8s %10s %9s" % ("record", "d(eps)/dt", "R2", "noise ue", "n"))
+    print("-" * 82)
+    for key, rate, nz, _ in rows:
+        if rate is None:
+            print("%-38s %12s" % (LABEL[key], "too few points"))
+            continue
+        print("%-38s %11.3e %8.5f %10.1f %9d"
+              % (LABEL[key], rate[0], rate[1], nz["rms_ue"], rate[2]))
+
+    a = rows[0][1][0]      # our calculation on their video
+    b = rows[1][1][0]      # their own answer on the same video
+    # ---- the most direct comparison available: no fit at all.
+    # Both records are on the same clock, so their strains can be read off at the same instants and
+    # divided. A slope fit answers "do they rise at the same rate"; this answers "do they report
+    # the same strain", which is the question about the CALCULATION.
+    m = (t_pp >= t_mot[0]) & (t_pp <= t_mot[-1])
+    ei = np.interp(t_pp[m], t_mot, e_mot)
+    w = (ei >= LO) & (ei <= HI)
+    ratio = e_pp[m][w] / ei[w]
+    diff = e_pp[m][w] - ei[w]
+    sl, ic = np.polyfit(ei[w], e_pp[m][w], 1)
+
+    print("\nSAME FOOTAGE, SAME SPECIMEN, SAME INSTANT — only the analysis differs:")
+    print("   strain read at matched times, %d points over %.2f-%.2f %%:"
+          % (int(w.sum()), LO * 100, HI * 100))
+    print("      %s DIC / XT-205 extensometer   median %.4f   mean %.4f   sd %.4f"
+          % (RIG, np.median(ratio), ratio.mean(), ratio.std()))
+    print("      difference                      %+.1f ue mean, %.1f ue rms"
+          % (diff.mean() * 1e6, diff.std() * 1e6))
+    print("      %s DIC = %.4f x extensometer %+.0f ue   (R2 %.5f)"
+          % (RIG, sl, ic * 1e6, np.corrcoef(ei[w], e_pp[m][w])[0, 1] ** 2))
+    print("   fitted strain rate ratio = %.4f   (%.2f %% apart)"
+          % (a / b, abs(a / b - 1) * 100))
+    print("\n   on the XT-205's own footage the %s pipeline is %.1fx quieter: %.1f vs %.1f ue"
+          % (RIG, rows[1][2]["rms_ue"] / rows[0][2]["rms_ue"],
+             rows[0][2]["rms_ue"], rows[1][2]["rms_ue"]))
+
+    # PROVENANCE. The post-processing CSV this rests on is a hand-made export from the tab, and
+    # every .csv under Test data/ is gitignored — so this JSON is the only durable record of which
+    # run produced these numbers and how it was set up. Without it, a slide quoting 1.0017 could
+    # not be traced back to the settings that gave it.
+    out = {"rig_name": RIG,
+           "crossings": {"t": [float(x) for x in tx], "frame": [float(x) for x in fx],
+                         "fit_slope": float(fps), "fit_intercept": float(c)},
+           "source_csv": pp_name,
+           "source_settings": {k2: head.get(k2) for k2 in
+                               ("Source video", "Reference frame", "L0 (Px0)", "Gauge",
+                                "Frame rate used", "Box half-size", "Tracking ended")},
+           "rows_used": int(len(f_pp)), "rows_before_trim": int(n_raw),
+           "trim_threshold_px_per_frame": round(thr, 4),
+           "fps_daq": daq_fps, "fps_from_crossings": fps, "fps_r2": r2, "scale_k": k,
+           "rows": [{"key": kk, "name": LABEL[kk], "short": SHORT[kk],
+                     "rate": (rt[0] if rt else None), "r2": (rt[1] if rt else None),
+                     "n": (rt[2] if rt else None), "noise_ue": nz["rms_ue"]}
+                    for kk, rt, nz, _ in rows],
+           "ratio_rate": a / b,
+           "ratio_matched_median": float(np.median(ratio)),
+           "matched_slope": float(sl), "matched_offset_ue": float(ic * 1e6),
+           "matched_n": int(w.sum()),
+           "noise_ratio": rows[1][2]["rms_ue"] / rows[0][2]["rms_ue"]}
+    # ---- where the commanded travel goes ------------------------------------------------------
+    share = gauge_share(rows[1][1][0])
+    out["gauge_share"] = share
+    print("\nWHERE THE COMMANDED 0.1 mm/s GOES — the slope difference reduces to this")
+    print("   %-6s %11s %12s %12s %8s" % ("", "d(eps)/dt", "crosshead", "gauge", "share"))
+    for k in ("S25", "S26", "MOT"):
+        v = share[k]
+        print("   %-6s %11.3e %12s %11.5f %7.1f %%"
+              % (k, v["rate"],
+                 ("%.4f" % v["crosshead_mm_s"]) if v["measured_crosshead"]
+                 else "%.4f*" % v["crosshead_mm_s"],
+                 v["gauge_mm_s"], 100 * v["share"]))
+    print("   * commanded, not measured: the MOT logs no position channel.")
+    ours = [share["S25"]["share"], share["S26"]["share"]]
+    print("   %s %.0f-%.0f %%, the XT-205 %.0f %% -> %.1fx more of the same motion reaches it"
+          % (RIG, 100 * min(ours), 100 * max(ours), 100 * share["MOT"]["share"],
+             share["MOT"]["share"] / np.mean(ours)))
+    print("   and the %.0f -> %.0f %% SPREAD between two identical runs is the informative part:"
+          % (100 * min(ours), 100 * max(ours)))
+    print("   a fixed machine compliance would repeat; something that varies per mounting does not.")
+
+    # ---- does the scale check actually detect a scale error? ----------------------------------
+    sens = scale_sensitivity(f_pp, e_pp, t_mot, e_mot, daq_fps)
+    out["scale_sensitivity"] = sens
+    print("\nsensitivity of the scale check — inject k, see whether it comes back:")
+    print("     k      inferred fps     recovered k")
+    for r in sens:
+        print("   %.2f       %8.4f        %.4f%s"
+              % (r["k"], r["inferred_fps"], r["recovered_k"],
+                 "   <- the real data" if abs(r["k"] - 1.0) < 1e-9 else ""))
+
+    # ---- the per-point record ------------------------------------------------------------------
+    pts = matched_table(t_pp, e_pp, t_mot, e_mot)
+    csv_path = os.path.join(HERE, "..", "Data", "mot_matched_points.csv")
+    write_matched_csv(pts, csv_path)
+    ue = np.array([p["off_ue"] for p in pts])
+    pc = np.array([p["off_pc"] for p in pts])
+    out["matched_points"] = pts
+    out["offset_summary"] = {
+        "n": len(pts),
+        "t_from": pts[0]["t"], "t_to": pts[-1]["t"],
+        "ue_min": float(ue.min()), "ue_med": float(np.median(ue)), "ue_max": float(ue.max()),
+        "pc_min": float(pc.min()), "pc_med": float(np.median(pc)), "pc_max": float(pc.max()),
+        "within_50ue": int((np.abs(ue) <= 50).sum()),
+    }
+    print("\nper-point comparison: %d points, %.2f-%.2f s" % (len(pts), pts[0]["t"], pts[-1]["t"]))
+    print("   offset  %+.0f to %+.0f ue (median %+.0f);  %+.2f to %+.2f %% (median %+.2f)"
+          % (ue.min(), ue.max(), np.median(ue), pc.min(), pc.max(), np.median(pc)))
+    print("   %d of %d points within +/-50 ue" % (int((np.abs(ue) <= 50).sum()), len(pts)))
+    print("   wrote %s" % os.path.relpath(csv_path, REPO))
+
+    io.open(os.path.join(HERE, "..", "Data", "mot_postproc_compare.json"), "w",
+            encoding="utf-8", newline="").write(json.dumps(out, indent=1))
+    figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps)
+    return out
+
+
+def figure(t_pp, e_pp, t_mot, e_mot, ours, rows, fps, tx, fx, c, daq_fps):
+    # Three panels that belong together. At 13.2 in the gaps took a third of the width and every
+    # axis came out stretched; 11.6 in with the spacing set explicitly keeps each panel close to
+    # square and reads as one grouped figure rather than three separate ones.
+    # TWO panels, not three. The scale check used to sit in the middle and was read as a third
+    # machine-versus-machine comparison, which it is not — both its lines describe one video. It
+    # now has its own slide, where it has room to say so.
+    fig, axes = plt.subplots(1, 2, figsize=(10.4, 3.9),
+                             gridspec_kw={"width_ratios": [1.0, 1.12], "wspace": 0.20})
+
+    ax = axes[0]
+    ax.plot(t_mot, e_mot * 100, "-", color=C_MOT, lw=2.4, alpha=0.85,
+            label="XT-205 extensometer")
+    ax.plot(t_pp, e_pp * 100, "--", color=C_PP, lw=1.5, label="%s DIC" % RIG)
+    ax.axhspan(LO * 100, HI * 100, color="#1f77b4", alpha=0.10)
+    ax.set_xlim(t_mot[0] - 1, t_mot[-1] + 1)
+    ax.set_ylim(-0.05, 0.55)
+    ax.set_xlabel("time (s)"); ax.set_ylabel("strain (%)")
+    ax.set_title("The XT-205's own footage, measured two ways\n(shaded: the fitted window)",
+                 fontsize=10.5, color=INK)
+    ax.legend(fontsize=8.4, loc="upper left", framealpha=0.95)
+    _style(ax)
+
+    ax = axes[1]
+    names = [SHORT[r[0]].replace("\n", " · ") for r in rows]
+    vals = [r[1][0] for r in rows]
+    cols = [r[3] for r in rows]
+    # Labels INSIDE the axes, above each bar, rather than as y-ticks. Tick labels this long need a
+    # left margin as wide as the panel itself, and once the three panels were brought close together
+    # they simply ran over the middle plot.
+    from matplotlib.transforms import blended_transform_factory
+    y = np.arange(len(rows))[::-1]          # first record at the top, reading order
+    b = ax.barh(y, [v * 1e4 for v in vals], color=cols, height=0.40)
+    tr = blended_transform_factory(ax.transAxes, ax.transData)   # x in axes units, y in data units
+    for rr, v, nm in zip(b, vals, names):
+        yc = rr.get_y() + rr.get_height() / 2
+        ax.text(0.012, yc + 0.30, nm, transform=tr, va="bottom", ha="left",
+                fontsize=8.2, color=INK)
+        ax.text(v * 1e4 + 0.10, yc, "%.2e /s" % v, va="center", fontsize=8.2,
+                color=INK, fontweight="bold")
+    ax.set_yticks([])
+    ax.set_ylim(-0.62, len(rows) - 0.32)
+    ax.set_xlim(0, max(vals) * 1e4 * 1.30)
+    ax.set_xlabel("d(ε)/dt over 0.05–0.35 %  (×10⁻⁴ /s)")
+    ax.set_title("Strain rate on one shared window", fontsize=10.5, color=INK)
+    _style(ax)
+
+    # tight_layout would override the wspace set above, so only the margins are trimmed.
+    fig.subplots_adjust(left=0.055, right=0.995, top=0.86, bottom=0.145)
+    fig.savefig(os.path.join(FIGS, "mot_postproc_compare.png"), dpi=200, facecolor="white")
+    plt.close(fig)
+    print("\nwrote documentation/figures/mot_postproc_compare.png")
+
+
+def _style(ax):
+    ax.grid(True, color=GRID, lw=0.6)
+    ax.set_axisbelow(True)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+
+
+if __name__ == "__main__":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    build()

@@ -2,7 +2,7 @@
 
 This project is a custom-built Universal Testing Machine (UTM) used for tensile testing of materials. It is used for teaching and research at Jönköping University.
 
-**Note:** This project is in the process of being converted from MATLAB to Python using PyQt6. The `App.m` file is retained for reference during this conversion.
+**Note:** This project is in the process of being converted from MATLAB to Python using PyQt6. The `Software/Matlab/App.m` file is retained for reference during this conversion.
 
 ## Project Overview
 
@@ -10,7 +10,7 @@ The project consists of three main parts:
 
 *   **Hardware:** A physical testing machine with Nema 23 stepper motors, a load cell (HX711), and AS5600 magnetic encoders for position/speed feedback. It utilizes an I2C multiplexer.
 *   **Firmware:** An Arduino-based firmware (`D32_Firmware/D32_Firmware.ino`) that controls the motors and sensors. It communicates with the host computer via a serial connection, accepting commands for motor control (up, down, stop, set speed, incremental moves) and data requests (load, angle, velocity). It uses `MobaTools` for stepper control and Rob Tillaart's libraries for HX711 and AS5600.
-*   **Software:** A MATLAB application (`App.m` / `UTM.mlapp`) built with MATLAB App Designer that provides a graphical user interface (GUI) to:
+*   **Software:** A MATLAB application (`Software/Matlab/App.m` / `UTM.mlapp`) built with MATLAB App Designer that provides a graphical user interface (GUI) to:
     *   Control the UTM via serial communication with the Arduino firmware.
     *   Acquire and process data from the load cell and encoders.
     *   Visualize load and stress-strain curves in real-time.
@@ -39,7 +39,7 @@ The software is a MATLAB application. To run the application:
 
 1.  Open MATLAB.
 2.  Navigate to the project root directory.
-3.  Run the `App.m` file (or open `UTM.mlapp` directly in App Designer).
+3.  Run the `Software/Matlab/App.m` file (or open `UTM.mlapp` directly in App Designer).
 
 To process the data:
 
