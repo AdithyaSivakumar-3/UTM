@@ -1,6 +1,8 @@
 .vscode/c_cpp_properties.json
 CAD/old
-CAD
+# CAD/ is tracked as of the project handover: the SolidWorks sources, STEP and STL
+# exports, the sliced G-code, and the reference downloads. 380 MB, no single file
+# over 40 MB. core.longpaths=true is required for one 331-character vendor path.
 docs/
 
 Software/data
